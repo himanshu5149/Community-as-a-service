@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, where, orderBy, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export interface Conversation {
   id: string;
@@ -15,27 +16,45 @@ export function useConversations() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!auth.currentUser) return;
+    let unsubscribe = () => {};
 
-    const path = 'conversations';
-    const q = query(
-      collection(db, path),
-      where('participants', 'array-contains', auth.currentUser.uid),
-      orderBy('lastMessageAt', 'desc')
-    );
+    const startListener = (uid: string) => {
+      const path = 'conversations';
+      const q = query(
+        collection(db, path),
+        where('participants', 'array-contains', uid),
+        orderBy('lastMessageAt', 'desc')
+      );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Conversation[];
-      setConversations(data);
-      setLoading(false);
-    }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, path);
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        const data = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Conversation[];
+        setConversations(data);
+        setLoading(false);
+      }, (err) => {
+        if (err.code !== 'permission-denied') {
+          handleFirestoreError(err, OperationType.LIST, path);
+        }
+        setLoading(false);
+      });
+    };
+
+    const authUnsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        startListener(user.uid);
+      } else {
+        setConversations([]);
+        setLoading(false);
+        unsubscribe();
+      }
     });
 
-    return unsubscribe;
+    return () => {
+      authUnsubscribe();
+      unsubscribe();
+    };
   }, []);
 
   const startConversation = async (otherUserId: string, otherUserName: string, otherUserAvatar: string) => {

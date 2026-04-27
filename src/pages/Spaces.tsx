@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 import { useSpaces, Space } from '../hooks/useSpaces';
 import { useGroups } from '../hooks/useGroups';
+import { db, auth, signInWithGoogle } from '../lib/firebase';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { 
   Box, 
   Users, 
@@ -12,13 +15,17 @@ import {
   Layers, 
   Share2,
   Loader2,
-  Globe
+  Globe,
+  Lock,
+  LogIn
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function Spaces() {
   const { spaces, loading, createSpace, joinSpace } = useSpaces();
   const { groups } = useGroups();
+  const navigate = useNavigate();
+  const [user, setUser] = useState<FirebaseUser | null>(null);
   const [showCreator, setShowCreator] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -27,8 +34,19 @@ export default function Spaces() {
     connectedGroups: [] as string[]
   });
 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
+    return unsubscribe;
+  }, []);
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+        signInWithGoogle();
+        return;
+    }
     await createSpace(formData);
     setShowCreator(false);
     setFormData({ name: '', description: '', icon: '🚀', connectedGroups: [] });
@@ -47,10 +65,11 @@ export default function Spaces() {
           </div>
           
           <button 
-            onClick={() => setShowCreator(true)}
+            onClick={() => user ? setShowCreator(true) : signInWithGoogle()}
             className="flex items-center gap-4 bg-primary text-white px-10 py-6 rounded-3xl font-black uppercase tracking-[0.3em] text-sm hover:scale-105 transition-all shadow-2xl"
           >
-            <Plus className="w-5 h-5" /> Initialize Space
+            {user ? <Plus className="w-5 h-5" /> : <LogIn className="w-5 h-5" />}
+            {user ? "Initialize Space" : "Authenticate to Start"}
           </button>
         </div>
 
@@ -58,6 +77,18 @@ export default function Spaces() {
           <div className="flex flex-col items-center justify-center py-40 gap-6">
             <Loader2 className="w-12 h-12 text-primary animate-spin" />
             <p className="text-xs font-bold uppercase tracking-[0.4em] text-gray-400">Forming Neural Links...</p>
+          </div>
+        ) : !user ? (
+          <div className="col-span-full py-40 border border-dashed border-white/10 rounded-[4rem] text-center bg-white/5 backdrop-blur-sm">
+            <Lock className="w-16 h-16 text-primary mx-auto mb-8 animate-pulse" />
+            <h3 className="text-4xl font-bold mb-4 tracking-tighter">Workspace <span className="text-primary italic">Encrypted.</span></h3>
+            <p className="text-gray-400 max-w-md mx-auto mb-10 text-lg">Collaboration spaces require authorized identification. Authenticate your session to access shared neural networks.</p>
+            <button 
+              onClick={signInWithGoogle}
+              className="px-12 py-5 bg-primary text-white rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition-all shadow-2xl shadow-primary/40"
+            >
+              Sign In with Google
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
@@ -106,8 +137,23 @@ export default function Spaces() {
                            <span className="text-[10px] font-bold uppercase tracking-widest">Active Link</span>
                         </div>
                      </div>
-                     <button className="flex items-center gap-3 text-primary font-bold uppercase tracking-widest text-[10px] hover:translate-x-2 transition-transform">
-                        Enter Workspace <ArrowRight className="w-4 h-4" />
+                     <button 
+                        onClick={() => {
+                          if (space.members?.includes(user?.uid || '')) {
+                            navigate(`/spaces/${space.id}`);
+                          } else {
+                            joinSpace(space.id);
+                          }
+                        }}
+                        className={cn(
+                          "flex items-center gap-3 font-bold uppercase tracking-widest text-[10px] transition-all px-6 py-2 rounded-xl",
+                          space.members?.includes(user?.uid || '') 
+                            ? "bg-green-500/10 text-green-500 hover:bg-green-500/20" 
+                            : "text-primary hover:translate-x-2"
+                        )}
+                     >
+                        {space.members?.includes(user?.uid || '') ? "Enter Workspace" : "Join Workspace"}
+                        <ArrowRight className="w-4 h-4" />
                      </button>
                   </div>
                 </motion.div>
@@ -146,7 +192,7 @@ export default function Spaces() {
                              onClick={() => setFormData({...formData, icon: emoji})}
                              className={cn(
                                "h-20 bg-white/5 border rounded-3xl flex items-center justify-center text-3xl transition-all",
-                               formData.icon === emoji ? "border-primary bg-primary/10" : "border-white/5"
+                                formData.icon === emoji ? "border-primary bg-primary/10" : "border-white/5"
                              )}
                            >
                               {emoji}

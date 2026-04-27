@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { ArrowRight, Activity, Cpu, Palette, GraduationCap, Heart, Utensils, Briefcase, Plus } from 'lucide-react';
+import { ArrowRight, Activity, Cpu, Palette, GraduationCap, Heart, Utensils, Briefcase, Plus, Box, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { BrandLogo } from '../components/BrandLogo';
 
@@ -197,6 +197,47 @@ export default function Home() {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Neural Spaces Section */}
+      <section className="py-48 px-10 relative z-30 overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[150px]"></div>
+        <div className="max-w-7xl mx-auto relative z-10 flex flex-col md:flex-row items-center gap-24">
+           <div className="md:w-1/2">
+              <div className="mb-8 inline-flex items-center gap-3 px-6 py-2 rounded-full border border-primary/20 bg-primary/10 text-[10px] font-bold uppercase tracking-[0.3em] text-primary">
+                Multi-Node Protocol
+              </div>
+              <h2 className="text-6xl md:text-8xl font-black tracking-tighter mb-10 leading-[0.85] italic">Neural <br/> <span className="text-primary not-italic">Spaces.</span></h2>
+              <p className="text-2xl text-gray-300 font-medium leading-tight mb-12">
+                Cross-disciplinary collaboration hubs where specialized group clusters intersect. Link protocols, share assets, and solve complex objectives in shared neural environments.
+              </p>
+              <Link 
+                to="/spaces"
+                className="px-12 py-6 bg-white text-bg-dark rounded-[2.5rem] font-black uppercase tracking-widest text-sm hover:bg-primary hover:text-white transition-all shadow-2xl inline-block"
+              >
+                Initialize Workspace
+              </Link>
+           </div>
+           <div className="md:w-1/2 relative bg-white/5 border border-white/10 rounded-[4rem] p-12 backdrop-blur-3xl">
+              <div className="grid grid-cols-2 gap-8">
+                 <div className="p-8 bg-white/5 border border-white/10 rounded-[3rem] text-center">
+                    <Box className="w-10 h-10 text-primary mx-auto mb-4" />
+                    <div className="text-xs font-black uppercase tracking-widest">Linked Clusters</div>
+                 </div>
+                 <div className="p-8 bg-white/5 border border-white/10 rounded-[3rem] text-center">
+                    <Users className="w-10 h-10 text-blue-400 mx-auto mb-4" />
+                    <div className="text-xs font-black uppercase tracking-widest">Synapse Flow</div>
+                 </div>
+                 <div className="col-span-2 p-10 bg-primary/20 border border-primary/30 rounded-[3rem] flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xl font-bold mb-1">Bridge Active</h4>
+                      <p className="text-xs text-primary/80 font-bold uppercase tracking-widest">Tech ↔ Fitness ↔ Arts</p>
+                    </div>
+                    <Activity className="w-8 h-8 text-primary animate-pulse" />
+                 </div>
+              </div>
+           </div>
         </div>
       </section>
 

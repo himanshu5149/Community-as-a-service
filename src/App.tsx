@@ -16,6 +16,7 @@ import Members from './pages/Members';
 import Admin from './pages/Admin';
 import Search from './pages/Search';
 import Spaces from './pages/Spaces';
+import SpaceRoom from './pages/SpaceRoom';
 
 export default function App() {
   return (
@@ -34,6 +35,7 @@ export default function App() {
             <Route path="/admin" element={<Admin />} />
             <Route path="/search" element={<Search />} />
             <Route path="/spaces" element={<Spaces />} />
+            <Route path="/spaces/:spaceId" element={<SpaceRoom />} />
              <Route path="/how-it-works" element={<HowItWorks />} />
             <Route path="/blog" element={<Blog />} />
             <Route path="/pricing" element={<Pricing />} />

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, doc, setDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export interface Event {
   id: string;
@@ -21,22 +22,40 @@ export function useEvents(groupId?: string) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const path = groupId ? `groups/${groupId}/events` : 'events_global';
-    let q;
-    if (groupId) {
-      q = query(collection(db, path), orderBy('startTime', 'asc'));
-    } else {
-      q = query(collection(db, path), orderBy('startTime', 'asc'));
-    }
+    let unsubscribe = () => {};
+    
+    const startListener = () => {
+      const path = groupId ? `groups/${groupId}/events` : 'events_global';
+      const q = query(collection(db, path), orderBy('startTime', 'asc'));
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setEvents(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Event[]);
-      setLoading(false);
-    }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, path);
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        setEvents(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Event[]);
+        setLoading(false);
+      }, (err) => {
+        if (err.code !== 'permission-denied') {
+          handleFirestoreError(err, OperationType.LIST, path);
+        }
+        setLoading(false);
+      });
+    };
+
+    const authUnsubscribe = onAuthStateChanged(auth, (user) => {
+      // For global events, we can listen regardless of auth if rules allow it
+      // but group events require auth. 
+      // To be safe, we'll wait for auth for group events.
+      if (!groupId || user) {
+        startListener();
+      } else {
+        setEvents([]);
+        setLoading(false);
+        unsubscribe();
+      }
     });
 
-    return unsubscribe;
+    return () => {
+      authUnsubscribe();
+      unsubscribe();
+    };
   }, [groupId]);
 
   const rsvp = async (event: Event, status: 'attending' | 'not-attending') => {

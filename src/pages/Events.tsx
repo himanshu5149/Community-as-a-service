@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useEvents, Event } from '../hooks/useEvents';
 import { useGroups } from '../hooks/useGroups';
-import { auth } from '../lib/firebase';
+import { auth, signInWithGoogle } from '../lib/firebase';
 import { 
   Calendar, 
   MapPin, 
@@ -125,13 +125,19 @@ export default function Events() {
                          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">{group?.name || 'Global'}</span>
                       </div>
                       <button 
-                        onClick={() => rsvp(event, isAttending ? 'not-attending' : 'attending')}
+                        onClick={() => {
+                          if (auth.currentUser) {
+                            rsvp(event, isAttending ? 'not-attending' : 'attending');
+                          } else {
+                            signInWithGoogle();
+                          }
+                        }}
                         className={cn(
                           "px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all",
                           isAttending ? "bg-green-500/10 text-green-500" : "bg-primary text-white shadow-xl"
                         )}
                       >
-                        {isAttending ? <span className="flex items-center gap-2"><Check className="w-3 h-3" /> RSVP Confirmed</span> : "Join Protocol"}
+                        {isAttending ? <span className="flex items-center gap-2"><Check className="w-3 h-3" /> RSVP Confirmed</span> : (auth.currentUser ? "Join Protocol" : "Sign in to Join")}
                       </button>
                     </div>
                   </motion.div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, where, orderBy, updateDoc, doc } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export interface Notification {
   id: string;
@@ -17,19 +18,39 @@ export function useNotifications() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!auth.currentUser) return;
+    let unsubscribe = () => {};
 
-    const q = query(
-      collection(db, `users/${auth.currentUser.uid}/notifications`),
-      orderBy('createdAt', 'desc')
-    );
+    const startListener = (uid: string) => {
+      const q = query(
+        collection(db, `users/${uid}/notifications`),
+        orderBy('createdAt', 'desc')
+      );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setNotifications(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      setLoading(false);
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        setNotifications(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Notification[]);
+        setLoading(false);
+      }, (err) => {
+        if (err.code !== 'permission-denied') {
+          handleFirestoreError(err, OperationType.GET, 'notifications');
+        }
+        setLoading(false);
+      });
+    };
+
+    const authUnsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        startListener(user.uid);
+      } else {
+        setNotifications([]);
+        setLoading(false);
+        unsubscribe();
+      }
     });
 
-    return unsubscribe;
+    return () => {
+      authUnsubscribe();
+      unsubscribe();
+    };
   }, []);
 
   const markAsRead = async (notifId: string) => {

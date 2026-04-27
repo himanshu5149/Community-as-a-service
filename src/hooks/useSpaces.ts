@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, increment } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export interface Space {
   id: string;
@@ -17,17 +18,39 @@ export function useSpaces() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const path = 'spaces';
-    const q = query(collection(db, path), orderBy('lastActivity', 'desc'));
+    let unsubscribe = () => {};
+    
+    const startListener = () => {
+      const path = 'spaces';
+      const q = query(collection(db, path), orderBy('lastActivity', 'desc'));
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setSpaces(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Space[]);
-      setLoading(false);
-    }, (err) => {
-       handleFirestoreError(err, OperationType.LIST, path);
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        setSpaces(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Space[]);
+        setLoading(false);
+      }, (err) => {
+         // Silently fail if unauthorized during initial load, 
+         // it's likely handled by the auth state check
+         if (err.code !== 'permission-denied') {
+            handleFirestoreError(err, OperationType.LIST, path);
+         }
+         setLoading(false);
+      });
+    };
+
+    const authUnsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        startListener();
+      } else {
+        setSpaces([]);
+        setLoading(false);
+        unsubscribe();
+      }
     });
 
-    return unsubscribe;
+    return () => {
+      authUnsubscribe();
+      unsubscribe();
+    };
   }, []);
 
   const createSpace = async (spaceData: Omit<Space, 'id' | 'members' | 'lastActivity'>) => {
