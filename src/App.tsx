@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
+import { BrandLogo } from './components/BrandLogo';
 import Home from './pages/Home';
 import Groups from './pages/Groups';
 import HowItWorks from './pages/HowItWorks';
@@ -51,7 +52,7 @@ function Footer() {
     <footer className="bg-bg-dark text-gray-400 py-16 px-10 border-t border-white/5">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-primary/20 rounded flex items-center justify-center text-[10px] font-bold text-primary">C</div>
+          <BrandLogo className="w-8 h-8 opacity-80" />
           <span className="text-xl font-bold text-white tracking-tighter">CaaS</span>
         </div>
         <div className="text-xs font-medium uppercase tracking-[0.2em] text-gray-500">

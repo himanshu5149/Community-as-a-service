@@ -8,7 +8,7 @@ service cloud.firestore {
 
     // Phase 3: Primitives
     function isSignedIn() { return request.auth != null; }
-    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function isVerified() { return isSignedIn() && (request.auth.token.email_verified == true || request.auth.token.firebase.sign_in_provider == 'google.com'); }
     function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
@@ -39,14 +39,14 @@ service cloud.firestore {
       return data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
              data.description is string && data.description.size() <= 1000 &&
              data.accentColor is string &&
-             data.keys().hasAll(['name', 'description', 'accentColor']);
+             data.keys().hasAll(['name', 'description', 'accentColor', 'createdBy', 'createdAt']);
     }
 
     function isValidMessage(data) {
       return data.userId == request.auth.uid &&
              data.text is string && data.text.size() <= 5000 &&
              data.type in ['text', 'image', 'video', 'audio', 'ai'] &&
-             data.createdAt == request.time;
+             (data.createdAt == request.time || data.createdAt == null); // Handle latency
     }
 
     function isValidPoll(data) {
@@ -128,7 +128,10 @@ service cloud.firestore {
       
       match /members/{memberId} {
         allow read: if isSignedIn();
-        allow create: if isVerified() && memberId == request.auth.uid && incoming().role == 'member'; // Default to member on join
+        allow create: if isVerified() && memberId == request.auth.uid && (
+          incoming().role == 'member' || 
+          get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy == request.auth.uid
+        );
         allow update: if isGroupAdmin(groupId) && incoming().diff(existing()).affectedKeys().hasOnly(['role']);
         allow delete: if isVerified() && (memberId == request.auth.uid || isGroupAdmin(groupId));
       }

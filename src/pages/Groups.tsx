@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { db, auth, signInWithGoogle } from '../lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
 import { Users, Loader2, ArrowRight, Lock, LogIn, Plus, X, LayoutGrid, Type, AlignLeft } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -46,15 +46,27 @@ export default function Groups() {
   };
 
   const seedGroups = async () => {
+    if (!user) return;
     const sampleGroups = [
-      { name: 'FitCollective', description: 'Elite fitness infrastructure for local chapters.', accentColor: '#EF4444', category: 'Fitness', memberCount: 1240, icon: 'Activity' },
-      { name: 'TechNexus', description: 'Real-time dev environments for community building.', accentColor: '#3B82F6', category: 'Tech', memberCount: 850, icon: 'Cpu' },
-      { name: 'ArtVibe', description: 'Canvas and studio sharing management.', accentColor: '#F59E0B', category: 'Arts', memberCount: 420, icon: 'Palette' },
-      { name: 'EduPulse', description: 'LMS and networking for education groups.', accentColor: '#10B981', category: 'Education', memberCount: 670, icon: 'GraduationCap' },
+      { name: 'FitCollective', description: 'Elite fitness infrastructure for local chapters.', accentColor: '#EF4444', category: 'Fitness', memberCount: 1240, icon: 'Activity', createdAt: serverTimestamp(), createdBy: user.uid },
+      { name: 'TechNexus', description: 'Real-time dev environments for community building.', accentColor: '#3B82F6', category: 'Tech', memberCount: 850, icon: 'Cpu', createdAt: serverTimestamp(), createdBy: user.uid },
+      { name: 'ArtVibe', description: 'Canvas and studio sharing management.', accentColor: '#F59E0B', category: 'Arts', memberCount: 420, icon: 'Palette', createdAt: serverTimestamp(), createdBy: user.uid },
+      { name: 'EduPulse', description: 'LMS and networking for education groups.', accentColor: '#10B981', category: 'Education', memberCount: 670, icon: 'GraduationCap', createdAt: serverTimestamp(), createdBy: user.uid },
     ];
 
     for (const group of sampleGroups) {
-      await addDoc(collection(db, 'groups'), group);
+      try {
+        const docRef = await addDoc(collection(db, 'groups'), group);
+        // Auto-join as admin for seeded groups
+        await setDoc(doc(db, `groups/${docRef.id}/members/${user.uid}`), {
+          userId: user.uid,
+          userName: user.displayName || 'Seed Agent',
+          role: 'admin',
+          joinedAt: serverTimestamp()
+        });
+      } catch (err) {
+        console.error("Error seeding group:", err);
+      }
     }
   };
 

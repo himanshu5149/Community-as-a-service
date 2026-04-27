@@ -1,6 +1,7 @@
 import { motion } from 'motion/react';
 import { ArrowRight, Activity, Cpu, Palette, GraduationCap, Heart, Utensils, Briefcase, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { BrandLogo } from '../components/BrandLogo';
 
 const categories = [
   { name: 'Fitness', icon: <Activity />, color: '#EF4444' },
@@ -266,8 +267,8 @@ export default function Home() {
 
                 <div className="absolute w-32 h-32 bg-primary rounded-full blur-[100px] opacity-30" />
                 <div className="absolute flex flex-col items-center">
-                   <span className="text-6xl font-display font-bold tracking-tighter italic">CaaS</span>
-                   <span className="text-[10px] font-bold tracking-[0.4em] uppercase text-primary">Bridge</span>
+                   <BrandLogo className="w-16 h-16" />
+                   <span className="text-[10px] font-bold tracking-[0.4em] uppercase text-primary mt-2">Bridge</span>
                 </div>
              </div>
           </div>

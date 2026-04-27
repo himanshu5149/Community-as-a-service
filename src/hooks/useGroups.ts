@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -44,9 +44,10 @@ export function useGroups() {
   }, []);
 
   const createGroup = async (name: string, description: string, category: string = 'General') => {
+    if (!auth.currentUser) return;
     const path = 'groups';
     try {
-      const docRef = await addDoc(collection(db, path), {
+      const groupData = {
         name,
         description,
         category,
@@ -55,8 +56,19 @@ export function useGroups() {
         memberCount: 1,
         slug: name.toLowerCase().replace(/ /g, '-'),
         createdAt: serverTimestamp(),
-        createdBy: auth.currentUser?.uid
+        createdBy: auth.currentUser.uid
+      };
+      
+      const docRef = await addDoc(collection(db, path), groupData);
+      
+      // Also add the user as admin member
+      await setDoc(doc(db, `groups/${docRef.id}/members/${auth.currentUser.uid}`), {
+        userId: auth.currentUser.uid,
+        userName: auth.currentUser.displayName || 'Anonymous Agent',
+        role: 'admin',
+        joinedAt: serverTimestamp()
       });
+
       return docRef.id;
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, path);

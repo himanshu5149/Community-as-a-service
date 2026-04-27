@@ -7,6 +7,7 @@ import { auth, signInWithGoogle } from '../lib/firebase';
 import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
 import { useNotifications } from '../hooks/useNotifications';
 import { Bell, MessageSquare } from 'lucide-react';
+import { BrandLogo } from './BrandLogo';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -52,9 +53,7 @@ export default function Navbar() {
     <nav className="fixed top-0 w-full z-50 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-white/10 text-white">
       <div className="max-w-7xl mx-auto px-6 md:px-10 h-20 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-4 group transition-transform active:scale-95">
-          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-lg font-bold shadow-lg shadow-primary/20 group-hover:rotate-6 transition-transform">
-            C
-          </div>
+          <BrandLogo className="w-10 h-10 group-hover:rotate-6 transition-transform" />
           <span className="text-2xl font-black tracking-tighter uppercase mr-6">CaaS</span>
         </Link>
 
@@ -187,7 +186,7 @@ export default function Navbar() {
           >
             <div className="flex items-center justify-between mb-12">
               <Link to="/" onClick={() => setIsOpen(false)} className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-lg font-bold">C</div>
+                <BrandLogo className="w-10 h-10" />
                 <span className="text-2xl font-black tracking-tighter uppercase">CaaS</span>
               </Link>
               <button onClick={() => setIsOpen(false)} className="p-2 text-gray-400">

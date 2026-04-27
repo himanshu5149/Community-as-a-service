@@ -536,7 +536,7 @@ export default function GroupChat() {
                               onClick={() => reactToMessage(msg.id, emoji)}
                               className={cn(
                                 "flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold border transition-all",
-                                userIds.includes(user.uid)
+                                user && userIds.includes(user.uid)
                                   ? "bg-primary/20 border-primary/40 text-white"
                                   : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
                               )}

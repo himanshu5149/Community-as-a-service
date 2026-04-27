@@ -19,7 +19,13 @@ export async function signInWithGoogle() {
       console.log('User cancelled sign-in.');
       return null;
     }
-    console.error('Error signing in with Google:', error);
+    console.error('Error signing in with Google:', {
+      code: authError.code,
+      message: authError.message,
+      email: authError.customData?.email,
+      domain: window.location.hostname
+    });
+    alert(`Sign-in failed: ${authError.message}. Make sure ${window.location.hostname} is added to Authorized Domains in Firebase Console.`);
     throw error;
   }
 }

@@ -1,7 +1,7 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 async function startServer() {
   const app = express();
@@ -9,31 +9,37 @@ async function startServer() {
 
   app.use(express.json());
 
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+  const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
   // AI API Routes
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "healthy", timestamp: new Date().toISOString() });
+  });
+
   app.post("/api/ai/moderate", async (req, res) => {
     const { text } = req.body;
+    if (!text) return res.status(400).json({ error: "Text is required" });
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `
+      const result = await ai.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent({
+        contents: [{ role: 'user', parts: [{ text: `
           Analyze the following message for a community platform. 
           Detect if it contains spam, scams, toxic language, harassment, or harmful links.
-          Return a JSON response in this format:
+          Return ONLY a JSON response in this exact format:
           {
             "isSafe": boolean,
-            "reason": string (optional, if unsafe),
-            "flaggedContent": string (optional, snippet of the problematic part)
+            "reason": "string (optional, if unsafe)",
+            "flaggedContent": "string (optional, snippet of the problematic part)"
           }
           
           Message: "${text}"
-        `,
-        config: {
+        `}]}],
+        generationConfig: {
           responseMimeType: "application/json"
         }
       });
-      res.json(JSON.parse(response.text || '{"isSafe": true}'));
+      
+      const responseText = result.response.text();
+      res.json(JSON.parse(responseText || '{"isSafe": true}'));
     } catch (error) {
       console.error("Moderation error:", error);
       res.status(500).json({ isSafe: true, error: "Internal AI Error" });
@@ -42,21 +48,19 @@ async function startServer() {
 
   app.post("/api/ai/summarize", async (req, res) => {
     const { messages } = req.body;
+    if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: "Messages array is required" });
     const conversation = messages.map((m: any) => `${m.user}: ${m.text}`).join("\n");
     
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `
-          Summarize the following community conversation. 
-          Identify the main topics discussed, decisions made, and any pending action items.
-          Keep it concise and formatted with bullet points.
-          
-          Conversation:
-          ${conversation}
-        `
-      });
-      res.json({ summary: response.text || "No summary generated." });
+      const result = await ai.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent(`
+        Summarize the following community conversation. 
+        Identify the main topics discussed, decisions made, and any pending action items.
+        Keep it concise and formatted with bullet points.
+        
+        Conversation:
+        ${conversation}
+      `);
+      res.json({ summary: result.response.text() || "No summary generated." });
     } catch (error) {
       console.error("Summarization error:", error);
       res.status(500).json({ summary: "Failed to sync summary from mainframe." });
@@ -65,29 +69,28 @@ async function startServer() {
 
   app.post("/api/ai/persona", async (req, res) => {
     const { query, persona, context } = req.body;
+    if (!query || !persona || !context) return res.status(400).json({ error: "Missing required fields" });
+    
     const history = context.recentMessages.map((m: any) => {
       const speaker = m.isAI ? persona.name : m.user;
       return `${speaker}: ${m.text}`;
     }).join("\n");
 
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `
-          Your Identity: ${persona.name} (${persona.role})
-          Your Task: ${persona.systemInstruction}
-          Group Context: This conversation is happening in the "${context.groupName}" community.
-          
-          Recent Chat History:
-          ${history}
-          
-          New Query (mention):
-          ${query}
-          
-          Instruction: Respond as ${persona.name}. Be helpful, social, and stay in character. Keep your response concise (under 3 sentences).
-        `
-      });
-      res.json({ response: response.text || "I'm processing that right now..." });
+      const result = await ai.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent(`
+        Your Identity: ${persona.name} (${persona.role})
+        Your Task: ${persona.systemInstruction}
+        Group Context: This conversation is happening in the "${context.groupName}" community.
+        
+        Recent Chat History:
+        ${history}
+        
+        New Query (mention):
+        ${query}
+        
+        Instruction: Respond as ${persona.name}. Be helpful, social, and stay in character. Keep your response concise (under 3 sentences).
+      `);
+      res.json({ response: result.response.text() || "I'm processing that right now..." });
     } catch (error) {
       console.error("Persona error:", error);
       res.status(500).json({ response: "Connection to neural link unstable. Please retry." });
