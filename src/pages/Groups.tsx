@@ -78,37 +78,6 @@ export default function Groups() {
     );
   }
 
-  if (!user) {
-    return (
-      <div className="pt-24 min-h-screen bg-bg-dark text-white flex flex-col items-center justify-center px-10 relative overflow-hidden">
-        <div className="absolute inset-0 z-0">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px]"></div>
-        </div>
-        
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="relative z-10 flex flex-col items-center text-center"
-        >
-          <div className="w-24 h-24 bg-white/5 rounded-[2.5rem] flex items-center justify-center mb-10 border border-white/10 shadow-2xl backdrop-blur-xl group">
-            <Lock className="w-10 h-10 text-primary animate-pulse" />
-          </div>
-          <h2 className="text-5xl md:text-8xl font-bold tracking-tighter mb-8 leading-none">Protocol <br/><span className="text-primary italic">Locked.</span></h2>
-          <p className="text-xl md:text-2xl text-gray-400 mb-14 max-w-md font-medium leading-relaxed">
-            Access to the community mesh network requires verified biometric identification. Authenticate to join the cluster.
-          </p>
-          <button 
-            onClick={signInWithGoogle}
-            className="px-12 py-6 bg-primary text-white rounded-3xl font-black uppercase tracking-[0.3em] text-sm flex items-center gap-4 hover:scale-105 active:scale-95 transition-all shadow-2xl shadow-primary/40"
-          >
-            <LogIn className="w-5 h-5" />
-            Authenticate Session
-          </button>
-        </motion.div>
-      </div>
-    );
-  }
-
   return (
     <div className="pt-24 min-h-screen bg-bg-dark text-white">
       <div className="max-w-7xl mx-auto px-6 md:px-10 py-12 md:py-24">
@@ -123,14 +92,14 @@ export default function Groups() {
           </div>
           <div className="flex gap-4">
             <button 
-              onClick={() => setShowCreateModal(true)}
+              onClick={() => user ? setShowCreateModal(true) : signInWithGoogle()}
               className="px-8 py-5 bg-white/5 border border-white/10 text-white rounded-3xl font-bold hover:bg-white/10 transition-all flex items-center gap-3 backdrop-blur-xl shrink-0"
             >
               <Plus className="w-5 h-5" />
-              <span className="hidden sm:inline">Initialize New Node</span>
-              <span className="sm:hidden">New Node</span>
+              <span className="hidden sm:inline">{user ? "Initialize New Node" : "Sign in to Create"}</span>
+              <span className="sm:hidden">{user ? "New Node" : "Sign In"}</span>
             </button>
-            {groups.length === 0 && !loading && (
+            {user && groups.length === 0 && !loading && (
               <button 
                 onClick={seedGroups}
                 className="px-8 py-5 bg-primary text-white rounded-3xl font-bold hover:bg-primary/90 transition-all shadow-2xl shadow-primary/30 shrink-0"
@@ -147,11 +116,30 @@ export default function Groups() {
             <p className="text-gray-400 font-bold uppercase tracking-widest text-sm">Syncing with Mainframe...</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-            {groups.map((group, i) => (
-              <GroupCard key={group.id} group={group} index={i} />
-            ))}
-          </div>
+          <>
+            {groups.length === 0 ? (
+              <div className="py-40 text-center flex flex-col items-center gap-8">
+                 <div className="w-20 h-20 bg-white/5 rounded-3xl flex items-center justify-center border border-white/10">
+                   <Users className="w-10 h-10 text-gray-500" />
+                 </div>
+                 <h2 className="text-4xl font-bold tracking-tight text-gray-500">No active nodes found in this sector.</h2>
+                 {!user && (
+                    <button 
+                      onClick={signInWithGoogle}
+                      className="px-10 py-4 bg-primary text-white rounded-2xl font-bold transition-all"
+                    >
+                      Authenticate to Initialize
+                    </button>
+                 )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+                {groups.map((group, i) => (
+                  <GroupCard key={group.id} group={group} index={i} />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 
