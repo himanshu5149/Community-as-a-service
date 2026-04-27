@@ -176,12 +176,13 @@ export default function GroupChat() {
 
       await sendMessage(response, 'ai', '', true, {
         aiName: persona.name,
-        aiAvatar: `https://ui-avatars.com/api/?name=${persona.name}&background=3B82F6&color=fff`
+        aiAvatar: persona.avatarUrl
       });
     } catch (error) {
       console.error("AI Error:", error);
       await sendMessage("Protocol Error: Connection to neural link unstable. Please retry transmission.", 'ai', '', true, {
-        aiName: persona.name
+        aiName: persona.name,
+        aiAvatar: persona.avatarUrl
       });
     } finally {
       setIsBotTyping(false);
@@ -413,11 +414,12 @@ export default function GroupChat() {
                 )}
               >
                 {!isMe && (
-                  <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/10 flex-shrink-0 overflow-hidden border border-white/10">
+                  <div className={cn(
+                    "w-8 h-8 md:w-10 md:h-10 rounded-full flex-shrink-0 overflow-hidden border",
+                    msg.isAI ? "border-primary/50" : "border-white/10"
+                  )}>
                     {msg.isAI ? (
-                      <div className="w-full h-full bg-primary flex items-center justify-center">
-                        <Bot className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                      </div>
+                      <img src={msg.userAvatar || persona.avatarUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
                       <img src={msg.userAvatar || `https://i.pravatar.cc/100?u=${msg.userId}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     )}
@@ -430,24 +432,26 @@ export default function GroupChat() {
                     isMe 
                       ? "bg-primary text-white rounded-br-none" 
                       : msg.isAI 
-                        ? "bg-blue-500/5 text-white border border-blue-500/20 rounded-bl-none shadow-[0_0_20px_rgba(59,130,246,0.1)]" 
+                        ? "text-white rounded-bl-none shadow-[0_0_20px_rgba(59,130,246,0.1)] border" 
                         : "bg-white/10 text-white rounded-bl-none"
-                  )}>
+                  )}
+                  style={msg.isAI ? { 
+                    backgroundColor: `${persona.accentColor}10`,
+                    borderColor: `${persona.accentColor}40`
+                  } : {}}>
                     {!isMe && !msg.isAI && (
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-primary">
                           {msg.userName}
                         </span>
-                        {/* We don't have roles for every user easily here without more fetch, 
-                            but we could if we added role to message payload */}
                       </div>
                     )}
                     {msg.isAI && (
                        <div className="flex items-center gap-2 mb-2">
-                         <div className="w-4 h-4 bg-blue-500/20 rounded flex items-center justify-center">
-                           <Sparkles className="w-2.5 h-2.5 text-blue-400" />
+                         <div className="w-4 h-4 rounded flex items-center justify-center" style={{ backgroundColor: `${persona.accentColor}20` }}>
+                           <Sparkles className="w-2.5 h-2.5" style={{ color: persona.accentColor }} />
                          </div>
-                         <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-blue-400">
+                         <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest" style={{ color: persona.accentColor }}>
                           {msg.userName || persona.name} Intelligence
                         </span>
                        </div>
@@ -570,11 +574,18 @@ export default function GroupChat() {
               exit={{ opacity: 0 }}
               className="flex items-end gap-3 md:gap-4 max-w-[85%] mr-auto mb-4"
             >
-              <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary/20 border border-primary/20 flex items-center justify-center flex-shrink-0">
-                <Bot className="w-4 h-4 md:w-5 md:h-5 text-primary animate-pulse" />
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-full flex-shrink-0 overflow-hidden border border-primary/30">
+                <img src={persona.avatarUrl} className="w-full h-full object-cover" />
               </div>
-              <div className="px-5 py-3 bg-white/5 border border-white/10 rounded-2xl rounded-bl-none flex flex-col gap-2">
-                <span className="text-[7px] font-black uppercase tracking-widest text-primary/60">{persona.name} is thinking...</span>
+              <div className={cn(
+                "px-5 py-3 border rounded-2xl rounded-bl-none flex flex-col gap-2",
+                "bg-white/5 border-white/10"
+              )}
+              style={{ backgroundColor: `${persona.accentColor}05`, borderColor: `${persona.accentColor}20` }}>
+                <span className="text-[7px] font-black uppercase tracking-widest flex items-center gap-2" style={{ color: persona.accentColor }}>
+                  <Sparkles className="w-2.5 h-2.5" />
+                  {persona.name} is processing...
+                </span>
                 <div className="flex gap-1.5 items-center">
                   <span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
                   <span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
