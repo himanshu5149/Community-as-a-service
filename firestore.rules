@@ -1,0 +1,204 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitives
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    
+    // Group Role Helpers
+    function getGroupRole(groupId, userId) {
+      let path = /databases/$(database)/documents/groups/$(groupId)/members/$(userId);
+      return exists(path) ? get(path).data.role : null;
+    }
+    function isGroupAdmin(groupId) { return isVerified() && getGroupRole(groupId, request.auth.uid) == 'admin'; }
+    function isGroupModerator(groupId) { 
+      let role = getGroupRole(groupId, request.auth.uid);
+      return isVerified() && (role == 'admin' || role == 'moderator');
+    }
+    function isGroupMember(groupId) { return isVerified() && getGroupRole(groupId, request.auth.uid) != null; }
+    
+    // Admin check - including bootstrapped user
+    function isAdmin() { 
+      return isVerified() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) || 
+        request.auth.token.email == 'royalisdevil@gmail.com'
+      ); 
+    }
+
+    // Validation Blueprints
+    function isValidGroup(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.description is string && data.description.size() <= 1000 &&
+             data.accentColor is string &&
+             data.keys().hasAll(['name', 'description', 'accentColor']);
+    }
+
+    function isValidMessage(data) {
+      return data.userId == request.auth.uid &&
+             data.text is string && data.text.size() <= 5000 &&
+             data.type in ['text', 'image', 'video', 'audio', 'ai'] &&
+             data.createdAt == request.time;
+    }
+
+    function isValidPoll(data) {
+      return data.question is string && data.question.size() <= 500 &&
+             data.options is list && data.options.size() >= 2 && data.options.size() <= 10 &&
+             data.createdAt == request.time &&
+             data.creatorId == request.auth.uid;
+    }
+
+    function isValidEvent(data) {
+      return data.title is string && data.title.size() <= 200 &&
+             data.description is string && data.description.size() <= 2000 &&
+             data.hostId == request.auth.uid &&
+             data.startTime is timestamp && data.endTime is timestamp &&
+             data.eventType in ['online', 'in-person'];
+    }
+
+    function isValidReport(data) {
+      return data.reporterId == request.auth.uid &&
+             data.targetType in ['message', 'member', 'group'] &&
+             data.targetId is string &&
+             data.reason is string && data.reason.size() <= 1000 &&
+             data.status == 'pending' &&
+             data.createdAt == request.time;
+    }
+
+    function isValidSpace(data) {
+      return data.name is string && data.name.size() <= 100 &&
+             data.description is string && data.description.size() <= 1000 &&
+             data.members is list && data.members.size() > 0 &&
+             data.lastActivity == request.time;
+    }
+
+    function isValidUserStats(data) {
+      return data.points is number &&
+             data.level is string &&
+             data.streakDays is number &&
+             data.lastActivity == request.time;
+    }
+
+    // Collections
+    match /groups/{groupId} {
+      allow read: if true;
+      allow create: if isVerified() && isValidGroup(incoming());
+      allow update: if isVerified() && (
+        isAdmin() || 
+        (isValidGroup(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['memberCount']))
+      );
+      
+      // Sub-collections
+      match /messages/{messageId} {
+        allow read: if isSignedIn();
+        allow create: if isVerified() && isGroupMember(groupId) && isValidMessage(incoming());
+        allow update: if isVerified() && isGroupMember(groupId) && incoming().diff(existing()).affectedKeys().hasOnly(['reactions']);
+        allow delete: if isGroupModerator(groupId) || (isVerified() && existing().userId == request.auth.uid);
+      }
+      
+      match /polls/{pollId} {
+        allow read: if isSignedIn();
+        allow create: if isVerified() && isGroupMember(groupId) && isValidPoll(incoming());
+        allow update: if isVerified() && isGroupMember(groupId) && (
+          // Action: Vote
+          incoming().diff(existing()).affectedKeys().hasOnly(['votes', 'userVotes'])
+        );
+        allow delete: if isGroupModerator(groupId);
+      }
+      
+      match /events/{eventId} {
+        allow read: if isSignedIn();
+        allow create: if isVerified() && isGroupMember(groupId) && isValidEvent(incoming());
+        allow update: if isVerified() && isGroupMember(groupId) && (
+          // Action: RSVP
+          incoming().diff(existing()).affectedKeys().hasOnly(['rsvps']) ||
+          // Action: Edit event
+          (isGroupModerator(groupId) && isValidEvent(incoming()))
+        );
+        allow delete: if isGroupModerator(groupId);
+      }
+      
+      match /members/{memberId} {
+        allow read: if isSignedIn();
+        allow create: if isVerified() && memberId == request.auth.uid && incoming().role == 'member'; // Default to member on join
+        allow update: if isGroupAdmin(groupId) && incoming().diff(existing()).affectedKeys().hasOnly(['role']);
+        allow delete: if isVerified() && (memberId == request.auth.uid || isGroupAdmin(groupId));
+      }
+    }
+
+    match /events_global/{eventId} {
+      allow read: if true;
+      allow create: if isVerified() && isValidEvent(incoming());
+      allow update: if isVerified() && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['rsvps'])
+      );
+    }
+
+    match /reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if isVerified() && isValidReport(incoming());
+      allow update: if isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+    }
+
+    match /spaces/{spaceId} {
+      allow read: if isSignedIn() && (resource == null || request.auth.uid in resource.data.members);
+      allow create: if isVerified() && isValidSpace(incoming()) && request.auth.uid in incoming().members;
+      allow update: if isVerified() && request.auth.uid in existing().members && (
+        // Action: Update metadata
+        (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'icon', 'connectedGroups', 'lastActivity']) && isValidSpace(incoming())) ||
+        // Action: Join/Leave
+        (incoming().diff(existing()).affectedKeys().hasOnly(['members', 'lastActivity']) && incoming().members.size() <= 100)
+      );
+    }
+
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if isVerified() && userId == request.auth.uid;
+      
+      match /points/stats {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidUserStats(incoming());
+      }
+      
+      match /notifications/{notifId} {
+        allow read: if isOwner(userId);
+        allow update: if isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['isRead']);
+      }
+    }
+
+    match /blogPosts/{postId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /connections/{connectionId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /conversations/{convId} {
+      allow read: if isSignedIn() && (resource == null || request.auth.uid in resource.data.participants);
+      allow create: if isVerified() && request.auth.uid in incoming().participants;
+      allow update: if isVerified() && request.auth.uid in existing().participants && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['lastMessage', 'lastMessageAt', 'participantData'])
+      );
+
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.participants;
+        allow create: if isVerified() && isValidMessage(incoming());
+      }
+    }
+    
+    match /admins/{adminId} {
+      allow read, write: if false; // Only manageable via console
+    }
+  }
+}

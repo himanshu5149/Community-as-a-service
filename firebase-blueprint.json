@@ -1,0 +1,217 @@
+ {
+  "entities": {
+    "group": {
+      "title": "Community Group",
+      "description": "A group representing a specific community interest.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "accentColor": { "type": "string" },
+        "icon": { "type": "string" },
+        "memberCount": { "type": "number" },
+        "category": { "type": "string" },
+        "slug": { "type": "string" }
+      },
+      "required": ["name", "description", "accentColor"]
+    },
+    "blogPost": {
+      "title": "Blog Post",
+      "description": "An article or update from CaaS.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "excerpt": { "type": "string" },
+        "category": { "type": "string" },
+        "author": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "imageUrl": { "type": "string" }
+      },
+      "required": ["title", "content", "author"]
+    },
+    "membership": {
+      "title": "Group Membership",
+      "description": "A record of a user joining a group with a specific role.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "groupId": { "type": "string" },
+        "userName": { "type": "string" },
+        "joinedAt": { "type": "string", "format": "date-time" },
+        "role": { "type": "string", "enum": ["admin", "moderator", "member"] }
+      },
+      "required": ["userId", "groupId", "role", "joinedAt"]
+    },
+    "connection": {
+      "title": "Community Bridge",
+      "description": "A networking bridge between two groups.",
+      "type": "object",
+      "properties": {
+        "fromGroupId": { "type": "string" },
+        "toGroupId": { "type": "string" },
+        "label": { "type": "string" }
+      },
+      "required": ["fromGroupId", "toGroupId"]
+    },
+    "message": {
+      "title": "Group Message",
+      "description": "A message sent within a group chat.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userAvatar": { "type": "string" },
+        "text": { "type": "string" },
+        "type": { "type": "string", "enum": ["text", "image", "video", "audio", "ai"] },
+        "fileUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "isAI": { "type": "boolean" },
+        "reactions": { "type": "object", "description": "Map of emoji to list of user IDs" }
+      },
+      "required": ["userId", "text", "type", "createdAt"]
+    },
+    "poll": {
+      "title": "Community Poll",
+      "description": "A poll sent within a group.",
+      "type": "object",
+      "properties": {
+        "question": { "type": "string" },
+        "options": { "type": "array", "items": { "type": "string" } },
+        "votes": { "type": "object" },
+        "userVotes": { "type": "object" },
+        "creatorId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["question", "options", "createdAt"]
+    },
+    "event": {
+      "title": "Community Event",
+      "description": "An event scheduled for a group or global community.",
+      "type": "object",
+      "properties": {
+        "groupId": { "type": "string" },
+        "hostId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "eventType": { "type": "string", "enum": ["online", "in-person"] },
+        "meetingLink": { "type": "string" },
+        "maxAttendees": { "type": "number" },
+        "rsvps": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["title", "description", "hostId", "startTime", "endTime", "eventType"]
+    },
+    "report": {
+      "title": "Moderation Report",
+      "description": "A report filed against a message, member, or group.",
+      "type": "object",
+      "properties": {
+        "reporterId": { "type": "string" },
+        "targetType": { "type": "string", "enum": ["message", "member", "group"] },
+        "targetId": { "type": "string" },
+        "reason": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "resolved", "dismissed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["reporterId", "targetType", "targetId", "reason", "status", "createdAt"]
+    },
+    "space": {
+      "title": "Collaboration Space",
+      "description": "A cross-group workspace for collaboration.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "icon": { "type": "string" },
+        "connectedGroups": { "type": "array", "items": { "type": "string" } },
+        "members": { "type": "array", "items": { "type": "string" } },
+        "lastActivity": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "description", "members", "lastActivity"]
+    },
+    "userStats": {
+      "title": "User Gamification Stats",
+      "description": "Points, levels, and streaks for a user.",
+      "type": "object",
+      "properties": {
+        "points": { "type": "number" },
+        "level": { "type": "string" },
+        "streakDays": { "type": "number" },
+        "lastActivity": { "type": "string", "format": "date-time" }
+      },
+      "required": ["points", "level", "streakDays", "lastActivity"]
+    },
+    "conversation": {
+      "title": "DM Conversation",
+      "description": "A direct message thread between two users.",
+      "type": "object",
+      "properties": {
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "lastMessage": { "type": "string" },
+        "lastMessageAt": { "type": "string", "format": "date-time" },
+        "participantData": { "type": "object" }
+      },
+      "required": ["participants", "lastMessageAt"]
+    }
+  },
+  "firestore": {
+    "/groups/{groupId}": {
+      "schema": "group",
+      "description": "List of available community groups."
+    },
+    "/blogPosts/{postId}": {
+      "schema": "blogPost",
+      "description": "CaaS blog articles."
+    },
+    "/groups/{groupId}/members/{memberId}": {
+      "schema": "membership",
+      "description": "Members within a group."
+    },
+    "/groups/{groupId}/messages/{messageId}": {
+      "schema": "message",
+      "description": "Chat messages within a group."
+    },
+    "/groups/{groupId}/polls/{pollId}": {
+      "schema": "poll",
+      "description": "Polls within a group."
+    },
+    "/groups/{groupId}/events/{eventId}": {
+      "schema": "event",
+      "description": "Events within a group."
+    },
+    "/events_global/{eventId}": {
+      "schema": "event",
+      "description": "Global community events."
+    },
+    "/connections/{connectionId}": {
+      "schema": "connection",
+      "description": "Visual bridges between communities."
+    },
+    "/reports/{reportId}": {
+      "schema": "report",
+      "description": "Moderation reports."
+    },
+    "/spaces/{spaceId}": {
+      "schema": "space",
+      "description": "Collaboration spaces."
+    },
+    "/users/{userId}": {
+      "schema": "object",
+      "description": "User profile document."
+    },
+    "/users/{userId}/points/stats": {
+      "schema": "userStats",
+      "description": "User gamification statistics."
+    },
+    "/conversations/{convId}": {
+      "schema": "conversation",
+      "description": "Direct message threads."
+    },
+    "/conversations/{convId}/messages/{messageId}": {
+      "schema": "message",
+      "description": "Direct messages."
+    }
+  }
+}
