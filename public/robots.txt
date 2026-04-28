@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://community-as-a-service.vercel.app/sitemap.xml
