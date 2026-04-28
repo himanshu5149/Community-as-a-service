@@ -7,6 +7,7 @@ import { useGroupRoles, UserRole } from '../hooks/useGroupRoles';
 import { useGroupMembers } from '../hooks/useGroupMembers';
 import { useGamification } from '../hooks/useGamification';
 import { usePolls } from '../hooks/usePolls';
+import { useAiAgents } from '../hooks/useAiAgents';
 import { useModeration } from '../hooks/useModeration';
 import { auth, signInWithGoogle, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
@@ -46,6 +47,7 @@ export default function GroupChat() {
   const { member, loading: rolesLoading, joinGroup, isAdmin, isModerator, isMember, updateRole } = useGroupRoles(groupId || '');
   const { members } = useGroupMembers(groupId || '');
   const { polls, vote } = usePolls(groupId || '');
+  const { agents, recordInteraction } = useAiAgents(groupId);
   const { stats, addPoints } = useGamification();
   const { submitReport } = useModeration();
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -62,7 +64,16 @@ export default function GroupChat() {
     msg.text.toLowerCase().includes(searchQueryLower)
   );
 
-  const persona = getPersonaForGroup(group?.name || '', group?.description || '');
+  const activeAgent = agents[0]; // Prefer explicit group agent
+  const persona = activeAgent ? {
+    id: activeAgent.id,
+    name: activeAgent.name,
+    role: activeAgent.isCrossGroup ? 'Cross-Community Intelligence' : `${activeAgent.name} Protocol`,
+    description: activeAgent.personality,
+    systemInstruction: `You are ${activeAgent.name}. Personality: ${activeAgent.personality}. Expertise: ${activeAgent.expertise.join(', ')}.`,
+    avatarUrl: `https://ui-avatars.com/api/?name=${activeAgent.name}&background=random&color=fff`,
+    accentColor: activeAgent.isCrossGroup ? '#8b5cf6' : '#3b82f6'
+  } : getPersonaForGroup(group?.name || '', group?.description || '');
 
   const reportMessage = async (msg: Message) => {
     if (!window.confirm("Initialize containment protocol for this signal?")) return;
@@ -178,6 +189,13 @@ export default function GroupChat() {
         aiName: persona.name,
         aiAvatar: persona.avatarUrl
       });
+
+      // Record interaction if it was a custom agent
+      if (activeAgent && user) {
+        // Approximate token count (words * 1.5)
+        const tokens = Math.ceil((userPrompt.split(' ').length + response.split(' ').length) * 1.5);
+        await recordInteraction(activeAgent.id, user.uid, userPrompt, response, tokens);
+      }
     } catch (error) {
       console.error("AI Error:", error);
       await sendMessage("Protocol Error: Connection to neural link unstable. Please retry transmission.", 'ai', '', true, {

@@ -154,12 +154,79 @@
         "participantData": { "type": "object" }
       },
       "required": ["participants", "lastMessageAt"]
+    },
+    "aiAgent": {
+      "title": "AI Agent",
+      "description": "An autonomous AI agent assigned to a group or cross-group collaboration.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "personality": { "type": "string" },
+        "expertise": { "type": "array", "items": { "type": "string" } },
+        "groupId": { "type": "string" },
+        "isCrossGroup": { "type": "boolean" },
+        "model": { "type": "string" },
+        "totalResponses": { "type": "number" }
+      },
+      "required": ["name", "personality", "groupId", "model"]
+    },
+    "aiInteraction": {
+      "title": "AI Interaction",
+      "description": "A record of an interaction between a user and an AI agent.",
+      "type": "object",
+      "properties": {
+        "agentId": { "type": "string" },
+        "userId": { "type": "string" },
+        "prompt": { "type": "string" },
+        "response": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "tokensUsed": { "type": "number" }
+      },
+      "required": ["agentId", "userId", "prompt", "response", "createdAt"]
+    },
+    "bridgeSuggestion": {
+      "title": "Bridge Suggestion",
+      "description": "AI-suggested connection between different community groups based on content relevance.",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "fromGroup": { "type": "string" },
+        "suggestedGroup": { "type": "string" },
+        "reason": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "rejected"] }
+      },
+      "required": ["postId", "fromGroup", "suggestedGroup", "reason", "createdAt"]
     }
   },
   "firestore": {
     "/groups/{groupId}": {
       "schema": "group",
       "description": "List of available community groups."
+    },
+    "/bridge_suggestions/{suggestionId}": {
+      "schema": "bridgeSuggestion",
+      "description": "AI-generated cross-group bridging recommendations."
+    },
+    "/posts/{postId}": {
+      "schema": "blogPost",
+      "description": "Community posts and updates."
+    },
+    "/profiles/{userId}": {
+      "schema": "object",
+      "description": "User profile document."
+    },
+    "/group_members/{id}": {
+      "schema": "membership",
+      "description": "Top-level group membership records."
+    },
+    "/ai_agents/{agentId}": {
+      "schema": "aiAgent",
+      "description": "Autonomous AI community agents."
+    },
+    "/ai_interactions/{interactionId}": {
+      "schema": "aiInteraction",
+      "description": "Logs of user interactions with AI agents."
     },
     "/blogPosts/{postId}": {
       "schema": "blogPost",

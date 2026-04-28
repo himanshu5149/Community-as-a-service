@@ -21,13 +21,17 @@ import {
   Zap, 
   Database,
   ArrowUpRight,
+  Share2,
+  ArrowRight,
   Loader2,
   Lock
 } from 'lucide-react';
-import { auth } from '../lib/firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { collection, addDoc, serverTimestamp, query, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
 
 export default function Admin() {
   const { data, loading } = useAnalytics();
+  const [showAgents, setShowAgents] = React.useState(false);
   const isAdminUser = auth.currentUser?.email === 'royalisdevil@gmail.com';
 
   if (!isAdminUser) {
@@ -49,9 +53,70 @@ export default function Admin() {
 
 function AdminContent() {
   const { data, loading } = useAnalytics();
+  const [agents, setAgents] = React.useState<any[]>([]);
+  const [newAgent, setNewAgent] = React.useState({
+    name: '',
+    personality: '',
+    expertise: '',
+    groupId: '',
+    isCrossGroup: false,
+    model: 'gemini-1.5-flash'
+  });
+  const [isDeploying, setIsDeploying] = React.useState(false);
+
+  React.useEffect(() => {
+    const q = query(collection(db, 'ai_agents'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setAgents(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const deployAgent = async () => {
+    if (!newAgent.name || !newAgent.personality) return;
+    setIsDeploying(true);
+    try {
+      await addDoc(collection(db, 'ai_agents'), {
+        ...newAgent,
+        expertise: newAgent.expertise.split(',').map(e => e.trim()),
+        totalResponses: 0,
+        createdAt: serverTimestamp()
+      });
+      setNewAgent({
+        name: '',
+        personality: '',
+        expertise: '',
+        groupId: '',
+        isCrossGroup: false,
+        model: 'gemini-1.5-flash'
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'ai_agents');
+    } finally {
+      setIsDeploying(false);
+    }
+  };
+
+  const decommissionAgent = async (id: string) => {
+    if (!window.confirm("Protocol decommissioning is irreversible. Proceed?")) return;
+    try {
+      await deleteDoc(doc(db, 'ai_agents', id));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, 'ai_agents');
+    }
+  };
+
+  const [suggestions, setSuggestions] = React.useState<any[]>([]);
+  React.useEffect(() => {
+    const q = query(collection(db, 'bridge_suggestions'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setSuggestions(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return () => unsubscribe();
+  }, []);
 
   return (
-    <div className="pt-32 min-h-screen bg-bg-dark text-white px-10 pb-40">
+    <div className="pt-32 min-h-screen bg-bg-dark text-white px-6 md:px-10 pb-40">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-10 mb-20">
           <div>
@@ -59,7 +124,7 @@ function AdminContent() {
               <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
               Central Intelligence Hub
             </div>
-            <h1 className="text-6xl md:text-9xl font-bold tracking-tighter leading-[0.8] italic">System <br/><span className="text-primary not-italic">Analytics.</span></h1>
+            <h1 className="text-6xl md:text-9xl font-bold tracking-tighter leading-[0.8] italic">System <br/><span className="text-primary not-italic">Control.</span></h1>
           </div>
           
           <div className="flex items-center gap-6 bg-white/5 border border-white/5 p-6 rounded-[2rem] backdrop-blur-xl">
@@ -70,6 +135,186 @@ function AdminContent() {
              <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary">
                 <Database className="w-6 h-6" />
              </div>
+          </div>
+        </div>
+
+        {/* AI Agent Management */}
+        <div className="mb-20">
+          <div className="flex items-center justify-between mb-10">
+            <h2 className="text-3xl font-bold tracking-tight">Autonomous <span className="text-primary italic">Node Registry.</span></h2>
+            <div className="h-px flex-grow mx-8 bg-white/5"></div>
+            <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">{agents.length} Active Nodes</div>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-10">
+            {/* Deploy New Agent */}
+            <div className="card-gloss p-8 md:p-10 border-primary/20 bg-primary/5">
+              <h3 className="text-xl font-bold mb-8 flex items-center gap-3">
+                <Zap className="w-5 h-5 text-primary" />
+                Initialize New Node
+              </h3>
+              <div className="space-y-6">
+                <input 
+                  placeholder="Agent Name (e.g. Aria)"
+                  value={newAgent.name}
+                  onChange={e => setNewAgent({...newAgent, name: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm font-bold placeholder:text-gray-600 outline-none focus:border-primary"
+                />
+                <textarea 
+                  placeholder="Personality & Core Directives..."
+                  value={newAgent.personality}
+                  onChange={e => setNewAgent({...newAgent, personality: e.target.value})}
+                  rows={4}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm font-medium placeholder:text-gray-600 outline-none focus:border-primary no-scrollbar"
+                />
+                <input 
+                  placeholder="Expertise Tags (comma separated)"
+                  value={newAgent.expertise}
+                  onChange={e => setNewAgent({...newAgent, expertise: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm font-medium placeholder:text-gray-600 outline-none focus:border-primary"
+                />
+                <div className="grid grid-cols-2 gap-4">
+                   <input 
+                    placeholder="Group ID"
+                    value={newAgent.groupId}
+                    onChange={e => setNewAgent({...newAgent, groupId: e.target.value})}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-[10px] font-bold uppercase tracking-widest outline-none focus:border-primary"
+                  />
+                  <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl p-4 px-6">
+                    <input 
+                      type="checkbox"
+                      checked={newAgent.isCrossGroup}
+                      onChange={e => setNewAgent({...newAgent, isCrossGroup: e.target.checked})}
+                      className="w-4 h-4 accent-primary"
+                      id="cross-group"
+                    />
+                    <label htmlFor="cross-group" className="text-[10px] font-black uppercase tracking-widest text-gray-500 cursor-pointer">Cross-Group</label>
+                  </div>
+                </div>
+                <button 
+                  onClick={deployAgent}
+                  disabled={isDeploying || !newAgent.name}
+                  className="w-full bg-primary text-white py-5 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] hover:scale-[1.02] active:scale-95 transition-all shadow-2xl shadow-primary/30 disabled:opacity-50"
+                >
+                  {isDeploying ? 'Synchronizing...' : 'Deploy Intelligence'}
+                </button>
+              </div>
+            </div>
+
+            {/* List Existing Agents */}
+            <div className="xl:col-span-2 space-y-6 max-h-[600px] overflow-y-auto no-scrollbar pr-4">
+              {agents.map((agent, i) => (
+                <motion.div 
+                  key={agent.id}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="card-gloss p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 group"
+                >
+                  <div className="flex items-center gap-6">
+                    <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center relative">
+                       <Activity className="w-8 h-8 text-primary opacity-20 group-hover:opacity-100 transition-opacity" />
+                       <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-bg-dark animate-pulse"></div>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-3 mb-1">
+                        <h4 className="text-xl font-bold">{agent.name}</h4>
+                        <span className="text-[8px] font-black uppercase tracking-widest bg-primary/10 text-primary px-2 py-0.5 rounded-full">{agent.model}</span>
+                      </div>
+                      <p className="text-[10px] text-gray-500 font-medium mb-3 max-w-[400px] line-clamp-1">{agent.personality}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {agent.expertise?.map((e: string) => (
+                          <span key={e} className="text-[8px] font-black uppercase tracking-widest border border-white/5 bg-white/5 px-2 py-1 rounded-md text-gray-400">{e}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-8">
+                     <div className="text-right">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-600 block mb-1">Responses</span>
+                        <span className="text-lg font-bold italic">{agent.totalResponses}</span>
+                     </div>
+                     <button 
+                      onClick={() => decommissionAgent(agent.id)}
+                      className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center hover:bg-red-500/10 hover:text-red-500 transition-all text-gray-600"
+                    >
+                      <Loader2 className="w-5 h-5 opacity-40" />
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+
+              {agents.length === 0 && (
+                <div className="h-full flex flex-col items-center justify-center text-center opacity-40 py-20">
+                   <Activity className="w-16 h-16 mb-4" />
+                   <p className="text-[10px] font-black uppercase tracking-widest">No intelligence nodes registered</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Bridge Suggestions Management */}
+        <div className="mb-20">
+          <div className="flex items-center justify-between mb-10">
+            <h2 className="text-3xl font-bold tracking-tight">Cross-Community <span className="text-primary italic">Bridge Registry.</span></h2>
+            <div className="h-px flex-grow mx-8 bg-white/5"></div>
+            <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">{suggestions.length} Signals Detected</div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {suggestions.map((suggestion, i) => (
+              <motion.div 
+                key={suggestion.id}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: i * 0.05 }}
+                className="card-gloss p-6 bg-gradient-to-br from-white/5 to-white/0 border-white/5"
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                    <Share2 className="w-4 h-4 text-primary" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-primary">Neural Link Suggestion</span>
+                </div>
+                
+                <div className="space-y-4 mb-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[8px] font-black uppercase tracking-widest text-gray-500 block">From</span>
+                      <span className="text-sm font-bold">{suggestion.fromGroup}</span>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-gray-700" />
+                    <div className="text-right">
+                      <span className="text-[8px] font-black uppercase tracking-widest text-gray-500 block">Target</span>
+                      <span className="text-sm font-bold">{suggestion.suggestedGroup}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-black/20 rounded-xl border border-white/5">
+                    <p className="text-[10px] font-medium text-gray-400 italic leading-relaxed">
+                      "{suggestion.reason}"
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button className="flex-grow bg-white/5 hover:bg-green-500/10 hover:text-green-500 text-[10px] font-black uppercase tracking-widest py-3 rounded-xl transition-all border border-white/5">
+                    Approve Link
+                  </button>
+                  <button className="flex-grow bg-white/5 hover:bg-red-500/10 hover:text-red-500 text-[10px] font-black uppercase tracking-widest py-3 rounded-xl transition-all border border-white/5">
+                    Dismiss
+                  </button>
+                </div>
+              </motion.div>
+            ))}
+
+            {suggestions.length === 0 && (
+              <div className="col-span-full py-20 bg-white/5 border border-dashed border-white/10 rounded-[2.5rem] flex flex-col items-center justify-center opacity-40">
+                <Share2 className="w-12 h-12 mb-4" />
+                <p className="text-[10px] font-black uppercase tracking-widest">No cross-community signals detected</p>
+              </div>
+            )}
           </div>
         </div>
 

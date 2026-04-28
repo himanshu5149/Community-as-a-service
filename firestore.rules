@@ -80,6 +80,31 @@ service cloud.firestore {
              data.lastActivity == request.time;
     }
 
+    function isValidAiAgent(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.personality is string && data.personality.size() <= 1000 &&
+             data.expertise is list &&
+             data.groupId is string &&
+             data.model is string &&
+             data.totalResponses is number;
+    }
+
+    function isValidAiInteraction(data) {
+      return data.agentId is string &&
+             data.userId == request.auth.uid &&
+             data.prompt is string && data.prompt.size() <= 5000 &&
+             data.response is string && data.response.size() <= 10000 &&
+             (data.createdAt == request.time || data.createdAt == null);
+    }
+    
+    function isValidBridgeSuggestion(data) {
+      return data.postId is string &&
+             data.fromGroup is string &&
+             data.suggestedGroup is string &&
+             data.reason is string && data.reason.size() <= 2000 &&
+             (data.createdAt == request.time || data.createdAt == null);
+    }
+
     function isValidUserStats(data) {
       return data.points is number &&
              data.level is string &&
@@ -101,6 +126,23 @@ service cloud.firestore {
     match /group_members/{id} {
       allow read: if true;
       allow write: if request.auth != null;
+    }
+
+    match /ai_agents/{agentId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /ai_interactions/{interactionId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isVerified() && isValidAiInteraction(incoming());
+    }
+
+    match /bridge_suggestions/{suggestionId} {
+      allow read: if isSignedIn();
+      allow create: if isVerified() && isValidBridgeSuggestion(incoming());
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     match /events_global/{eventId} {

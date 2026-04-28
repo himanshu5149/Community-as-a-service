@@ -3,11 +3,13 @@ import { motion } from 'motion/react';
 import { db, auth, signInWithGoogle } from '../lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { Calendar, User, ArrowRight, Loader2, Lock, LogIn } from 'lucide-react';
+import { Calendar, User, ArrowRight, Loader2, Lock, LogIn, Share2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useBridgeSuggestions } from '../hooks/useBridgeSuggestions';
 
 export default function Blog() {
   const { posts, loading } = useBlogPosts();
+  const { suggestBridge } = useBridgeSuggestions();
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
@@ -142,8 +144,22 @@ export default function Blog() {
                 <p className="text-xl text-gray-400 font-medium leading-relaxed mb-8">
                   {post.excerpt}
                 </p>
-                <div className="inline-flex items-center gap-3 text-white font-bold text-lg border-b-2 border-transparent hover:border-primary transition-all pb-2">
-                  Read Protocol <ArrowRight className="w-5 h-5 text-primary" />
+                <div className="flex items-center gap-6">
+                  <div className="inline-flex items-center gap-3 text-white font-bold text-lg border-b-2 border-transparent hover:border-primary transition-all pb-2">
+                    Read Protocol <ArrowRight className="w-5 h-5 text-primary" />
+                  </div>
+                  
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const reason = prompt("Why should this post bridge communities?");
+                      if (reason) suggestBridge(post.id, 'Blog', 'Global Feed', reason);
+                    }}
+                    className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-primary transition-colors mt-1"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    Bridge Community
+                  </button>
                 </div>
               </motion.article>
             ))}
