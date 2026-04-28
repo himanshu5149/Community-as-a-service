@@ -42,6 +42,22 @@ export default function AIGroup() {
               <div key={i} className="h-80 bg-white/5 rounded-[2.5rem] animate-pulse border border-white/5" />
             ))}
           </div>
+        ) : agents.length === 0 ? (
+          <div className="py-40 border border-dashed border-white/10 rounded-[4rem] text-center bg-white/5 backdrop-blur-sm max-w-4xl mx-auto">
+             <div className="w-24 h-24 bg-primary/10 rounded-[2.5rem] flex items-center justify-center mx-auto mb-10 border border-primary/20">
+                <Bot className="w-12 h-12 text-primary animate-pulse" />
+             </div>
+             <h3 className="text-4xl font-bold mb-6 tracking-tighter italic">Neural Link <span className="text-primary not-italic">Inactive.</span></h3>
+             <p className="text-gray-400 max-w-md mx-auto mb-12 text-lg font-medium leading-relaxed">
+               The community intelligence nodes haven't been synchronized with this cluster yet. Administrative authorization required to seed the neural network.
+             </p>
+             <Link 
+               to="/admin" 
+               className="px-12 py-6 bg-primary text-white rounded-3xl font-black uppercase tracking-[0.3em] text-sm hover:scale-105 transition-all shadow-2xl shadow-primary/40 inline-flex items-center gap-4"
+             >
+                <Zap className="w-5 h-5" /> Initialize Neural Seeding
+             </Link>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
             {agents.map((agent, i) => (

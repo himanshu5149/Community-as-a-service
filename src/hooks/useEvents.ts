@@ -39,21 +39,9 @@ export function useEvents(groupId?: string) {
       });
     };
 
-    const authUnsubscribe = onAuthStateChanged(auth, (user) => {
-      // For global events, we can listen regardless of auth if rules allow it
-      // but group events require auth. 
-      // To be safe, we'll wait for auth for group events.
-      if (!groupId || user) {
-        startListener();
-      } else {
-        setEvents([]);
-        setLoading(false);
-        unsubscribe();
-      }
-    });
+    startListener();
 
     return () => {
-      authUnsubscribe();
       unsubscribe();
     };
   }, [groupId]);

@@ -69,7 +69,7 @@ export default function Spaces() {
             className="flex items-center gap-4 bg-primary text-white px-10 py-6 rounded-3xl font-black uppercase tracking-[0.3em] text-sm hover:scale-105 transition-all shadow-2xl"
           >
             {user ? <Plus className="w-5 h-5" /> : <LogIn className="w-5 h-5" />}
-            {user ? "Initialize Space" : "Authenticate to Start"}
+            {user ? "Initialize Space" : "Authenticate to Build"}
           </button>
         </div>
 
@@ -77,18 +77,6 @@ export default function Spaces() {
           <div className="flex flex-col items-center justify-center py-40 gap-6">
             <Loader2 className="w-12 h-12 text-primary animate-spin" />
             <p className="text-xs font-bold uppercase tracking-[0.4em] text-gray-400">Forming Neural Links...</p>
-          </div>
-        ) : !user ? (
-          <div className="col-span-full py-40 border border-dashed border-white/10 rounded-[4rem] text-center bg-white/5 backdrop-blur-sm">
-            <Lock className="w-16 h-16 text-primary mx-auto mb-8 animate-pulse" />
-            <h3 className="text-4xl font-bold mb-4 tracking-tighter">Workspace <span className="text-primary italic">Encrypted.</span></h3>
-            <p className="text-gray-400 max-w-md mx-auto mb-10 text-lg">Collaboration spaces require authorized identification. Authenticate your session to access shared neural networks.</p>
-            <button 
-              onClick={signInWithGoogle}
-              className="px-12 py-5 bg-primary text-white rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition-all shadow-2xl shadow-primary/40"
-            >
-              Sign In with Google
-            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">

@@ -9,7 +9,6 @@ import { useGamification } from '../hooks/useGamification';
 import { usePolls } from '../hooks/usePolls';
 import { useAiAgents } from '../hooks/useAiAgents';
 import { useModeration } from '../hooks/useModeration';
-import { getAiResponse } from '../services/aiService';
 import { auth, signInWithGoogle, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, increment } from 'firebase/firestore';
@@ -126,14 +125,22 @@ export default function GroupChat() {
 
     // AI Response logic if mentioned or specifically asking help
     const aiMention = `@${persona.name.toLowerCase()}`;
-    if (textToChat.toLowerCase().includes(aiMention) || textToChat.toLowerCase().includes('@ai') || (textToChat.toLowerCase().includes('help') && textToChat.length < 50)) {
+    const cleanText = textToChat.toLowerCase();
+    
+    if (
+      cleanText.includes(aiMention) || 
+      cleanText.includes('@ai') || 
+      cleanText.includes('@bot') ||
+      (cleanText.includes('help') && textToChat.length < 50) ||
+      (cleanText.includes('bot') && textToChat.length < 50)
+    ) {
       handleAIResponse(textToChat);
     }
   };
 
   const handleSummarize = async () => {
-    if (messages.length < 5) {
-      alert("Insufficient signal density for archival summarization.");
+    if (messages.length < 2) {
+      alert("System requires at least 2 signal interactions for archival synthesis.");
       return;
     }
     
@@ -175,13 +182,19 @@ export default function GroupChat() {
   const handleAIResponse = async (userPrompt: string) => {
     setIsBotTyping(true);
     try {
-      const recentContext = messages.slice(-10).map(m => `[${m.userName}]: ${m.text}`).join('\n');
+      const recentContext = messages.slice(-10).map(m => ({
+        user: m.userName,
+        text: m.text,
+        isAI: m.isAI
+      }));
       
-      const response = await getAiResponse(
-        persona.name, 
-        userPrompt, 
-        persona.description, 
-        `Group: ${group?.name}. Recent history: ${recentContext}`
+      const response = await askPersona(
+        userPrompt,
+        persona,
+        {
+          groupName: group?.name || 'Protocol Hub',
+          recentMessages: recentContext
+        }
       );
 
       await sendMessage(response, 'ai', '', true, {
@@ -860,31 +873,34 @@ export default function GroupChat() {
         <div ref={messagesEndRef} />
       </div>
 
-      <AnimatePresence>
-        {!isMember && !rolesLoading && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="absolute inset-0 z-[100] flex items-center justify-center bg-bg-dark/80 backdrop-blur-xl px-6"
-          >
-            <div className="max-w-md w-full bg-[#121212] border border-white/10 p-10 rounded-[3rem] text-center shadow-full">
-              <div className="w-20 h-20 bg-primary/10 rounded-[2rem] flex items-center justify-center mx-auto mb-8">
-                <Users className="w-10 h-10 text-primary" />
+        <AnimatePresence>
+          {!isMember && !rolesLoading && user && (
+            <motion.div 
+              initial={{ opacity: 0, y: 100 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 100 }}
+              className="absolute bottom-10 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-2xl px-6"
+            >
+              <div className="bg-[#121212]/90 backdrop-blur-3xl border border-primary/30 p-8 rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl">
+                <div className="flex items-center gap-6 text-center md:text-left">
+                  <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center flex-shrink-0 border border-primary/20">
+                    <Users className="w-8 h-8 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold tracking-tight">Access <span className="text-primary italic">Restricted.</span></h3>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Synchronize identity with this node to participate</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => joinGroup(user?.displayName || 'Anonymous Node')}
+                  className="whitespace-nowrap bg-primary text-white px-8 py-4 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] hover:scale-[105] active:scale-95 transition-all shadow-xl shadow-primary/20"
+                >
+                  Join Cluster
+                </button>
               </div>
-              <h3 className="text-3xl font-bold tracking-tighter mb-4">Join the <span className="text-primary italic">Cluster.</span></h3>
-              <p className="text-gray-400 font-medium mb-10 leading-relaxed">
-                This channel is restricted to verified node members. Synchronize your identity to enter the conversation.
-              </p>
-              <button 
-                onClick={() => joinGroup(user?.displayName || 'Anonymous Node')}
-                className="w-full bg-primary text-white py-6 rounded-2xl font-black uppercase tracking-[0.3em] text-sm hover:scale-[1.02] active:scale-95 transition-all shadow-2xl shadow-primary/30"
-              >
-                Join Metadata Node
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
     </div>
       
       {/* Input Console */}

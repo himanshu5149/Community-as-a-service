@@ -4,13 +4,16 @@ import { useNavigate } from 'react-router-dom';
 import Skeleton from '../components/ui/Skeleton';
 import { useMembers, Member } from '../hooks/useMembers';
 import { useConversations } from '../hooks/useConversations';
-import { Search, Filter, MessageSquare, UserPlus, Trophy, Zap, Loader2, ArrowRight } from 'lucide-react';
+import { useSocial } from '../hooks/useSocial';
+import { Search, Filter, MessageSquare, UserPlus, Trophy, Zap, Loader2, ArrowRight, Users, Check, UserCheck } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { auth, signInWithGoogle } from '../lib/firebase';
 
 export default function Members() {
   const navigate = useNavigate();
   const { members, loading } = useMembers();
   const { startConversation } = useConversations();
+  const { sendRequest, friends, requests } = useSocial();
   const [searchTerm, setSearchTerm] = useState('');
 
   const handleStartDM = async (member: Member) => {
@@ -94,8 +97,22 @@ export default function Members() {
                         <MessageSquare className="w-4 h-4" />
                         <span className="text-[10px] font-black uppercase tracking-widest hidden lg:block">Signal</span>
                      </button>
-                     <button className="bg-white/5 hover:bg-white/10 text-gray-400 p-4 rounded-2xl transition-all">
-                        <UserPlus className="w-4 h-4" />
+                     <button 
+                        onClick={() => {
+                          if (auth.currentUser) {
+                            sendRequest(member.id);
+                          } else {
+                            signInWithGoogle();
+                          }
+                        }}
+                        disabled={friends.includes(member.id)}
+                        className={cn(
+                          "bg-white/5 p-4 rounded-2xl transition-all",
+                          friends.includes(member.id) ? "text-green-500" : "hover:bg-white/10 text-gray-400"
+                        )}
+                        title={friends.includes(member.id) ? "Connected" : "Connect Request"}
+                     >
+                        {friends.includes(member.id) ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
                      </button>
                   </div>
                 </div>

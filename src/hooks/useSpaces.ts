@@ -28,8 +28,6 @@ export function useSpaces() {
         setSpaces(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Space[]);
         setLoading(false);
       }, (err) => {
-         // Silently fail if unauthorized during initial load, 
-         // it's likely handled by the auth state check
          if (err.code !== 'permission-denied') {
             handleFirestoreError(err, OperationType.LIST, path);
          }
@@ -37,18 +35,9 @@ export function useSpaces() {
       });
     };
 
-    const authUnsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        startListener();
-      } else {
-        setSpaces([]);
-        setLoading(false);
-        unsubscribe();
-      }
-    });
+    startListener();
 
     return () => {
-      authUnsubscribe();
       unsubscribe();
     };
   }, []);

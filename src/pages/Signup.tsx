@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { User, Mail, Lock, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function Signup() {
   const [name, setName] = useState('');
@@ -23,9 +24,23 @@ export default function Signup() {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(userCredential.user, { displayName: name });
+      
+      // Explicitly create profile to avoid race condition with useAuth hook
+      await setDoc(doc(db, 'profiles', userCredential.user.uid), {
+        uid: userCredential.user.uid,
+        email: userCredential.user.email,
+        displayName: name,
+        createdAt: serverTimestamp(),
+        lastLogin: serverTimestamp()
+      });
+
       navigate('/');
     } catch (err: any) {
-      setError(err.message || 'Node registration failed.');
+      if (err.code === 'auth/operation-not-allowed') {
+        setError('Registration is currently disabled. Please enable the Email/Password provider in your Firebase Console.');
+      } else {
+        setError(err.message || 'Node registration failed.');
+      }
     } finally {
       setLoading(false);
     }

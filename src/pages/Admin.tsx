@@ -63,6 +63,32 @@ function AdminContent() {
     model: 'gemini-1.5-flash'
   });
   const [isDeploying, setIsDeploying] = React.useState(false);
+  const [isSeeding, setIsSeeding] = React.useState(false);
+
+  const seedAgents = async () => {
+    setIsSeeding(true);
+    try {
+      const defaultAgents = [
+        {
+          name: 'Nexus Core',
+          personality: 'A wise, helpful community architect.',
+          expertise: ['Community Building'],
+          isCrossGroup: true,
+          model: 'gemini-1.5-flash',
+          totalResponses: 0,
+          createdAt: serverTimestamp()
+        }
+      ];
+      for (const agent of defaultAgents) {
+        await addDoc(collection(db, 'ai_agents'), agent);
+      }
+      alert("AI Nodes seeded.");
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'ai_agents');
+    } finally {
+      setIsSeeding(false);
+    }
+  };
 
   React.useEffect(() => {
     const q = query(collection(db, 'ai_agents'));
@@ -141,7 +167,16 @@ function AdminContent() {
         {/* AI Agent Management */}
         <div className="mb-20">
           <div className="flex items-center justify-between mb-10">
-            <h2 className="text-3xl font-bold tracking-tight">Autonomous <span className="text-primary italic">Node Registry.</span></h2>
+            <div className="flex items-center gap-6">
+              <h2 className="text-3xl font-bold tracking-tight">Autonomous <span className="text-primary italic">Node Registry.</span></h2>
+              <button 
+                onClick={seedAgents}
+                disabled={isSeeding}
+                className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-primary/20 hover:text-primary transition-all disabled:opacity-50"
+              >
+                {isSeeding ? 'Syncing...' : 'Seed AI Nodes'}
+              </button>
+            </div>
             <div className="h-px flex-grow mx-8 bg-white/5"></div>
             <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">{agents.length} Active Nodes</div>
           </div>
