@@ -1,83 +1,49 @@
-// pages/Home.tsx
-useSEO({
-  title: 'Home',
-  description: 'Join AI-powered communities for Fitness, Tech, Arts, Education and more. Your community, delivered as a service.',
-  url: '/'
-});
+import { useEffect } from 'react';
 
-// pages/Groups.tsx
-useSEO({
-  title: 'Explore Communities',
-  description: 'Browse Fitness, Tech, Arts, Education, AI and more communities. Join free and connect with like-minded people.',
-  url: '/groups'
-});
+interface SEOProps {
+  title: string;
+  description?: string;
+  image?: string;
+  url?: string;
+}
 
-// pages/AIGroup.tsx
-useSEO({
-  title: 'AI Community Members',
-  description: 'Meet Aria, Nova, Muse, Sage and Bridge — AI members living inside CaaS communities. Ask them anything.',
-  url: '/ai'
-});
+const BASE_URL = 'https://community-as-a-service.vercel.app';
+const DEFAULT_IMAGE = `${BASE_URL}/og-image.png`;
+const SITE_NAME = 'CaaS — AI Community OS';
 
-// pages/Members.tsx
-useSEO({
-  title: 'Community Members',
-  description: 'Discover members across all CaaS communities. Connect, collaborate, and grow together.',
-  url: '/members'
-});
+export function useSEO({ title, description, image, url }: SEOProps) {
+  useEffect(() => {
+    const fullTitle = `${title} | ${SITE_NAME}`;
+    const fullUrl = url ? `${BASE_URL}${url}` : BASE_URL;
+    const ogImage = image || DEFAULT_IMAGE;
 
-// pages/Events.tsx
-useSEO({
-  title: 'Community Events',
-  description: 'Join live events, workshops, and meetups happening across all CaaS communities.',
-  url: '/events'
-});
+    document.title = fullTitle;
 
-// pages/Blog.tsx
-useSEO({
-  title: 'Blog',
-  description: 'Community building tips, AI insights, and platform updates from the CaaS team.',
-  url: '/blog'
-});
+    const setMeta = (selector: string, content: string) => {
+      const el = document.querySelector(selector);
+      if (el) el.setAttribute('content', content);
+    };
 
-// pages/Pricing.tsx
-useSEO({
-  title: 'Pricing',
-  description: 'Free, Pro, and Enterprise plans for every community size. Start free, grow together.',
-  url: '/pricing'
-});
+    if (description) {
+      setMeta('meta[name="description"]', description);
+      setMeta('meta[property="og:description"]', description);
+      setMeta('meta[name="twitter:description"]', description);
+    }
 
-// pages/About.tsx
-useSEO({
-  title: 'About CaaS',
-  description: 'CaaS is the AI Community OS — delivering community infrastructure as a service, inspired by SaaS.',
-  url: '/about'
-});
+    setMeta('meta[property="og:title"]', fullTitle);
+    setMeta('meta[name="twitter:title"]', fullTitle);
+    setMeta('meta[property="og:url"]', fullUrl);
+    setMeta('meta[name="twitter:url"]', fullUrl);
+    setMeta('meta[property="og:image"]', ogImage);
+    setMeta('meta[name="twitter:image"]', ogImage);
 
-// pages/Spaces.tsx
-useSEO({
-  title: 'Collaboration Spaces',
-  description: 'Cross-group collaboration spaces where members from different communities build together.',
-  url: '/spaces'
-});
+    let canonical = document.querySelector('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement('link');
+      canonical.setAttribute('rel', 'canonical');
+      document.head.appendChild(canonical);
+    }
+    canonical.setAttribute('href', fullUrl);
 
-// pages/Login.tsx
-useSEO({
-  title: 'Login',
-  description: 'Sign in to your CaaS community account.',
-  url: '/login'
-});
-
-// pages/Signup.tsx
-useSEO({
-  title: 'Join CaaS Free',
-  description: 'Create your free CaaS account and join AI-powered communities today.',
-  url: '/signup'
-});
-
-// pages/NotFound.tsx
-useSEO({
-  title: '404 — Page Not Found',
-  description: 'This page does not exist. Browse CaaS communities instead.',
-  url: '/404'
-});
+  }, [title, description, image, url]);
+}
