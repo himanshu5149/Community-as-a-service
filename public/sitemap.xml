@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 
-  <!-- Main Pages -->
+  <!-- Core App Pages -->
   <url>
     <loc>https://community-as-a-service.vercel.app/</loc>
   </url>
@@ -11,7 +11,15 @@
   </url>
 
   <url>
+    <loc>https://community-as-a-service.vercel.app/groups/1</loc>
+  </url>
+
+  <url>
     <loc>https://community-as-a-service.vercel.app/messages</loc>
+  </url>
+
+  <url>
+    <loc>https://community-as-a-service.vercel.app/messages/1</loc>
   </url>
 
   <url>
@@ -34,7 +42,7 @@
     <loc>https://community-as-a-service.vercel.app/admin</loc>
   </url>
 
-  <!-- Marketing / Info Pages -->
+  <!-- Marketing Pages -->
   <url>
     <loc>https://community-as-a-service.vercel.app/how-it-works</loc>
   </url>
