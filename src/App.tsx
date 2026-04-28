@@ -52,22 +52,22 @@ export default function App() {
                 <Route path="/pricing" element={<Pricing />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/contact" element={<Contact />} />
+                <Route path="/groups" element={<Groups />} />
+                <Route path="/members" element={<Members />} />
+                <Route path="/spaces" element={<Spaces />} />
+                <Route path="/ai" element={<AIGroup />} />
                 
                 {/* Auth Protected Routes */}
-                <Route path="/groups" element={<ProtectedRoute><Groups /></ProtectedRoute>} />
                 <Route path="/groups/:groupId" element={<ProtectedRoute><GroupChat /></ProtectedRoute>} />
                 <Route path="/messages" element={<ProtectedRoute><DirectMessages /></ProtectedRoute>} />
                 <Route path="/messages/:convId" element={<ProtectedRoute><Conversation /></ProtectedRoute>} />
                 <Route path="/events" element={<ProtectedRoute><Events /></ProtectedRoute>} />
-                <Route path="/members" element={<ProtectedRoute><Members /></ProtectedRoute>} />
                 <Route path="/profile/:userId" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
                 <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-                <Route path="/spaces" element={<ProtectedRoute><Spaces /></ProtectedRoute>} />
                 <Route path="/spaces/:spaceId" element={<ProtectedRoute><SpaceRoom /></ProtectedRoute>} />
                 <Route path="/search" element={<ProtectedRoute><Search /></ProtectedRoute>} />
                 
                 {/* AI Protected Routes */}
-                <Route path="/ai" element={<ProtectedRoute><AIGroup /></ProtectedRoute>} />
                 <Route path="/ai/:agentId" element={<ProtectedRoute><AIAgent /></ProtectedRoute>} />
                 
                 {/* Admin Routes */}

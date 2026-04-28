@@ -13,7 +13,7 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = location.state?.from?.pathname || '/';
+  const from = location.state?.from?.pathname || '/groups';
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
