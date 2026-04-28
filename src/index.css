@@ -6,12 +6,44 @@
   --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   
   --color-primary: #534AB7;
-  --color-bg-dark: #0a0a0a;
+  --color-bg-dark: var(--bg-main);
+  --color-text-main: var(--text-main);
 }
 
 @layer base {
+  :root {
+    --bg-main: #0a0a0a;
+    --text-main: #ffffff;
+    --border-main: rgba(255, 255, 255, 0.1);
+    --glass-bg: rgba(255, 255, 255, 0.05);
+  }
+
+  .theme-light {
+    --bg-main: #f8f9fa;
+    --text-main: #1a1a1a;
+    --border-main: rgba(0, 0, 0, 0.1);
+    --glass-bg: rgba(0, 0, 0, 0.03);
+  }
+
+  .theme-sepia {
+    --bg-main: #f4ecd8;
+    --text-main: #5b4636;
+    --border-main: rgba(91, 70, 54, 0.1);
+    --glass-bg: rgba(91, 70, 54, 0.05);
+  }
+
   body {
-    @apply font-sans bg-bg-dark text-white;
+    @apply font-sans bg-bg-dark text-text-main transition-colors duration-300;
+  }
+
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+
+  @media (min-width: 768px) {
+    input, textarea, select {
+      font-size: inherit !important;
+    }
   }
   
   h1, h2, h3, h4, h5, h6 {

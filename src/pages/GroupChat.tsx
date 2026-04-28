@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
+import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
 import { useChat, Message } from '../hooks/useChat';
 import { useGroups } from '../hooks/useGroups';
 import { useGroupRoles, UserRole } from '../hooks/useGroupRoles';
@@ -11,7 +12,7 @@ import { useAiAgents } from '../hooks/useAiAgents';
 import { useModeration } from '../hooks/useModeration';
 import { auth, signInWithGoogle, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { collection, addDoc, serverTimestamp, doc, updateDoc, increment } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
 import { 
   Send, 
   Image as ImageIcon, 
@@ -33,23 +34,32 @@ import {
   ShieldAlert,
   Sparkles,
   History,
-  Search
+  Search,
+  Settings,
+  Trash2,
+  Edit2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { moderateMessage, summarizeChat, askPersona } from '../services/geminiService';
 import { getPersonaForGroup, AIPersona } from '../constants/aiPersonas';
+import { Toast, useToast } from '../components/Toast';
+import { useTheme } from '../hooks/useTheme';
 
 export default function GroupChat() {
   const { groupId } = useParams<{ groupId: string }>();
+  const navigate = useNavigate();
   const { groups } = useGroups();
   const group = groups.find(g => g.id === groupId);
-  const { messages, loading, sendMessage, reactToMessage, deleteMessage } = useChat(groupId || '');
+  const { messages, loading, sendMessage, reactToMessage, deleteMessage, isSending } = useChat(groupId || '');
   const { member, loading: rolesLoading, joinGroup, isAdmin, isModerator, isMember, updateRole } = useGroupRoles(groupId || '');
   const { members } = useGroupMembers(groupId || '');
   const { polls, vote } = usePolls(groupId || '');
   const { agents, recordInteraction } = useAiAgents(groupId);
   const { stats, addPoints } = useGamification();
   const { submitReport } = useModeration();
+  const { theme } = useTheme();
+  const { toast, showToast, hideToast } = useToast();
+  
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [inputText, setInputText] = useState('');
   const [isBotTyping, setIsBotTyping] = useState(false);
@@ -57,7 +67,48 @@ export default function GroupChat() {
   const [chatSummary, setChatSummary] = useState<string | null>(null);
   const [moderationWarning, setModerationWarning] = useState<string | null>(null);
   const [showMembers, setShowMembers] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [newName, setNewName] = useState(group?.name || '');
   const [searchQuery, setSearchQuery] = useState("");
+
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleDeleteGroup = async () => {
+    if (!isAdmin || !groupId) return;
+    if (!window.confirm("FATAL ACTION: This will permanently de-synchronize this cluster from the community network. Proceed with terminal purge?")) return;
+    
+    try {
+      await deleteDoc(doc(db, 'groups', groupId));
+      showToast("Cluster successfully purged from network registry.", "info");
+      navigate('/groups');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `groups/${groupId}`);
+    }
+  };
+
+  const handleUpdateName = async () => {
+    if (!isAdmin || !groupId || !newName.trim()) return;
+    try {
+      await updateDoc(doc(db, 'groups', groupId), { name: newName });
+      setIsEditing(false);
+      setShowSettings(false);
+      showToast("Node identity reconfigured successfully.");
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `groups/${groupId}`);
+    }
+  };
 
   const searchQueryLower = searchQuery.toLowerCase();
   const filteredMessages = messages.filter(msg => 
@@ -308,7 +359,7 @@ export default function GroupChat() {
           <button 
             onClick={() => {
               navigator.clipboard.writeText(window.location.href);
-              alert("Node address copied to clipboard. Share with authorized entities.");
+              showToast("Node address copied to clipboard. Share with authorized entities.", "info");
             }}
             className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors text-gray-400"
             title="Copy Invite Address"
@@ -321,9 +372,50 @@ export default function GroupChat() {
           >
             <Users className="w-5 h-5 text-gray-400" />
           </button>
-          <button className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors">
-            <MoreVertical className="w-5 h-5 text-gray-400" />
-          </button>
+          
+          <div className="relative">
+            <button 
+              onClick={() => setShowSettings(!showSettings)}
+              className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
+            >
+              <MoreVertical className="w-5 h-5 text-gray-400" />
+            </button>
+            <AnimatePresence>
+              {showSettings && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute right-0 mt-4 w-64 bg-[#121212] border border-white/10 rounded-2xl shadow-full overflow-hidden z-50 backdrop-blur-3xl"
+                >
+                  <div className="p-4 border-b border-white/5">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Node Management</span>
+                  </div>
+                  <div className="p-2 space-y-1">
+                    {isAdmin && (
+                      <>
+                        <button 
+                          onClick={() => { setIsEditing(true); setShowSettings(false); }}
+                          className="w-full flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl transition-all text-sm font-bold text-gray-300"
+                        >
+                          <Edit2 className="w-4 h-4" /> Rename Cluster
+                        </button>
+                        <button 
+                          onClick={handleDeleteGroup}
+                          className="w-full flex items-center gap-3 p-3 hover:bg-red-500/10 rounded-xl transition-all text-sm font-bold text-red-500"
+                        >
+                          <Trash2 className="w-4 h-4" /> Purge Cluster
+                        </button>
+                      </>
+                    )}
+                    <button className="w-full flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl transition-all text-sm font-bold text-gray-300">
+                      <ShieldAlert className="w-4 h-4" /> Group Guidelines
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
 
@@ -901,56 +993,131 @@ export default function GroupChat() {
             </motion.div>
           )}
         </AnimatePresence>
-    </div>
-      
-      {/* Input Console */}
-      <div className="p-4 md:p-8 border-t border-white/5 bg-bg-dark z-30">
-        <form 
-          onSubmit={handleSendMessage}
-          className="max-w-5xl mx-auto flex items-center gap-2 md:gap-4 bg-white/5 border border-white/5 rounded-2xl md:rounded-3xl p-2 md:p-3 focus-within:border-primary/50 transition-all shadow-2xl"
-        >
-          <div className="flex items-center gap-1 md:gap-2 md:pl-4">
-            <button type="button" className="text-gray-500 hover:text-white transition-colors p-2 hidden sm:block">
-              <Paperclip className="w-5 h-5" />
-            </button>
-            <button 
-              type="button" 
-              onClick={() => setShowPollCreator(true)}
-              className="text-gray-500 hover:text-primary transition-colors p-2"
-            >
-              <BarChart3 className="w-5 h-5" />
-            </button>
-          </div>
-          
-          <input 
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            className="flex-grow bg-transparent border-none outline-none text-white font-medium px-2 md:px-4 text-sm md:text-base placeholder:text-gray-600 placeholder:italic"
-            placeholder="Insert signal..."
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toast && (
+          <Toast 
+            message={toast.message} 
+            type={toast.type} 
+            onClose={hideToast} 
           />
-          
-          <div className="flex items-center gap-1 md:gap-2 md:pr-2">
-            <button type="button" className="text-gray-500 hover:text-white transition-colors p-2 hidden sm:block">
-              <Smile className="w-5 h-5" />
-            </button>
-            <button 
-              type="submit"
-              disabled={!inputText.trim()}
-              className={cn(
-                "w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center transition-all",
-                inputText.trim() 
-                  ? "bg-primary text-white shadow-[0_10px_30px_rgba(83,74,183,0.4)] rotate-45 hover:rotate-0" 
-                  : "bg-white/5 text-gray-700"
-              )}
-            >
-              <Send className="w-4 h-4 md:w-5 md:h-5" />
-            </button>
+        )}
+      </AnimatePresence>
+
+      {/* Rename Modal */}
+      <AnimatePresence>
+        {isEditing && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-bg-dark/80 backdrop-blur-xl">
+             <motion.div 
+               initial={{ scale: 0.9, opacity: 0 }}
+               animate={{ scale: 1, opacity: 1 }}
+               className="bg-[#121212] border border-white/10 p-10 rounded-[3rem] w-full max-w-lg shadow-full"
+             >
+               <h3 className="text-3xl font-bold tracking-tighter mb-8">Node <span className="text-primary italic">Re-identification.</span></h3>
+               <div className="space-y-6">
+                 <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-4 mb-2 block">New Cluster Identity</label>
+                    <input 
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      className="w-full bg-white/5 border border-white/5 p-6 rounded-2xl outline-none focus:border-primary transition-all font-bold text-xl"
+                      placeholder="Node Name..."
+                    />
+                 </div>
+                 <div className="flex gap-4">
+                    <button 
+                      onClick={() => setIsEditing(false)}
+                      className="flex-grow bg-white/5 text-gray-400 py-5 rounded-2xl font-bold border border-white/5 hover:bg-white/10 transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      onClick={handleUpdateName}
+                      className="flex-grow bg-primary text-white py-5 rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl shadow-primary/30"
+                    >
+                      Confirm
+                    </button>
+                 </div>
+               </div>
+             </motion.div>
           </div>
-        </form>
-        <p className="text-[7px] md:text-[9px] text-center mt-3 md:mt-4 font-black uppercase tracking-[0.4em] text-gray-700">
-          Encrypted Signal Transmission Protocol v4.2
-        </p>
-      </div>
+        )}
+      </AnimatePresence>
+    </div>
+      {isMember ? (
+        <div className="p-4 md:p-8 border-t border-white/5 bg-bg-dark z-30">
+          <form 
+            onSubmit={handleSendMessage}
+            className="max-w-5xl mx-auto flex items-center gap-2 md:gap-4 bg-white/5 border border-white/5 rounded-2xl md:rounded-3xl p-2 md:p-3 focus-within:border-primary/50 transition-all shadow-2xl"
+          >
+            <div className="flex items-center gap-1 md:gap-2 md:pl-4">
+              <button type="button" className="text-gray-500 hover:text-white transition-colors p-2 hidden sm:block">
+                <Paperclip className="w-5 h-5" />
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setShowPollCreator(true)}
+                className="text-gray-500 hover:text-primary transition-colors p-2"
+              >
+                <BarChart3 className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <input 
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              className="flex-grow bg-transparent border-none outline-none text-white font-medium px-2 md:px-4 text-sm md:text-base placeholder:text-gray-600 placeholder:italic"
+              placeholder="Insert signal..."
+            />
+            
+            <div className="flex items-center gap-1 md:gap-2 md:pr-2 relative">
+              <div className="relative" ref={emojiPickerRef}>
+                <button 
+                  type="button" 
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className="text-gray-500 hover:text-white transition-colors p-2 hidden sm:block"
+                >
+                  <Smile className="w-5 h-5" />
+                </button>
+                <AnimatePresence>
+                  {showEmojiPicker && (
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.9, y: -20 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9, y: -20 }}
+                      className="absolute bottom-full right-0 mb-4 z-50 shadow-2xl"
+                    >
+                      <EmojiPicker 
+                        onEmojiClick={(emoji) => setInputText(prev => prev + emoji.emoji)}
+                        theme={theme === 'dark' ? EmojiTheme.DARK : EmojiTheme.LIGHT}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              <button 
+                type="submit"
+                disabled={!inputText.trim() || isSending}
+                className={cn(
+                  "w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center transition-all",
+                  inputText.trim() 
+                    ? "bg-primary text-white shadow-[0_10px_30px_rgba(83,74,183,0.4)] rotate-45 hover:rotate-0" 
+                    : "bg-white/5 text-gray-700"
+                )}
+              >
+                {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 md:w-5 md:h-5" />}
+              </button>
+            </div>
+          </form>
+          <p className="text-[7px] md:text-[9px] text-center mt-3 md:mt-4 font-black uppercase tracking-[0.4em] text-gray-700">
+            Encrypted Signal Transmission Protocol v4.2
+          </p>
+        </div>
+      ) : (
+        <div className="p-4 md:p-10 border-t border-white/5 bg-bg-dark/50 flex items-center justify-center">
+            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-600">Secure Uplink Required for Transmission</p>
+        </div>
+      )}
     </div>
   );
 }

@@ -8,6 +8,8 @@ import { useSocial } from '../hooks/useSocial';
 import { Search, Filter, MessageSquare, UserPlus, Trophy, Zap, Loader2, ArrowRight, Users, Check, UserCheck } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { auth, signInWithGoogle } from '../lib/firebase';
+import { Toast, useToast } from '../components/Toast';
+import { AnimatePresence } from 'motion/react';
 
 export default function Members() {
   const navigate = useNavigate();
@@ -15,7 +17,24 @@ export default function Members() {
   const { startConversation } = useConversations();
   const { sendRequest, friends, requests } = useSocial();
   const [searchTerm, setSearchTerm] = useState('');
+  const { showToast, toast, hideToast } = useToast();
 
+  const handleSendRequest = async (memberId: string) => {
+    if (!auth.currentUser) {
+      signInWithGoogle();
+      return;
+    }
+    try {
+      await sendRequest(memberId);
+      showToast("Connect request transmitted successfully.");
+    } catch (err) {
+      showToast("Link protocol failure.", "error");
+    }
+  };
+
+  const isPending = (memberId: string) => {
+    return requests.some(r => r.senderId === auth.currentUser?.uid && r.receiverId === memberId && r.status === 'pending');
+  };
   const handleStartDM = async (member: Member) => {
     const convId = await startConversation(member.id, member.displayName, member.photoURL);
     if (convId) {
@@ -98,21 +117,15 @@ export default function Members() {
                         <span className="text-[10px] font-black uppercase tracking-widest hidden lg:block">Signal</span>
                      </button>
                      <button 
-                        onClick={() => {
-                          if (auth.currentUser) {
-                            sendRequest(member.id);
-                          } else {
-                            signInWithGoogle();
-                          }
-                        }}
-                        disabled={friends.includes(member.id)}
+                        onClick={() => handleSendRequest(member.id)}
+                        disabled={friends.includes(member.id) || isPending(member.id)}
                         className={cn(
                           "bg-white/5 p-4 rounded-2xl transition-all",
-                          friends.includes(member.id) ? "text-green-500" : "hover:bg-white/10 text-gray-400"
+                          friends.includes(member.id) ? "text-green-500" : (isPending(member.id) ? "text-primary animate-pulse" : "hover:bg-white/10 text-gray-400")
                         )}
-                        title={friends.includes(member.id) ? "Connected" : "Connect Request"}
+                        title={friends.includes(member.id) ? "Connected" : (isPending(member.id) ? "Request Pending" : "Connect Request")}
                      >
-                        {friends.includes(member.id) ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+                        {friends.includes(member.id) ? <UserCheck className="w-4 h-4" /> : (isPending(member.id) ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />)}
                      </button>
                   </div>
                 </div>
@@ -165,6 +178,17 @@ export default function Members() {
            </div>
         </section>
       </div>
+
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toast && (
+          <Toast 
+            message={toast.message} 
+            type={toast.type} 
+            onClose={hideToast} 
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

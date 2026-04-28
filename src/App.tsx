@@ -1,10 +1,13 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { AnimatePresence } from 'motion/react';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ScrollToTop from './components/ScrollToTop';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
+import PageLayout from './components/PageLayout';
 import { AuthProvider } from './hooks/useAuth';
+import { ThemeProvider } from './hooks/useTheme';
 
 // Pages
 import Home from './pages/Home';
@@ -33,54 +36,66 @@ import AIAgent from './pages/AIAgent';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 
+function AnimatedRoutes() {
+  const location = useLocation();
+  
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location}>
+        {/* Public Routes */}
+        <Route path="/" element={<PageLayout><Home /></PageLayout>} />
+        <Route path="/login" element={<PageLayout><Login /></PageLayout>} />
+        <Route path="/signup" element={<PageLayout><Signup /></PageLayout>} />
+        <Route path="/how-it-works" element={<PageLayout><HowItWorks /></PageLayout>} />
+        <Route path="/blog" element={<PageLayout><Blog /></PageLayout>} />
+        <Route path="/pricing" element={<PageLayout><Pricing /></PageLayout>} />
+        <Route path="/about" element={<PageLayout><About /></PageLayout>} />
+        <Route path="/contact" element={<PageLayout><Contact /></PageLayout>} />
+        <Route path="/groups" element={<PageLayout><Groups /></PageLayout>} />
+        <Route path="/members" element={<PageLayout><Members /></PageLayout>} />
+        <Route path="/spaces" element={<PageLayout><Spaces /></PageLayout>} />
+        <Route path="/ai" element={<PageLayout><AIGroup /></PageLayout>} />
+        
+        {/* Auth Protected Routes */}
+        <Route path="/groups/:groupId" element={<ProtectedRoute><PageLayout><GroupChat /></PageLayout></ProtectedRoute>} />
+        <Route path="/messages" element={<ProtectedRoute><PageLayout><DirectMessages /></PageLayout></ProtectedRoute>} />
+        <Route path="/messages/:convId" element={<ProtectedRoute><PageLayout><Conversation /></PageLayout></ProtectedRoute>} />
+        <Route path="/events" element={<ProtectedRoute><PageLayout><Events /></PageLayout></ProtectedRoute>} />
+        <Route path="/profile/:userId" element={<ProtectedRoute><PageLayout><Profile /></PageLayout></ProtectedRoute>} />
+        <Route path="/notifications" element={<ProtectedRoute><PageLayout><Notifications /></PageLayout></ProtectedRoute>} />
+        <Route path="/spaces/:spaceId" element={<ProtectedRoute><PageLayout><SpaceRoom /></PageLayout></ProtectedRoute>} />
+        <Route path="/search" element={<ProtectedRoute><PageLayout><Search /></PageLayout></ProtectedRoute>} />
+        
+        {/* AI Protected Routes */}
+        <Route path="/ai/:agentId" element={<ProtectedRoute><PageLayout><AIAgent /></PageLayout></ProtectedRoute>} />
+        
+        {/* Admin Routes */}
+        <Route path="/admin" element={<ProtectedRoute adminOnly><PageLayout><Admin /></PageLayout></ProtectedRoute>} />
+        
+        {/* Fallback */}
+        <Route path="*" element={<PageLayout><NotFound /></PageLayout>} />
+      </Routes>
+    </AnimatePresence>
+  );
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <Router>
-          <ScrollToTop />
-          <div className="min-h-screen flex flex-col bg-bg-dark font-sans selection:bg-primary/30 selection:text-white">
-            <Navbar />
-            <main className="flex-grow">
-              <Routes>
-                {/* Public Routes */}
-                <Route path="/" element={<Home />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/signup" element={<Signup />} />
-                <Route path="/how-it-works" element={<HowItWorks />} />
-                <Route path="/blog" element={<Blog />} />
-                <Route path="/pricing" element={<Pricing />} />
-                <Route path="/about" element={<About />} />
-                <Route path="/contact" element={<Contact />} />
-                <Route path="/groups" element={<Groups />} />
-                <Route path="/members" element={<Members />} />
-                <Route path="/spaces" element={<Spaces />} />
-                <Route path="/ai" element={<AIGroup />} />
-                
-                {/* Auth Protected Routes */}
-                <Route path="/groups/:groupId" element={<ProtectedRoute><GroupChat /></ProtectedRoute>} />
-                <Route path="/messages" element={<ProtectedRoute><DirectMessages /></ProtectedRoute>} />
-                <Route path="/messages/:convId" element={<ProtectedRoute><Conversation /></ProtectedRoute>} />
-                <Route path="/events" element={<ProtectedRoute><Events /></ProtectedRoute>} />
-                <Route path="/profile/:userId" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-                <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-                <Route path="/spaces/:spaceId" element={<ProtectedRoute><SpaceRoom /></ProtectedRoute>} />
-                <Route path="/search" element={<ProtectedRoute><Search /></ProtectedRoute>} />
-                
-                {/* AI Protected Routes */}
-                <Route path="/ai/:agentId" element={<ProtectedRoute><AIAgent /></ProtectedRoute>} />
-                
-                {/* Admin Routes */}
-                <Route path="/admin" element={<ProtectedRoute adminOnly><Admin /></ProtectedRoute>} />
-                
-                {/* Fallback */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </main>
-            <Footer />
-          </div>
-        </Router>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <Router>
+            <ScrollToTop />
+            <div className="min-h-screen flex flex-col bg-bg-dark font-sans selection:bg-primary/30 selection:text-text-main">
+              <Navbar />
+              <main className="flex-grow">
+                <AnimatedRoutes />
+              </main>
+              <Footer />
+            </div>
+          </Router>
+        </AuthProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

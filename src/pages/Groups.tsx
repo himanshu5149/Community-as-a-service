@@ -6,8 +6,9 @@ import { useNavigate } from 'react-router-dom';
 import { db, auth, signInWithGoogle } from '../lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
-import { Users, Loader2, ArrowRight, Lock, LogIn, Plus, X, LayoutGrid, Type, AlignLeft } from 'lucide-react';
+import { Users, Loader2, ArrowRight, Lock, LogIn, Plus, X, LayoutGrid, Type, AlignLeft, Sparkles, Zap } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { Toast, useToast } from '../components/Toast';
 
 export default function Groups() {
   const { groups, loading, createGroup } = useGroups();
@@ -18,6 +19,7 @@ export default function Groups() {
   const [newGroupDesc, setNewGroupDesc] = useState("");
   const [newGroupCat, setNewGroupCat] = useState("General");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast, showToast, hideToast } = useToast();
 
   const navigate = useNavigate();
 
@@ -36,11 +38,12 @@ export default function Groups() {
     try {
       const id = await createGroup(newGroupName, newGroupDesc, newGroupCat);
       if (id) {
+        showToast("Node successfully initialized in the community network.");
         setShowCreateModal(false);
         navigate(`/groups/${id}`);
       }
     } catch (err) {
-      console.error(err);
+      showToast("Transmission failure. Check neural link status.", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -48,6 +51,7 @@ export default function Groups() {
 
   const seedGroups = async () => {
     if (!user) return;
+    setIsSubmitting(true);
     const sampleGroups = [
       { name: 'FitCollective', description: 'Elite fitness infrastructure for local chapters.', accentColor: '#EF4444', category: 'Fitness', memberCount: 1240, icon: 'Activity', createdAt: serverTimestamp(), createdBy: user.uid },
       { name: 'TechNexus', description: 'Real-time dev environments for community building.', accentColor: '#3B82F6', category: 'Tech', memberCount: 850, icon: 'Cpu', createdAt: serverTimestamp(), createdBy: user.uid },
@@ -55,19 +59,21 @@ export default function Groups() {
       { name: 'EduPulse', description: 'LMS and networking for education groups.', accentColor: '#10B981', category: 'Education', memberCount: 670, icon: 'GraduationCap', createdAt: serverTimestamp(), createdBy: user.uid },
     ];
 
-    for (const group of sampleGroups) {
-      try {
+    try {
+      for (const group of sampleGroups) {
         const docRef = await addDoc(collection(db, 'groups'), group);
-        // Auto-join as admin for seeded groups
         await setDoc(doc(db, `groups/${docRef.id}/members/${user.uid}`), {
           userId: user.uid,
           userName: user.displayName || 'Seed Agent',
           role: 'admin',
           joinedAt: serverTimestamp()
         });
-      } catch (err) {
-        console.error("Error seeding group:", err);
       }
+      showToast("Default clusters synchronized successfully.");
+    } catch (err) {
+      showToast("Synchronization error.", "error");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -119,11 +125,30 @@ export default function Groups() {
         ) : (
           <>
             {groups.length === 0 ? (
-              <div className="py-40 text-center flex flex-col items-center gap-8 opacity-40">
-                 <div className="w-20 h-20 bg-white/5 rounded-3xl flex items-center justify-center border border-white/10">
-                   <Users className="w-10 h-10 text-gray-500" />
+              <div className="py-32 md:py-48 border border-dashed border-white/10 rounded-[3rem] md:rounded-[5rem] text-center bg-white/[0.02] backdrop-blur-sm max-w-5xl mx-auto px-6">
+                 <div className="w-20 h-20 md:w-24 md:h-24 bg-primary/10 rounded-3xl md:rounded-[2.5rem] flex items-center justify-center mx-auto mb-10 border border-primary/20">
+                   <Users className="w-10 h-10 md:w-12 md:h-12 text-primary animate-pulse" />
                  </div>
-                 <h2 className="text-4xl font-bold tracking-tight text-gray-500 italic">No nodes detected.</h2>
+                 <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-6">No active <span className="text-primary italic">Clusters.</span></h2>
+                 <p className="text-gray-400 max-w-md mx-auto mb-12 text-lg font-medium leading-relaxed">
+                   The neural network is waiting for a primary signal. Initialize a new community shard or synchronize with default protocols.
+                 </p>
+                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button 
+                      onClick={() => user ? setShowCreateModal(true) : signInWithGoogle()}
+                      className="px-10 py-5 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-105 transition-all shadow-2xl shadow-primary/30 flex items-center justify-center gap-3"
+                    >
+                      <Plus className="w-4 h-4" /> Initialize Cluster
+                    </button>
+                    {user && (
+                      <button 
+                        onClick={seedGroups}
+                        className="px-10 py-5 bg-white/5 text-gray-300 rounded-2xl font-bold border border-white/5 hover:bg-white/10 transition-all text-[10px] uppercase tracking-widest"
+                      >
+                        Sync Defaults
+                      </button>
+                    )}
+                 </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
@@ -135,6 +160,16 @@ export default function Groups() {
           </>
         )}
       </div>
+
+      <AnimatePresence>
+        {toast && (
+          <Toast 
+            message={toast.message} 
+            type={toast.type} 
+            onClose={hideToast} 
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {showCreateModal && (

@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import { Menu, X, Users, LogIn, LogOut, User, Bell, MessageSquare, ShieldCheck } from 'lucide-react';
+import { Menu, X, Users, LogIn, LogOut, User, Bell, MessageSquare, ShieldCheck, Sun, Moon, Eye } from 'lucide-react';
 import { signInWithGoogle } from '../lib/firebase';
 import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../hooks/useTheme';
 import { BrandLogo } from './BrandLogo';
 
 export default function Navbar() {
@@ -13,9 +14,11 @@ export default function Navbar() {
   const [showNotifs, setShowNotifs] = useState(false);
   const { user, isAdmin, logout, loading } = useAuth();
   const { notifications, markAsRead } = useNotifications();
+  const { theme, setTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Close mobile menu when navigating
   useEffect(() => {
     setIsOpen(false);
   }, [location.pathname]);
@@ -36,7 +39,7 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="fixed top-0 w-full z-50 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-white/10 text-white">
+    <nav className="fixed top-0 w-full z-50 bg-bg-dark/80 backdrop-blur-md border-b border-white/10 text-text-main shadow-sm">
       <div className="max-w-7xl auto px-6 md:px-10 h-20 flex items-center justify-between mx-auto">
         <Link to="/" className="flex items-center gap-4 group transition-transform active:scale-95">
           <BrandLogo className="w-10 h-10 group-hover:rotate-6 transition-transform" />
@@ -44,20 +47,44 @@ export default function Navbar() {
         </Link>
 
         {/* Desktop Links */}
-        <div className="hidden md:flex items-center gap-10">
+        <div className="hidden md:flex items-center gap-8">
           {links.map((link) => (
             <Link
               key={link.name}
               to={link.href}
               className={cn(
-                "text-sm font-semibold transition-colors hover:text-white",
-                location.pathname === link.href ? "text-white" : "text-gray-400"
+                "text-xs font-black uppercase tracking-widest transition-all hover:text-primary",
+                location.pathname === link.href ? "text-primary italic" : "text-gray-500"
               )}
             >
               {link.name}
             </Link>
           ))}
           
+          <div className="h-4 w-px bg-white/10 mx-2" />
+
+          {/* Theme Toggles */}
+          <div className="flex items-center gap-2 bg-white/5 p-1 rounded-xl">
+            <button 
+              onClick={() => setTheme('dark')}
+              className={cn("p-2 rounded-lg transition-all", theme === 'dark' ? "bg-primary text-white" : "text-gray-500 hover:text-white")}
+            >
+              <Moon className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={() => setTheme('light')}
+              className={cn("p-2 rounded-lg transition-all", theme === 'light' ? "bg-primary text-white" : "text-gray-500 hover:text-white")}
+            >
+              <Sun className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={() => setTheme('sepia')}
+              className={cn("p-2 rounded-lg transition-all", theme === 'sepia' ? "bg-primary text-white" : "text-gray-500 hover:text-white")}
+            >
+              <Eye className="w-4 h-4" />
+            </button>
+          </div>
+
           {user ? (
             <div className="flex items-center gap-6 border-l border-white/10 pl-8">
               {/* Notifications */}

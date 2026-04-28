@@ -18,6 +18,7 @@ export interface Message {
 export function useChat(groupId: string) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
@@ -62,6 +63,7 @@ export function useChat(groupId: string) {
   ) => {
     if (!auth.currentUser || (!text && !fileUrl)) return;
 
+    setIsSending(true);
     const path = `groups/${groupId}/messages`;
     try {
       await addDoc(collection(db, path), {
@@ -77,6 +79,8 @@ export function useChat(groupId: string) {
       });
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, path);
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -121,5 +125,5 @@ export function useChat(groupId: string) {
     }
   };
 
-  return { messages, loading, error, sendMessage, reactToMessage, deleteMessage };
+  return { messages, loading, isSending, error, sendMessage, reactToMessage, deleteMessage };
 }
