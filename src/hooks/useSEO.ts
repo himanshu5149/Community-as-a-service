@@ -1,3 +1,4 @@
+// src/hooks/useSEO.ts
 import { useEffect } from 'react';
 
 interface SEOProps {
