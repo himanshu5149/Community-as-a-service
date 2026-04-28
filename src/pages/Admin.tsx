@@ -229,17 +229,26 @@ function AdminContent() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-8">
+                <div className="flex items-center gap-8">
                      <div className="text-right">
                         <span className="text-[10px] font-black uppercase tracking-widest text-gray-600 block mb-1">Responses</span>
                         <span className="text-lg font-bold italic">{agent.totalResponses}</span>
                      </div>
-                     <button 
-                      onClick={() => decommissionAgent(agent.id)}
-                      className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center hover:bg-red-500/10 hover:text-red-500 transition-all text-gray-600"
-                    >
-                      <Loader2 className="w-5 h-5 opacity-40" />
-                    </button>
+                     <div className="flex gap-2">
+                        <button 
+                          onClick={() => alert("Initiating weekly community intelligence synthesis...")}
+                          className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center hover:bg-primary/20 text-primary transition-all"
+                          title="Generate Weekly Digest"
+                        >
+                          <Database className="w-5 h-5" />
+                        </button>
+                        <button 
+                          onClick={() => decommissionAgent(agent.id)}
+                          className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center hover:bg-red-500/10 hover:text-red-500 transition-all text-gray-600"
+                        >
+                          <Loader2 className="w-5 h-5 opacity-40" />
+                        </button>
+                     </div>
                   </div>
                 </motion.div>
               ))}

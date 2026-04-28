@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
+import Skeleton from '../components/ui/Skeleton';
 import { useMembers, Member } from '../hooks/useMembers';
 import { useConversations } from '../hooks/useConversations';
 import { Search, Filter, MessageSquare, UserPlus, Trophy, Zap, Loader2, ArrowRight } from 'lucide-react';
@@ -46,11 +47,9 @@ export default function Members() {
             />
           </div>
         </div>
-
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-40 gap-6">
-            <Loader2 className="w-12 h-12 text-primary animate-spin" />
-            <p className="text-xs font-bold uppercase tracking-[0.4em] text-gray-400">Retrieving Personas...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-40">
+            <Skeleton className="h-64 rounded-[2.5rem]" count={8} />
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -105,6 +104,12 @@ export default function Members() {
                 <div className="absolute -top-10 -right-10 w-24 h-24 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/20 transition-all"></div>
               </motion.div>
             ))}
+            {filteredMembers.length === 0 && (
+              <div className="col-span-full py-40 text-center space-y-6 opacity-30">
+                <Users className="w-20 h-20 mx-auto" />
+                <p className="text-[10px] font-black uppercase tracking-[0.4em]">No community signals detected in this search sector</p>
+              </div>
+            )}
           </div>
         )}
 

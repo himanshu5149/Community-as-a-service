@@ -9,6 +9,7 @@ import { useGamification } from '../hooks/useGamification';
 import { usePolls } from '../hooks/usePolls';
 import { useAiAgents } from '../hooks/useAiAgents';
 import { useModeration } from '../hooks/useModeration';
+import { getAiResponse } from '../services/aiService';
 import { auth, signInWithGoogle, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, increment } from 'firebase/firestore';
@@ -174,16 +175,14 @@ export default function GroupChat() {
   const handleAIResponse = async (userPrompt: string) => {
     setIsBotTyping(true);
     try {
-      const recentContext = messages.slice(-10).map(m => ({
-        user: m.userName,
-        text: m.text,
-        isAI: m.isAI
-      }));
+      const recentContext = messages.slice(-10).map(m => `[${m.userName}]: ${m.text}`).join('\n');
       
-      const response = await askPersona(userPrompt, persona, {
-        groupName: group?.name || 'Protocol Hub',
-        recentMessages: recentContext
-      });
+      const response = await getAiResponse(
+        persona.name, 
+        userPrompt, 
+        persona.description, 
+        `Group: ${group?.name}. Recent history: ${recentContext}`
+      );
 
       await sendMessage(response, 'ai', '', true, {
         aiName: persona.name,

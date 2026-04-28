@@ -28,9 +28,11 @@ export async function signInWithGoogle() {
       code: authError.code,
       message: authError.message,
       email: authError.customData?.email,
-      domain: window.location.hostname
+      hostname: window.location.hostname
     });
-    alert(`Sign-in failed: ${authError.message}. Make sure ${window.location.hostname} is added to Authorized Domains in Firebase Console.`);
+    
+    const hostname = window.location.hostname;
+    alert(`Sign-in Blocked: Unauthorized Domain.\n\nTo fix this:\n1. Go to Firebase Console > Authentication > Settings\n2. Add this EXACT text to "Authorized domains":\n\n${hostname}\n\n(Current domain: ${hostname})`);
     throw error;
   }
 }

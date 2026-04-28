@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { GroupSkeleton } from '../components/ui/Skeleton';
 import { useGroups, Group } from '../hooks/useGroups';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
@@ -109,28 +110,20 @@ export default function Groups() {
             )}
           </div>
         </div>
-
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-40 gap-6">
-            <Loader2 className="w-12 h-12 text-primary animate-spin" />
-            <p className="text-gray-400 font-bold uppercase tracking-widest text-sm">Syncing with Mainframe...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+            <GroupSkeleton />
+            <GroupSkeleton />
+            <GroupSkeleton />
           </div>
         ) : (
           <>
             {groups.length === 0 ? (
-              <div className="py-40 text-center flex flex-col items-center gap-8">
+              <div className="py-40 text-center flex flex-col items-center gap-8 opacity-40">
                  <div className="w-20 h-20 bg-white/5 rounded-3xl flex items-center justify-center border border-white/10">
                    <Users className="w-10 h-10 text-gray-500" />
                  </div>
-                 <h2 className="text-4xl font-bold tracking-tight text-gray-500">No active nodes found in this sector.</h2>
-                 {!user && (
-                    <button 
-                      onClick={signInWithGoogle}
-                      className="px-10 py-4 bg-primary text-white rounded-2xl font-bold transition-all"
-                    >
-                      Authenticate to Initialize
-                    </button>
-                 )}
+                 <h2 className="text-4xl font-bold tracking-tight text-gray-500 italic">No nodes detected.</h2>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">

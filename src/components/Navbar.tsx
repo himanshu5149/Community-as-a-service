@@ -1,57 +1,43 @@
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import { Menu, X, Users, LogIn, LogOut, User } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { auth, signInWithGoogle } from '../lib/firebase';
-import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
+import { Menu, X, Users, LogIn, LogOut, User, Bell, MessageSquare, ShieldCheck } from 'lucide-react';
+import { signInWithGoogle } from '../lib/firebase';
 import { useNotifications } from '../hooks/useNotifications';
-import { Bell, MessageSquare } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 import { BrandLogo } from './BrandLogo';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
-  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const { user, isAdmin, logout, loading } = useAuth();
   const { notifications, markAsRead } = useNotifications();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    setIsOpen(false);
+  }, [location.pathname]);
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-    });
-    return unsubscribe;
-  }, []);
-
-  const handleLogin = async () => {
-    try {
-      await signInWithGoogle();
-    } catch (error) {
-      console.error("Login failed:", error);
-    }
-  };
-
-  const handleLogout = () => signOut(auth);
-
   const links = [
-    { name: 'Home', href: '/' },
+    { name: 'Nexus', href: '/' },
     { name: 'Groups', href: '/groups' },
     { name: 'Spaces', href: '/spaces' },
-    { name: 'Members', href: '/members' },
     { name: 'Events', href: '/events' },
-    { name: 'Messages', href: '/messages' },
-    { name: 'Search', href: '/search' },
-    { name: 'How It Works', href: '/how-it-works' },
-    { name: 'Blog', href: '/blog' },
-    { name: 'Pricing', href: '/pricing' },
-    { name: 'About', href: '/about' },
+    { name: 'Intelligence', href: '/ai' },
   ];
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+  };
 
   return (
     <nav className="fixed top-0 w-full z-50 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-white/10 text-white">
-      <div className="max-w-7xl mx-auto px-6 md:px-10 h-20 flex items-center justify-between">
+      <div className="max-w-7xl auto px-6 md:px-10 h-20 flex items-center justify-between mx-auto">
         <Link to="/" className="flex items-center gap-4 group transition-transform active:scale-95">
           <BrandLogo className="w-10 h-10 group-hover:rotate-6 transition-transform" />
           <span className="text-2xl font-black tracking-tighter uppercase mr-6">CaaS</span>
@@ -140,26 +126,31 @@ export default function Navbar() {
                 </AnimatePresence>
               </div>
 
-              <div className="flex items-center gap-2">
+              {isAdmin && (
+                <Link to="/admin" className="text-primary hover:text-white transition-colors p-2 bg-primary/10 rounded-xl">
+                  <ShieldCheck className="w-5 h-5" />
+                </Link>
+              )}
+              
+              <Link to={`/profile/${user.uid}`}>
                 {user.photoURL ? (
-                  <img src={user.photoURL} className="w-8 h-8 rounded-full border border-white/20" referrerPolicy="no-referrer" />
+                  <img src={user.photoURL} className="w-9 h-9 rounded-full border-2 border-white/10 hover:border-primary transition-all" referrerPolicy="no-referrer" />
                 ) : (
-                  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center">
                     <User className="w-4 h-4 text-primary" />
                   </div>
                 )}
-                <span className="text-xs font-bold text-gray-300 hidden lg:block">{user.displayName || user.email}</span>
-              </div>
+              </Link>
               <button 
                 onClick={handleLogout}
-                className="text-gray-400 hover:text-white transition-colors"
+                className="text-gray-400 hover:text-white transition-colors p-2"
               >
                 <LogOut className="w-5 h-5" />
               </button>
             </div>
           ) : (
             <button
-              onClick={handleLogin}
+              onClick={() => navigate('/login')}
               className="px-6 py-2.5 bg-primary rounded-full text-sm font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center gap-2"
             >
               <LogIn className="w-4 h-4" />
@@ -169,8 +160,8 @@ export default function Navbar() {
         </div>
 
         {/* Mobile Menu Button */}
-        <button className="md:hidden" onClick={() => setIsOpen(!isOpen)}>
-          {isOpen ? <X /> : <Menu />}
+        <button className="md:hidden p-2 text-gray-400" onClick={() => setIsOpen(!isOpen)}>
+          {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </button>
       </div>
 
@@ -181,13 +172,12 @@ export default function Navbar() {
             initial={{ opacity: 0, x: '100%' }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed inset-0 top-0 left-0 w-full h-screen bg-bg-dark z-50 p-8 flex flex-col"
+            className="fixed inset-0 top-0 left-0 w-full h-screen bg-[#0a0a0a] z-[60] p-8 flex flex-col"
           >
             <div className="flex items-center justify-between mb-12">
               <Link to="/" onClick={() => setIsOpen(false)} className="flex items-center gap-3">
                 <BrandLogo className="w-10 h-10" />
-                <span className="text-2xl font-black tracking-tighter uppercase">CaaS</span>
+                <span className="text-2xl font-black tracking-tighter uppercase text-white">CaaS</span>
               </Link>
               <button onClick={() => setIsOpen(false)} className="p-2 text-gray-400">
                 <X className="w-8 h-8" />
@@ -200,12 +190,12 @@ export default function Navbar() {
                   {user.photoURL ? (
                     <img src={user.photoURL} className="w-12 h-12 rounded-full ring-2 ring-primary/20" referrerPolicy="no-referrer" />
                   ) : (
-                    <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
-                      <User className="w-6 h-6 text-primary" />
+                    <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-white">
+                      <User className="w-6 h-6" />
                     </div>
                   )}
                   <div>
-                    <div className="font-bold text-lg leading-tight">{user.displayName || 'Operator'}</div>
+                    <div className="font-bold text-lg leading-tight text-white">{user.displayName || 'Operator'}</div>
                     <div className="text-xs text-gray-400 font-medium">{user.email}</div>
                   </div>
                 </div>
@@ -218,8 +208,8 @@ export default function Navbar() {
                     to={link.href}
                     onClick={() => setIsOpen(false)}
                     className={cn(
-                      "text-2xl font-bold tracking-tight py-3 border-b border-white/5 flex items-center justify-between group",
-                      location.pathname === link.href ? "text-primary px-4 bg-primary/5 rounded-xl border-none" : "text-gray-300"
+                      "text-2xl font-bold tracking-tight py-4 border-b border-white/5 flex items-center justify-between group",
+                      location.pathname === link.href ? "text-primary italic px-4 bg-primary/5 rounded-xl border-none" : "text-gray-300"
                     )}
                   >
                     {link.name}
@@ -229,7 +219,7 @@ export default function Navbar() {
               </div>
             </div>
 
-            <div className="pt-8 border-t border-white/10 flex flex-col gap-4">
+            <div className="pt-8 border-t border-white/10 flex flex-col gap-4 mt-auto">
               {user ? (
                 <>
                   <Link 
@@ -256,7 +246,7 @@ export default function Navbar() {
                 </>
               ) : (
                 <button
-                  onClick={() => { handleLogin(); setIsOpen(false); }}
+                  onClick={() => { navigate('/login'); setIsOpen(false); }}
                   className="w-full bg-primary text-white p-6 rounded-2xl font-black uppercase tracking-[0.2em] text-sm shadow-2xl shadow-primary/30 flex items-center justify-center gap-3"
                 >
                   <LogIn className="w-5 h-5" /> Initialize Session
