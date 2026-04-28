@@ -1,0 +1,18 @@
+User-agent: *
+Allow: /
+Allow: /groups
+Allow: /members
+Allow: /spaces
+Allow: /ai
+Allow: /blog
+Allow: /pricing
+Allow: /about
+Allow: /contact
+Allow: /how-it-works
+
+Disallow: /admin
+Disallow: /messages
+Disallow: /notifications
+Disallow: /profile
+
+Sitemap: https://community-as-a-service.vercel.app/sitemap.xml
