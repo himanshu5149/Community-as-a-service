@@ -58,6 +58,7 @@ function AnimatedRoutes() {
         
         {/* Auth Protected Routes */}
         <Route path="/groups/:groupId" element={<ProtectedRoute><PageLayout><GroupChat /></PageLayout></ProtectedRoute>} />
+        <Route path="/groups/:groupId/channels/:channelId" element={<ProtectedRoute><PageLayout><GroupChat /></PageLayout></ProtectedRoute>} />
         <Route path="/messages" element={<ProtectedRoute><PageLayout><DirectMessages /></PageLayout></ProtectedRoute>} />
         <Route path="/messages/:convId" element={<ProtectedRoute><PageLayout><Conversation /></PageLayout></ProtectedRoute>} />
         <Route path="/events" element={<ProtectedRoute><PageLayout><Events /></PageLayout></ProtectedRoute>} />

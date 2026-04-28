@@ -1,152 +1,89 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
 import { useChat, Message } from '../hooks/useChat';
 import { useGroups } from '../hooks/useGroups';
 import { useGroupRoles, UserRole } from '../hooks/useGroupRoles';
 import { useGroupMembers } from '../hooks/useGroupMembers';
 import { useGamification } from '../hooks/useGamification';
-import { usePolls } from '../hooks/usePolls';
+import { useChannels } from '../hooks/useChannels';
+import { useTyping } from '../hooks/useTyping';
+import { usePresence } from '../hooks/usePresence';
 import { useAiAgents } from '../hooks/useAiAgents';
+import { useTheme } from '../hooks/useTheme';
+import { useToast } from '../hooks/useToast';
 import { useModeration } from '../hooks/useModeration';
-import { auth, signInWithGoogle, db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '../lib/firebase';
+import { cn } from '../lib/utils';
 import { 
   Send, 
-  Image as ImageIcon, 
-  Video, 
-  Mic, 
   Bot, 
-  ArrowLeft, 
   Users, 
-  MoreVertical,
-  Paperclip,
-  Smile,
-  Loader2,
-  Lock,
-  LogIn,
   CheckCircle2,
-  BarChart3,
   X,
   Plus,
   ShieldAlert,
   Sparkles,
-  History,
   Search,
   Settings,
   Trash2,
-  Edit2
+  Hash,
+  Megaphone,
+  Pin,
+  PinOff,
+  ChevronRight,
+  ChevronDown,
+  MessageSquare
 } from 'lucide-react';
-import { cn } from '../lib/utils';
-import { moderateMessage, summarizeChat, askPersona } from '../services/geminiService';
-import { getPersonaForGroup, AIPersona } from '../constants/aiPersonas';
-import { Toast, useToast } from '../components/Toast';
-import { useTheme } from '../hooks/useTheme';
 
 export default function GroupChat() {
-  const { groupId } = useParams<{ groupId: string }>();
+  const { groupId, channelId } = useParams<{ groupId: string; channelId: string }>();
   const navigate = useNavigate();
   const { groups } = useGroups();
   const group = groups.find(g => g.id === groupId);
-  const { messages, loading, sendMessage, reactToMessage, deleteMessage, isSending } = useChat(groupId || '');
-  const { member, loading: rolesLoading, joinGroup, isAdmin, isModerator, isMember, updateRole } = useGroupRoles(groupId || '');
+  
+  const { channels, loading: channelsLoading } = useChannels(groupId || '');
+  const activeChannel = channels.find(c => c.id === channelId) || channels[0];
+  
+  const { messages, loading, sendMessage, reactToMessage, deleteMessage, editMessage, togglePinMessage } = useChat(groupId || '', activeChannel?.id);
+  const { loading: rolesLoading, joinGroup, isAdmin, isMember, updateRole } = useGroupRoles(groupId || '');
   const { members } = useGroupMembers(groupId || '');
-  const { polls, vote } = usePolls(groupId || '');
-  const { agents, recordInteraction } = useAiAgents(groupId);
-  const { stats, addPoints } = useGamification();
-  const { submitReport } = useModeration();
-  const { theme } = useTheme();
-  const { toast, showToast, hideToast } = useToast();
+  const { agents } = useAiAgents(groupId || '');
+  const { addPoints } = useGamification();
+  const { toast, hideToast, showToast } = useToast();
+  const { moderateMessage } = useModeration();
   
   const [user, setUser] = useState<FirebaseUser | null>(null);
+  const statuses = usePresence(user?.uid);
+  const { typingUsers, setTyping } = useTyping(activeChannel?.id || '', user?.uid, user?.displayName || 'Anonymous');
+
   const [inputText, setInputText] = useState('');
-  const [isBotTyping, setIsBotTyping] = useState(false);
-  const [isSummarizing, setIsSummarizing] = useState(false);
-  const [chatSummary, setChatSummary] = useState<string | null>(null);
-  const [moderationWarning, setModerationWarning] = useState<string | null>(null);
-  const [showMembers, setShowMembers] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [newName, setNewName] = useState(group?.name || '');
+  const [isEditingGroup, setIsEditingGroup] = useState(false);
+  const [newName, setNewName] = useState('');
   const [searchQuery, setSearchQuery] = useState("");
+  const [showSidebar, setShowSidebar] = useState(true);
+  const [showMemberSidebar, setShowMemberSidebar] = useState(true);
+  const [showPins, setShowPins] = useState(false);
+  const [moderationWarning, setModerationWarning] = useState<string | null>(null);
 
-  const emojiPickerRef = useRef<HTMLDivElement>(null);
-  
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
-        setShowEmojiPicker(false);
-      }
+    if (group?.name) {
+      setNewName(group.name);
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [group]);
 
-  const handleDeleteGroup = async () => {
-    if (!isAdmin || !groupId) return;
-    if (!window.confirm("FATAL ACTION: This will permanently de-synchronize this cluster from the community network. Proceed with terminal purge?")) return;
-    
-    try {
-      await deleteDoc(doc(db, 'groups', groupId));
-      showToast("Cluster successfully purged from network registry.", "info");
-      navigate('/groups');
-    } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `groups/${groupId}`);
-    }
-  };
-
-  const handleUpdateName = async () => {
-    if (!isAdmin || !groupId || !newName.trim()) return;
-    try {
-      await updateDoc(doc(db, 'groups', groupId), { name: newName });
-      setIsEditing(false);
-      setShowSettings(false);
-      showToast("Node identity reconfigured successfully.");
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `groups/${groupId}`);
-    }
-  };
-
-  const searchQueryLower = searchQuery.toLowerCase();
-  const filteredMessages = messages.filter(msg => 
-    msg.text.toLowerCase().includes(searchQueryLower)
-  );
-
-  const activeAgent = agents[0]; // Prefer explicit group agent
-  const persona = activeAgent ? {
-    id: activeAgent.id,
-    name: activeAgent.name,
-    role: activeAgent.isCrossGroup ? 'Cross-Community Intelligence' : `${activeAgent.name} Protocol`,
-    description: activeAgent.personality,
-    systemInstruction: `You are ${activeAgent.name}. Personality: ${activeAgent.personality}. Expertise: ${activeAgent.expertise.join(', ')}.`,
-    avatarUrl: `https://ui-avatars.com/api/?name=${activeAgent.name}&background=random&color=fff`,
-    accentColor: activeAgent.isCrossGroup ? '#8b5cf6' : '#3b82f6'
-  } : getPersonaForGroup(group?.name || '', group?.description || '');
-
-  const reportMessage = async (msg: Message) => {
-    if (!window.confirm("Initialize containment protocol for this signal?")) return;
-    await submitReport({
-      targetType: 'message',
-      targetId: msg.id,
-      reason: 'Community Guideline Infraction'
-    });
-    alert("Signal flagged for terminal review.");
-  };
-  const [showPollCreator, setShowPollCreator] = useState(false);
-  const [pollQuestion, setPollQuestion] = useState('');
-  const [pollOptions, setPollOptions] = useState(['', '']);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, polls]);
+  }, [messages]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
@@ -157,967 +94,399 @@ export default function GroupChat() {
     e?.preventDefault();
     if (!inputText.trim()) return;
 
-    const textToChat = inputText;
-    
-    // Phase 1: AI Moderation
-    const moderation = await moderateMessage(textToChat);
+    const moderation = await moderateMessage(inputText);
     if (!moderation.isSafe) {
       setModerationWarning(moderation.reason || "This signal violates community protocols.");
       return;
     }
 
+    const textToChat = inputText;
     setInputText('');
+    setTyping(false);
     await sendMessage(textToChat);
-    
-    // Award points for community contribution
-    if (user) {
-      addPoints(10);
-    }
-
-    // AI Response logic if mentioned or specifically asking help
-    const aiMention = `@${persona.name.toLowerCase()}`;
-    const cleanText = textToChat.toLowerCase();
-    
-    if (
-      cleanText.includes(aiMention) || 
-      cleanText.includes('@ai') || 
-      cleanText.includes('@bot') ||
-      (cleanText.includes('help') && textToChat.length < 50) ||
-      (cleanText.includes('bot') && textToChat.length < 50)
-    ) {
-      handleAIResponse(textToChat);
-    }
+    if (user) addPoints(10);
   };
 
-  const handleSummarize = async () => {
-    if (messages.length < 2) {
-      alert("System requires at least 2 signal interactions for archival synthesis.");
-      return;
-    }
-    
-    setIsSummarizing(true);
+  const handleUpdateName = async () => {
+    if (!isAdmin || !groupId || !newName.trim()) return;
     try {
-      const chatLogs = messages.slice(-20).map(m => ({ user: m.userName, text: m.text }));
-      const summary = await summarizeChat(chatLogs);
-      setChatSummary(summary);
+      await updateDoc(doc(db, 'groups', groupId), { name: newName });
+      setIsEditingGroup(false);
+      setShowSettings(false);
+      showToast("Node identity reconfigured successfully.");
     } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSummarizing(false);
+      handleFirestoreError(err, OperationType.UPDATE, `groups/${groupId}`);
     }
   };
 
-  const createPoll = async () => {
-    if (!groupId || !pollQuestion.trim() || pollOptions.some(o => !o.trim())) return;
-    
-    const path = `groups/${groupId}/polls`;
-    try {
-      await addDoc(collection(db, path), {
-        question: pollQuestion,
-        options: pollOptions,
-        creatorId: user?.uid,
-        createdAt: serverTimestamp(),
-        votes: {},
-        userVotes: {}
-      });
-      setShowPollCreator(false);
-      setPollQuestion('');
-      setPollOptions(['', '']);
-      addPoints(25); // Bonus for creating structured content
-      await sendMessage(`[SIGNAL] Community intelligence poll deployed: ${pollQuestion}`, 'text');
-    } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, path);
-    }
-  };
-
-  const handleAIResponse = async (userPrompt: string) => {
-    setIsBotTyping(true);
-    try {
-      const recentContext = messages.slice(-10).map(m => ({
-        user: m.userName,
-        text: m.text,
-        isAI: m.isAI
-      }));
-      
-      const response = await askPersona(
-        userPrompt,
-        persona,
-        {
-          groupName: group?.name || 'Protocol Hub',
-          recentMessages: recentContext
-        }
-      );
-
-      await sendMessage(response, 'ai', '', true, {
-        aiName: persona.name,
-        aiAvatar: persona.avatarUrl
-      });
-
-      // Record interaction if it was a custom agent
-      if (activeAgent && user) {
-        // Approximate token count (words * 1.5)
-        const tokens = Math.ceil((userPrompt.split(' ').length + response.split(' ').length) * 1.5);
-        await recordInteraction(activeAgent.id, user.uid, userPrompt, response, tokens);
-      }
-    } catch (error) {
-      console.error("AI Error:", error);
-      await sendMessage("Protocol Error: Connection to neural link unstable. Please retry transmission.", 'ai', '', true, {
-        aiName: persona.name,
-        aiAvatar: persona.avatarUrl
-      });
-    } finally {
-      setIsBotTyping(false);
-    }
-  };
-
-  if (!user) {
-    return (
-      <div className="pt-24 min-h-screen bg-bg-dark text-white flex flex-col items-center justify-center px-10 relative overflow-hidden">
-        <div className="absolute inset-0 z-0">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px]"></div>
-        </div>
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="relative z-10 flex flex-col items-center text-center"
-        >
-          <div className="w-24 h-24 bg-white/5 rounded-[2.5rem] flex items-center justify-center mb-10 border border-white/10 shadow-2xl backdrop-blur-xl">
-            <Lock className="w-10 h-10 text-primary animate-pulse" />
-          </div>
-          <h2 className="text-5xl md:text-8xl font-bold tracking-tighter mb-8 leading-none italic">Secure <br/><span className="text-primary not-italic">Uplink.</span></h2>
-          <p className="text-xl md:text-2xl text-gray-500 mb-14 max-w-md font-medium leading-relaxed">
-            Communication channels are encrypted. Authentication required for signal insertion.
-          </p>
-          <button 
-            onClick={signInWithGoogle}
-            className="px-12 py-6 bg-primary text-white rounded-3xl font-black uppercase tracking-[0.3em] text-sm flex items-center gap-4 hover:scale-105 active:scale-95 transition-all shadow-2xl shadow-primary/40"
-          >
-            <LogIn className="w-5 h-5" />
-            Establish Identity
-          </button>
-        </motion.div>
-      </div>
-    );
-  }
+  const filteredMessages = messages.filter(msg => 
+    msg.text.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    msg.userName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <div className="pt-20 h-screen bg-bg-dark text-white flex flex-col overflow-hidden">
-      {/* Chat Header */}
-      <div className="h-20 md:h-24 border-b border-white/5 bg-white/5 backdrop-blur-3xl px-4 md:px-8 flex items-center justify-between flex-shrink-0 z-30">
-        <div className="flex items-center gap-3 md:gap-6">
-          <Link to="/groups" className="text-gray-300 hover:text-white transition-colors p-2">
-            <ArrowLeft className="w-5 h-5 md:w-6 h-6" />
-          </Link>
-          <div className="flex items-center gap-2 md:gap-4">
-            <div 
-              className="w-10 h-10 md:w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold italic md:text-xl shadow-2xl"
-              style={{ backgroundColor: group?.accentColor || '#534ab7' }}
-            >
-              {group?.name?.[0] || 'G'}
+    <div className="pt-20 h-screen bg-[#0a0a0a] text-white flex overflow-hidden font-sans">
+      {/* 1. Channel Sidebar (Left) */}
+      <AnimatePresence>
+        {showSidebar && (
+          <motion.div 
+            initial={{ x: -260 }}
+            animate={{ x: 0 }}
+            exit={{ x: -260 }}
+            className="w-64 h-full bg-[#121212] border-r border-white/5 flex flex-col flex-shrink-0 z-40"
+          >
+            <div className="p-4 border-b border-white/5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div 
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-black italic shadow-lg"
+                  style={{ backgroundColor: group?.accentColor || '#534ab7' }}
+                >
+                  {group?.name?.[0] || 'G'}
+                </div>
+                <h1 className="text-sm font-black tracking-tight truncate">{group?.name || 'Protocol Hub'}</h1>
+              </div>
+              <button 
+                onClick={() => setShowSettings(!showSettings)}
+                className="text-gray-500 hover:text-white"
+              >
+                <ChevronDown className="w-4 h-4" />
+              </button>
             </div>
-            <div className="max-w-[120px] md:max-w-none">
-              <h1 className="text-sm md:text-xl font-bold tracking-tight truncate">{group?.name || 'Protocol Hub'}</h1>
-              <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-green-500 animate-pulse"></span>
-                <span className="text-[8px] md:text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                  {isMember ? (member?.role || 'Active') : 'Spectator'}
-                </span>
+
+            <div className="flex-grow overflow-y-auto no-scrollbar p-2 space-y-6">
+              <div>
+                <div className="px-2 mb-2 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-500">
+                  <span>Text Channels</span>
+                </div>
+                <div className="space-y-0.5">
+                  {channelsLoading ? (
+                    [1,2,3].map(i => <div key={i} className="h-10 bg-white/5 animate-pulse rounded-lg mx-2"></div>)
+                  ) : channels.map(ch => (
+                    <Link 
+                      key={ch.id}
+                      to={`/groups/${groupId}/channels/${ch.id}`}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all font-bold text-sm",
+                        channelId === ch.id 
+                          ? "bg-white/10 text-white" 
+                          : "text-gray-500 hover:bg-white/5 hover:text-gray-300"
+                      )}
+                    >
+                      {ch.type === 'announcements' ? <Megaphone className="w-4 h-4" /> : <Hash className="w-4 h-4" />}
+                      {ch.name}
+                    </Link>
+                  ))}
+                </div>
               </div>
             </div>
+
+            <div className="p-3 bg-[#0d0d0d] border-t border-white/5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <img src={user?.photoURL || `https://ui-avatars.com/api/?name=${user?.displayName || 'U'}&background=random&color=fff`} className="w-8 h-8 rounded-full" />
+                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-[#0d0d0d] rounded-full"></div>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black tracking-tight truncate max-w-[100px]">{user?.displayName}</span>
+                  <span className="text-[8px] font-bold text-gray-600 uppercase">#{user?.uid.slice(0, 4)}</span>
+                </div>
+              </div>
+              <button onClick={() => navigate('/settings')} className="p-1.5 text-gray-500 hover:text-white rounded-md hover:bg-white/5">
+                <Settings className="w-4 h-4" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 2. Main Chat Context */}
+      <div className="flex-grow flex flex-col min-w-0 bg-[#161616]">
+        <div className="h-14 border-b border-white/5 bg-[#161616]/80 backdrop-blur-xl px-4 flex items-center justify-between z-30">
+          <div className="flex items-center gap-2">
+            {!showSidebar && (
+              <button onClick={() => setShowSidebar(true)} className="p-2 text-gray-500 hover:text-white mr-2">
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            )}
+            <Hash className="w-5 h-5 text-gray-500" />
+            <h1 className="font-black tracking-tight text-sm">{activeChannel?.name || 'general'}</h1>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setShowPins(!showPins)}
+              className={cn("p-2 transition-colors", showPins ? "text-primary" : "text-gray-500 hover:text-white")}
+            >
+              <Pin className="w-5 h-5" />
+            </button>
+            <div className="relative w-48 md:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+              <input 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search"
+                className="w-full bg-[#0a0a0a] border-none rounded-md pl-9 pr-3 py-1.5 text-xs font-medium focus:ring-1 focus:ring-primary/50 outline-none"
+              />
+            </div>
+            <button 
+              onClick={() => setShowMemberSidebar(!showMemberSidebar)}
+              className={cn("p-2 transition-colors", showMemberSidebar ? "text-primary" : "text-gray-500 hover:text-white")}
+            >
+              <Users className="w-5 h-5" />
+            </button>
           </div>
         </div>
-        
-        <div className="flex items-center gap-2 md:gap-6">
-          <div className="hidden lg:flex flex-col items-end mr-4">
-            <span className="text-[10px] font-black uppercase tracking-widest text-primary">{stats?.points || 0} XP</span>
-            <div className="w-24 h-1 bg-white/5 rounded-full mt-1 overflow-hidden">
-               <div 
-                className="h-full bg-primary transition-all duration-500" 
-                style={{ width: `${((stats?.points || 0) % 100)}%` }}
-               ></div>
-            </div>
-          </div>
-          <div className="hidden sm:flex items-center -space-x-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="w-8 h-8 md:w-10 md:h-10 rounded-full border-2 border-bg-dark bg-white/10 flex items-center justify-center overflow-hidden">
-                <img src={`https://i.pravatar.cc/100?u=${i + (group?.id || '')}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-              </div>
-            ))}
-          </div>
-          <button 
-            onClick={handleSummarize}
-            disabled={isSummarizing}
-            className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors text-primary disabled:opacity-50"
-            title="Summarize Recent Signals"
-          >
-            {isSummarizing ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <Sparkles className="w-5 h-5" />
-            )}
-          </button>
-          <button 
-            onClick={() => {
-              navigator.clipboard.writeText(window.location.href);
-              showToast("Node address copied to clipboard. Share with authorized entities.", "info");
-            }}
-            className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors text-gray-400"
-            title="Copy Invite Address"
-          >
-            <Paperclip className="w-5 h-5" />
-          </button>
-          <button 
-            onClick={() => setShowMembers(true)}
-            className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
-          >
-            <Users className="w-5 h-5 text-gray-400" />
-          </button>
-          
-          <div className="relative">
-            <button 
-              onClick={() => setShowSettings(!showSettings)}
-              className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
-            >
-              <MoreVertical className="w-5 h-5 text-gray-400" />
-            </button>
-            <AnimatePresence>
-              {showSettings && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  className="absolute right-0 mt-4 w-64 bg-[#121212] border border-white/10 rounded-2xl shadow-full overflow-hidden z-50 backdrop-blur-3xl"
-                >
-                  <div className="p-4 border-b border-white/5">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Node Management</span>
-                  </div>
-                  <div className="p-2 space-y-1">
-                    {isAdmin && (
-                      <>
-                        <button 
-                          onClick={() => { setIsEditing(true); setShowSettings(false); }}
-                          className="w-full flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl transition-all text-sm font-bold text-gray-300"
-                        >
-                          <Edit2 className="w-4 h-4" /> Rename Cluster
-                        </button>
-                        <button 
-                          onClick={handleDeleteGroup}
-                          className="w-full flex items-center gap-3 p-3 hover:bg-red-500/10 rounded-xl transition-all text-sm font-bold text-red-500"
-                        >
-                          <Trash2 className="w-4 h-4" /> Purge Cluster
-                        </button>
-                      </>
-                    )}
-                    <button className="w-full flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl transition-all text-sm font-bold text-gray-300">
-                      <ShieldAlert className="w-4 h-4" /> Group Guidelines
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+
+        <div className="flex-grow overflow-y-auto no-scrollbar px-6 py-4 space-y-1 relative">
+           {loading ? (
+             <ChatSkeleton />
+           ) : filteredMessages.length === 0 ? (
+             <div className="h-full flex flex-col items-center justify-center opacity-40 py-20">
+               <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-4">
+                 <Hash className="w-10 h-10 text-gray-500" />
+               </div>
+               <h3 className="text-xl font-black italic">
+                 {searchQuery ? "No signals matching query" : `Welcome to #${activeChannel?.name || 'general'}!`}
+               </h3>
+             </div>
+           ) : (
+             filteredMessages.map((msg) => (
+               <MessageNode 
+                 key={msg.id} 
+                 message={msg} 
+                 isMe={msg.userId === user?.uid} 
+                 isAdmin={isAdmin}
+                 onReact={reactToMessage}
+                 onDelete={deleteMessage}
+                 onEdit={editMessage}
+                 onPin={togglePinMessage}
+                 status={statuses[msg.userId]}
+               />
+             ))
+           )}
+           <div ref={messagesEndRef} />
+        </div>
+
+        <div className="px-4 pb-6 pt-2">
+           {typingUsers.length > 0 && (
+             <div className="px-4 py-1 flex items-center gap-2 mb-1">
+               <div className="flex gap-1">
+                 <span className="w-1 h-1 bg-primary/40 rounded-full animate-bounce"></span>
+                 <span className="w-1 h-1 bg-primary/40 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                 <span className="w-1 h-1 bg-primary/40 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+               </div>
+               <span className="text-[10px] font-black text-gray-500 italic">
+                 {typingUsers.join(', ')} typing...
+               </span>
+             </div>
+           )}
+           <div className="bg-[#242424] rounded-xl flex items-center gap-3 p-3 focus-within:ring-1 ring-primary/30 transition-all">
+             <button className="text-gray-500 hover:text-white p-1">
+               <Plus className="w-5 h-5" />
+             </button>
+             <input 
+                value={inputText}
+                onChange={(e) => {
+                  setInputText(e.target.value);
+                  setTyping(e.target.value.length > 0);
+                }}
+                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                placeholder={`Message #${activeChannel?.name || 'general'}`}
+                className="flex-grow bg-transparent border-none outline-none text-sm font-medium h-10"
+             />
+             <button 
+                onClick={() => handleSendMessage()}
+                disabled={!inputText.trim()}
+                className="bg-primary p-2.5 rounded-lg text-white shadow-lg disabled:opacity-50"
+             >
+               <Send className="w-4 h-4" />
+             </button>
+           </div>
         </div>
       </div>
 
-      {/* Main Chat Area */}
-      <div className="flex-grow flex flex-col min-h-0 relative">
-        {/* Search Bar */}
-        <div className="px-6 md:px-10 py-4 border-b border-white/5 bg-bg-dark/50 backdrop-blur-md sticky top-0 z-40">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-            <input 
-              type="text"
-              placeholder="Search transmission logs..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-sm font-medium focus:border-primary/50 outline-none transition-all placeholder:text-gray-600"
-            />
-            {searchQuery && (
-              <button 
-                onClick={() => setSearchQuery("")}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="flex-grow overflow-y-auto no-scrollbar px-4 md:px-8 py-6 md:py-10 space-y-8 md:space-y-10 relative">
-          {/* Background Visuals */}
-        <div className="fixed inset-0 pointer-events-none opacity-20">
-          <div className="absolute top-1/4 left-1/4 w-[300px] md:w-[400px] h-[300px] md:h-[400px] bg-primary/5 rounded-full blur-[100px] md:blur-[120px]"></div>
-          <div className="absolute bottom-1/4 right-1/4 w-[300px] md:w-[400px] h-[300px] md:h-[400px] bg-blue-500/5 rounded-full blur-[100px] md:blur-[120px]"></div>
-        </div>
-
-        {messages.length === 0 && !loading && (
-          <div className="flex flex-col items-center justify-center h-full text-center space-y-6">
-            <div className="w-16 h-16 md:w-20 md:h-20 bg-white/5 rounded-3xl flex items-center justify-center border border-white/5">
-              <Bot className="w-8 h-8 md:w-10 md:h-10 text-primary" />
-            </div>
-            <p className="text-gray-500 font-bold uppercase tracking-[0.3em] text-[10px]">Awaiting primary signal initiation...</p>
-          </div>
-        )}
-
-        {loading ? (
-          <div className="flex flex-col items-center justify-center h-full gap-6">
-            <Loader2 className="w-8 h-8 md:w-10 md:h-10 text-primary animate-spin" />
-            <p className="text-gray-500 font-bold uppercase tracking-widest text-[9px] md:text-[10px]">Syncing Archive...</p>
-          </div>
-        ) : filteredMessages.length === 0 && searchQuery !== "" ? (
-          <div className="flex flex-col items-center justify-center h-full text-center space-y-6 opacity-40">
-            <Search className="w-16 h-16 md:w-20 md:h-20 text-gray-700" />
-            <p className="text-gray-500 font-bold uppercase tracking-[0.3em] text-[10px]">No signals matching "{searchQuery}" detected</p>
-          </div>
-        ) : (
-          <div className="space-y-8 md:space-y-10">
-            {/* Display Active Polls */}
-            {polls.map(poll => {
-              const pollVotes = (poll.votes || {}) as Record<number, number>;
-              const totalVotes = Object.values(pollVotes).reduce((a, b) => (a as number) + (b as number), 0) as number;
-              const userVoted = poll.userVotes?.[user?.uid || ''];
-              
-              return (
-                <motion.div 
-                  key={poll.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="max-w-full md:max-w-2xl bg-white/5 border border-white/10 p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] backdrop-blur-xl relative overflow-hidden group"
-                >
-                  <div className="absolute top-0 left-0 w-1 h-full bg-primary"></div>
-                  <div className="flex items-center gap-3 mb-4 md:mb-6">
-                    <BarChart3 className="w-4 h-4 md:w-5 md:h-5 text-primary" />
-                    <span className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.3em] text-gray-500">Active Directive Vote</span>
-                  </div>
-                  <h3 className="text-xl md:text-2xl font-bold tracking-tight mb-6 md:mb-8">{poll.question}</h3>
-                  
-                  <div className="space-y-3 md:space-y-4">
-                    {poll.options.map((opt, idx) => {
-                      const count = (pollVotes[idx] || 0) as number;
-                      const percent = totalVotes > 0 ? (count / totalVotes) * 100 : 0;
-                      return (
-                        <button 
-                          key={idx}
-                          onClick={() => userVoted === undefined && vote(poll.id, idx)}
-                          disabled={userVoted !== undefined}
-                          className={cn(
-                            "w-full p-4 md:p-5 rounded-xl md:rounded-2xl border transition-all relative overflow-hidden text-left font-bold flex justify-between items-center",
-                            userVoted === idx ? "border-primary bg-primary/10" : "border-white/5 bg-white/5 hover:bg-white/10"
-                          )}
-                        >
-                          <div 
-                            className="absolute inset-0 bg-primary/10 transition-all duration-1000" 
-                            style={{ width: `${percent}%` }}
-                          ></div>
-                          <span className="relative z-10 text-sm md:text-base">{opt}</span>
-                          <span className="relative z-10 text-[10px] md:text-xs text-gray-500">{Math.round(percent)}%</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <div className="mt-6 md:mt-8 flex justify-between items-center text-[8px] md:text-[10px] font-bold uppercase tracking-widest text-gray-600">
-                    <span>{totalVotes} Votes Registered</span>
-                    {userVoted !== undefined && <span className="text-primary flex items-center gap-2"><CheckCircle2 className="w-3 h-3" /> Signature Confirmed</span>}
-                  </div>
-                </motion.div>
-              );
-            })}
-
-            {filteredMessages.map((msg, i) => {
-            const isMe = msg.userId === user.uid;
-            return (
-              <motion.div 
-                key={msg.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={cn(
-                  "flex items-end gap-3 md:gap-4 max-w-[90%] md:max-w-[85%] group",
-                  isMe ? "ml-auto flex-row-reverse" : "mr-auto"
-                )}
-              >
-                {!isMe && (
-                  <div className={cn(
-                    "w-8 h-8 md:w-10 md:h-10 rounded-full flex-shrink-0 overflow-hidden border",
-                    msg.isAI ? "border-primary/50" : "border-white/10"
-                  )}>
-                    {msg.isAI ? (
-                      <img src={msg.userAvatar || persona.avatarUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    ) : (
-                      <img src={msg.userAvatar || `https://i.pravatar.cc/100?u=${msg.userId}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    )}
-                  </div>
-                )}
-                
-                <div className="flex flex-col gap-1.5 md:gap-2 relative">
-                  <div className={cn(
-                    "px-4 md:px-6 py-3 md:py-4 rounded-2xl md:rounded-[1.5rem] relative",
-                    isMe 
-                      ? "bg-primary text-white rounded-br-none" 
-                      : msg.isAI 
-                        ? "text-white rounded-bl-none shadow-[0_0_20px_rgba(59,130,246,0.1)] border" 
-                        : "bg-white/10 text-white rounded-bl-none"
-                  )}
-                  style={msg.isAI ? { 
-                    backgroundColor: `${persona.accentColor}10`,
-                    borderColor: `${persona.accentColor}40`
-                  } : {}}>
-                    {!isMe && !msg.isAI && (
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-primary">
-                          {msg.userName}
-                        </span>
-                      </div>
-                    )}
-                    {msg.isAI && (
-                       <div className="flex items-center gap-2 mb-2">
-                         <div className="w-4 h-4 rounded flex items-center justify-center" style={{ backgroundColor: `${persona.accentColor}20` }}>
-                           <Sparkles className="w-2.5 h-2.5" style={{ color: persona.accentColor }} />
-                         </div>
-                         <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest" style={{ color: persona.accentColor }}>
-                          {msg.userName || persona.name} Intelligence
-                        </span>
-                       </div>
-                    )}
-                    <div className="flex items-start justify-between gap-3 md:gap-4">
-                      <p className={cn(
-                        "text-xs md:text-sm font-medium leading-relaxed",
-                        msg.isAI ? "text-blue-50/90 italic" : ""
-                      )}>{msg.text}</p>
-                      
-                      {/* Reaction Picker Trigger */}
-                      <div className={cn(
-                        "flex items-center gap-2",
-                        isMe ? "flex-row-reverse" : ""
-                      )}>
-                        {!msg.isAI && (
-                          <div className="relative group/picker">
-                            <button className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-white transition-all p-1">
-                              <Smile className="w-4 h-4" />
-                            </button>
-                            <div className={cn(
-                              "absolute bottom-full mb-2 bg-[#1a1a1a] border border-white/10 rounded-full p-1.5 flex gap-1 shadow-2xl opacity-0 group-hover/picker:opacity-100 pointer-events-none group-hover/picker:pointer-events-auto transition-all z-40",
-                              isMe ? "right-0" : "left-0"
-                            )}>
-                              {['👍', '❤️', '🔥', '😂', '😮', '😢'].map(emoji => (
-                                <button 
-                                  key={emoji}
-                                  onClick={() => reactToMessage(msg.id, emoji)}
-                                  className="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center text-lg transition-transform active:scale-125"
-                                >
-                                  {emoji}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {!isMe && !msg.isAI && (
-                          <div className="flex items-center gap-2">
-                             <button 
-                              onClick={() => reportMessage(msg)}
-                              className="opacity-0 group-hover:opacity-100 text-gray-700 hover:text-red-500 transition-all p-1"
-                              title="Report Signal"
-                            >
-                              <ShieldAlert className="w-3 h-3" />
-                            </button>
-                            {isModerator && (
-                               <button 
-                                onClick={() => deleteMessage(msg.id)}
-                                className="opacity-0 group-hover:opacity-100 text-gray-700 hover:text-red-500 transition-all p-1"
-                                title="Purge Signal"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            )}
-                          </div>
-                        )}
-                        {isMe && (
-                           <button 
-                            onClick={() => deleteMessage(msg.id)}
-                            className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-white transition-all p-1"
-                            title="Purge Signal"
-                          >
-                             <X className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {msg.type === 'image' && msg.fileUrl && (
-                      <div className="mt-4 rounded-xl overflow-hidden border border-white/10">
-                        <img src={msg.fileUrl} className="max-w-full h-auto" referrerPolicy="no-referrer" />
-                      </div>
-                    )}
-
-                    {/* Reactions Display */}
-                    {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-                      <div className={cn(
-                        "flex flex-wrap gap-1 mt-3",
-                        isMe ? "justify-end" : "justify-start"
-                      )}>
-                        {Object.entries(msg.reactions || {}).map(([emoji, uIds]) => {
-                          const userIds = uIds as string[];
-                          return (
-                            <button
-                              key={emoji}
-                              onClick={() => reactToMessage(msg.id, emoji)}
-                              className={cn(
-                                "flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold border transition-all",
-                                user && userIds.includes(user.uid)
-                                  ? "bg-primary/20 border-primary/40 text-white"
-                                  : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
-                              )}
-                            >
-                              <span>{emoji}</span>
-                              <span>{userIds.length}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                  <span className={cn(
-                    "text-[7px] md:text-[8px] font-bold uppercase tracking-widest text-gray-600",
-                    isMe ? "text-right" : "text-left"
-                  )}>
-                    {msg.createdAt?.toDate?.()?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Pending'}
-                  </span>
-                </div>
-              </motion.div>
-            )
-          })
-        }
-        
-        {/* Bot Typing Indicator */}
-        <AnimatePresence>
-          {isBotTyping && (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="flex items-end gap-3 md:gap-4 max-w-[85%] mr-auto mb-4"
-            >
-              <div className="w-8 h-8 md:w-10 md:h-10 rounded-full flex-shrink-0 overflow-hidden border border-primary/30">
-                <img src={persona.avatarUrl} className="w-full h-full object-cover" />
-              </div>
-              <div className={cn(
-                "px-5 py-3 border rounded-2xl rounded-bl-none flex flex-col gap-2",
-                "bg-white/5 border-white/10"
-              )}
-              style={{ backgroundColor: `${persona.accentColor}05`, borderColor: `${persona.accentColor}20` }}>
-                <span className="text-[7px] font-black uppercase tracking-widest flex items-center gap-2" style={{ color: persona.accentColor }}>
-                  <Sparkles className="w-2.5 h-2.5" />
-                  {persona.name} is processing...
-                </span>
-                <div className="flex gap-1.5 items-center">
-                  <span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                  <span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                  <span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce"></span>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        </div>
-      )}
-
-        <AnimatePresence>
-          {showPollCreator && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-bg-dark/80 backdrop-blur-md"
-            >
-              <motion.div 
-                initial={{ scale: 0.9, y: 20 }}
-                animate={{ scale: 1, y: 0 }}
-                className="bg-[#121212] border border-white/10 p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] w-full max-w-xl shadow-full overflow-y-auto max-h-[90vh] no-scrollbar"
-              >
-                <div className="flex justify-between items-center mb-8 md:mb-10">
-                  <h3 className="text-2xl md:text-3xl font-bold tracking-tighter">Initialize <span className="text-primary italic">Poll.</span></h3>
-                  <button onClick={() => setShowPollCreator(false)} className="text-gray-400 hover:text-white p-2"><X /></button>
-                </div>
-
-                <div className="space-y-6 md:space-y-8">
-                  <div className="space-y-2 md:space-y-3">
-                    <label className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 ml-2">Objective Question</label>
-                    <input 
-                      value={pollQuestion}
-                      onChange={(e) => setPollQuestion(e.target.value)}
-                      className="w-full bg-white/5 border border-white/5 p-4 md:p-6 rounded-xl md:rounded-2xl outline-none focus:border-primary transition-all text-lg md:text-xl font-bold"
-                      placeholder="Define the query..."
-                    />
-                  </div>
-
-                  <div className="space-y-3 md:space-y-4">
-                    <label className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 ml-2">Outcome Paths</label>
-                    {pollOptions.map((opt, i) => (
-                      <input 
-                        key={i}
-                        value={opt}
-                        onChange={(e) => {
-                          const newOpts = [...pollOptions];
-                          newOpts[i] = e.target.value;
-                          setPollOptions(newOpts);
-                        }}
-                        className="w-full bg-white/5 border border-white/5 px-4 md:px-6 py-3 md:py-4 rounded-xl outline-none focus:border-primary transition-all font-medium"
-                        placeholder={`Option ${i + 1}...`}
-                      />
-                    ))}
-                    <button 
-                      onClick={() => setPollOptions([...pollOptions, ''])}
-                      className="flex items-center gap-2 text-primary font-bold text-[10px] md:text-xs uppercase tracking-widest mt-2 hover:opacity-80"
-                    >
-                      <Plus className="w-3 h-3 md:w-4 md:h-4" /> Add Path
-                    </button>
-                  </div>
-
-                  <button 
-                    onClick={createPoll}
-                    className="w-full bg-primary text-white py-5 md:py-6 rounded-[1.5rem] md:rounded-[2rem] font-black uppercase tracking-[0.4em] text-[10px] md:text-sm hover:scale-[1.02] active:scale-95 transition-all shadow-2xl shadow-primary/20 mt-4"
-                  >
-                    Deploy Directive
-                  </button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {showMembers && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[80] flex items-center justify-center p-4 md:p-6 bg-bg-dark/90 backdrop-blur-xl"
-            >
-               <motion.div 
-                initial={{ scale: 0.9, y: 20 }}
-                animate={{ scale: 1, y: 0 }}
-                className="bg-[#121212] border border-white/10 rounded-[2.5rem] md:rounded-[3.5rem] w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden shadow-full"
-              >
-                 <div className="p-8 md:p-12 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-                   <div>
-                      <h3 className="text-3xl md:text-5xl font-bold tracking-tighter">Node <span className="text-primary italic">Registry.</span></h3>
-                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-2">{members.length} Entities Synchronized</p>
-                   </div>
-                   <button onClick={() => setShowMembers(false)} className="text-gray-400 hover:text-white p-2">
-                     <X className="w-8 h-8" />
-                   </button>
-                 </div>
-
-                 <div className="flex-grow overflow-y-auto p-6 md:p-10 space-y-4 no-scrollbar">
-                   {/* AI Persona Member */}
-                   <div className="flex items-center justify-between p-4 md:p-6 rounded-2xl md:rounded-3xl bg-blue-500/5 border border-blue-500/10 shadow-[0_0_20px_rgba(59,130,246,0.05)] group">
-                     <div className="flex items-center gap-4 md:gap-6">
-                       <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl md:rounded-3xl bg-primary/20 border border-primary/20 flex items-center justify-center overflow-hidden">
-                         <Bot className="w-6 h-6 md:w-8 md:h-8 text-primary animate-pulse" />
-                       </div>
-                       <div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-lg md:text-xl font-bold text-white tracking-tight">{persona.name}</span>
-                            <span className="bg-primary/20 text-primary text-[7px] md:text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest animate-pulse">
-                              CaaS — AI Node
-                            </span>
-                          </div>
-                          <p className="text-[9px] md:text-[10px] text-blue-400/60 font-bold uppercase tracking-widest mt-1 italic">{persona.role}</p>
-                          <p className="text-[8px] md:text-[9px] text-gray-500 mt-2 max-w-[200px] leading-tight">{persona.description}</p>
-                       </div>
-                     </div>
-                     <div className="text-right">
-                       <span className="text-[7px] md:text-[8px] bg-green-500/20 text-green-400 px-2 py-1 rounded-md font-bold uppercase tracking-[0.2em]">Synchronized</span>
-                     </div>
-                   </div>
-
-                   {members.map(m => (
-                     <div key={m.userId} className="flex items-center justify-between p-4 md:p-6 rounded-2xl md:rounded-3xl hover:bg-white/5 transition-all group">
-                       <div className="flex items-center gap-4 md:gap-6">
-                         <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl md:rounded-3xl bg-white/5 border border-white/10 overflow-hidden">
-                           <img src={`https://i.pravatar.cc/150?u=${m.userId}`} className="w-full h-full object-cover" />
-                         </div>
-                         <div>
-                            <div className="flex items-center gap-3">
-                              <span className="text-lg md:text-xl font-bold text-white tracking-tight">{m.userName}</span>
-                              <span className={cn(
-                                "text-[7px] md:text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest",
-                                m.role === 'admin' ? "bg-red-500/20 text-red-400" :
-                                m.role === 'moderator' ? "bg-blue-500/20 text-blue-400" :
-                                "bg-white/10 text-gray-400"
-                              )}>
-                                {m.role}
-                              </span>
-                            </div>
-                            <p className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Joined {new Date(m.joinedAt?.seconds * 1000).toLocaleDateString()}</p>
-                         </div>
-                       </div>
-
-                       {isAdmin && m.userId !== user.uid && (
-                         <div className="flex items-center gap-2">
-                            <select 
-                              value={m.role}
-                              onChange={(e) => updateRole(m.userId, e.target.value as UserRole)}
-                              className="bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest outline-none focus:border-primary"
-                            >
-                              <option value="member">Member</option>
-                              <option value="moderator">Moderator</option>
-                              <option value="admin">Admin</option>
-                            </select>
-                         </div>
-                       )}
-                     </div>
+      {/* 3. Member Sidebar (Right) */}
+      <AnimatePresence>
+        {showMemberSidebar && (
+          <motion.div 
+            initial={{ width: 0 }}
+            animate={{ width: 240 }}
+            exit={{ width: 0 }}
+            className="h-full bg-[#121212] border-l border-white/5 flex flex-col flex-shrink-0 z-30 overflow-hidden"
+          >
+            <div className="p-4 overflow-y-auto no-scrollbar space-y-6">
+               <div>
+                 <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-4 block px-2">Online — {members.filter(m => statuses[m.userId] === 'online').length}</span>
+                 <div className="space-y-1">
+                   {members.filter(m => statuses[m.userId] === 'online').map(m => (
+                     <MemberItem key={m.userId} member={m} status="online" />
+                   ))}
+                   {agents.map(a => (
+                     <MemberItem key={a.id} member={{ 
+                        userId: a.id, 
+                        userName: a.name, 
+                        role: 'Ai' as any, 
+                        joinedAt: null 
+                      }} status="online" isAI />
                    ))}
                  </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+               </div>
 
-        <AnimatePresence>
-          {chatSummary && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[60] flex items-center justify-center p-4 md:p-6 bg-bg-dark/90 backdrop-blur-xl"
-            >
-              <motion.div 
-                initial={{ scale: 0.9, y: 20 }}
-                animate={{ scale: 1, y: 0 }}
-                className="bg-[#121212] border border-primary/20 p-8 md:p-12 rounded-[2.5rem] md:rounded-[3rem] w-full max-w-2xl shadow-[0_0_50px_rgba(83,74,183,0.2)] relative overflow-hidden"
-              >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl rounded-full"></div>
-                <div className="flex justify-between items-center mb-10 relative z-10">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center">
-                      <Sparkles className="w-6 h-6 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="text-2xl md:text-3xl font-bold tracking-tighter">Signal <span className="text-primary italic">Archive.</span></h3>
-                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">AI Generated Summary</p>
-                    </div>
-                  </div>
-                  <button onClick={() => setChatSummary(null)} className="text-gray-400 hover:text-white p-2"><X /></button>
-                </div>
-                
-                <div className="prose prose-invert max-w-none relative z-10">
-                  <div className="bg-white/5 rounded-3xl p-6 md:p-8 border border-white/5 text-gray-300 leading-relaxed font-medium text-lg whitespace-pre-line max-h-[50vh] overflow-y-auto no-scrollbar">
-                    {chatSummary}
-                  </div>
-                </div>
-
-                <div className="mt-10 flex flex-col md:flex-row gap-4 relative z-10">
-                  <button 
-                    onClick={() => {
-                      sendMessage(`[ARCHIVE SUMMARY] ${chatSummary.slice(0, 500)}...`, 'ai', '', true);
-                      setChatSummary(null);
-                    }}
-                    className="flex-grow bg-primary text-white py-5 rounded-2xl font-black uppercase tracking-[0.3em] text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-2xl shadow-primary/30"
-                  >
-                    Broadcast to Network
-                  </button>
-                  <button 
-                    onClick={() => setChatSummary(null)}
-                    className="px-8 py-5 bg-white/5 text-gray-400 rounded-2xl font-bold border border-white/5 hover:bg-white/10 transition-all"
-                  >
-                    Close Archive
-                  </button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {moderationWarning && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[70] flex items-center justify-center p-6 bg-red-950/20 backdrop-blur-md"
-            >
-              <motion.div 
-                initial={{ scale: 0.9, y: 20 }}
-                animate={{ scale: 1, y: 0 }}
-                className="bg-[#1a0a0a] border border-red-500/30 p-10 rounded-[3rem] w-full max-w-lg shadow-2xl text-center"
-              >
-                <div className="w-20 h-20 bg-red-500/20 rounded-[2rem] flex items-center justify-center mx-auto mb-8 border border-red-500/30">
-                  <ShieldAlert className="w-10 h-10 text-red-500 animate-pulse" />
-                </div>
-                <h3 className="text-3xl font-bold tracking-tighter text-white mb-4">Signal <span className="text-red-500 italic">Blocked.</span></h3>
-                <p className="text-gray-400 font-medium mb-10 leading-relaxed">
-                  {moderationWarning}
-                  <br/><br/>
-                  <span className="text-[10px] uppercase font-black tracking-widest text-red-500/50">Community integrity protocol enforcement active</span>
-                </p>
-                <button 
-                  onClick={() => setModerationWarning(null)}
-                  className="w-full bg-red-500 text-white py-5 rounded-2xl font-black uppercase tracking-[0.3em] text-xs hover:bg-red-600 transition-all shadow-2xl shadow-red-500/30"
-                >
-                  I Understand
-                </button>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        
-        <div ref={messagesEndRef} />
-      </div>
-
-        <AnimatePresence>
-          {!isMember && !rolesLoading && user && (
-            <motion.div 
-              initial={{ opacity: 0, y: 100 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 100 }}
-              className="absolute bottom-10 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-2xl px-6"
-            >
-              <div className="bg-[#121212]/90 backdrop-blur-3xl border border-primary/30 p-8 rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl">
-                <div className="flex items-center gap-6 text-center md:text-left">
-                  <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center flex-shrink-0 border border-primary/20">
-                    <Users className="w-8 h-8 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold tracking-tight">Access <span className="text-primary italic">Restricted.</span></h3>
-                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Synchronize identity with this node to participate</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => joinGroup(user?.displayName || 'Anonymous Node')}
-                  className="whitespace-nowrap bg-primary text-white px-8 py-4 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] hover:scale-[105] active:scale-95 transition-all shadow-xl shadow-primary/20"
-                >
-                  Join Cluster
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      {/* Toast Notification */}
-      <AnimatePresence>
-        {toast && (
-          <Toast 
-            message={toast.message} 
-            type={toast.type} 
-            onClose={hideToast} 
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Rename Modal */}
-      <AnimatePresence>
-        {isEditing && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-bg-dark/80 backdrop-blur-xl">
-             <motion.div 
-               initial={{ scale: 0.9, opacity: 0 }}
-               animate={{ scale: 1, opacity: 1 }}
-               className="bg-[#121212] border border-white/10 p-10 rounded-[3rem] w-full max-w-lg shadow-full"
-             >
-               <h3 className="text-3xl font-bold tracking-tighter mb-8">Node <span className="text-primary italic">Re-identification.</span></h3>
-               <div className="space-y-6">
-                 <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-4 mb-2 block">New Cluster Identity</label>
-                    <input 
-                      value={newName}
-                      onChange={(e) => setNewName(e.target.value)}
-                      className="w-full bg-white/5 border border-white/5 p-6 rounded-2xl outline-none focus:border-primary transition-all font-bold text-xl"
-                      placeholder="Node Name..."
-                    />
-                 </div>
-                 <div className="flex gap-4">
-                    <button 
-                      onClick={() => setIsEditing(false)}
-                      className="flex-grow bg-white/5 text-gray-400 py-5 rounded-2xl font-bold border border-white/5 hover:bg-white/10 transition-all"
-                    >
-                      Cancel
-                    </button>
-                    <button 
-                      onClick={handleUpdateName}
-                      className="flex-grow bg-primary text-white py-5 rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl shadow-primary/30"
-                    >
-                      Confirm
-                    </button>
+               <div>
+                 <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-4 block px-2">Offline</span>
+                 <div className="space-y-1">
+                   {members.filter(m => !statuses[m.userId] || statuses[m.userId] === 'offline').map(m => (
+                     <MemberItem key={m.userId} member={m} status="offline" />
+                   ))}
                  </div>
                </div>
-             </motion.div>
-          </div>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
-    </div>
-      {isMember ? (
-        <div className="p-4 md:p-8 border-t border-white/5 bg-bg-dark z-30">
-          <form 
-            onSubmit={handleSendMessage}
-            className="max-w-5xl mx-auto flex items-center gap-2 md:gap-4 bg-white/5 border border-white/5 rounded-2xl md:rounded-3xl p-2 md:p-3 focus-within:border-primary/50 transition-all shadow-2xl"
-          >
-            <div className="flex items-center gap-1 md:gap-2 md:pl-4">
-              <button type="button" className="text-gray-500 hover:text-white transition-colors p-2 hidden sm:block">
-                <Paperclip className="w-5 h-5" />
-              </button>
-              <button 
-                type="button" 
-                onClick={() => setShowPollCreator(true)}
-                className="text-gray-500 hover:text-primary transition-colors p-2"
-              >
-                <BarChart3 className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <input 
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              className="flex-grow bg-transparent border-none outline-none text-white font-medium px-2 md:px-4 text-sm md:text-base placeholder:text-gray-600 placeholder:italic"
-              placeholder="Insert signal..."
-            />
-            
-            <div className="flex items-center gap-1 md:gap-2 md:pr-2 relative">
-              <div className="relative" ref={emojiPickerRef}>
-                <button 
-                  type="button" 
-                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="text-gray-500 hover:text-white transition-colors p-2 hidden sm:block"
-                >
-                  <Smile className="w-5 h-5" />
-                </button>
-                <AnimatePresence>
-                  {showEmojiPicker && (
-                    <motion.div 
-                      initial={{ opacity: 0, scale: 0.9, y: -20 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.9, y: -20 }}
-                      className="absolute bottom-full right-0 mb-4 z-50 shadow-2xl"
-                    >
-                      <EmojiPicker 
-                        onEmojiClick={(emoji) => setInputText(prev => prev + emoji.emoji)}
-                        theme={theme === 'dark' ? EmojiTheme.DARK : EmojiTheme.LIGHT}
-                      />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+
+      {/* Modals */}
+      <AnimatePresence>
+        {moderationWarning && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-red-950/20 backdrop-blur-md">
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-[#1a0a0a] border border-red-500/30 p-10 rounded-[3rem] w-full max-w-lg shadow-2xl text-center">
+              <ShieldAlert className="w-12 h-12 text-red-500 mx-auto mb-6" />
+              <h3 className="text-2xl font-bold mb-4 italic">Signal <span className="text-red-500">Blocked.</span></h3>
+              <p className="text-gray-400 mb-8">{moderationWarning}</p>
+              <button onClick={() => setModerationWarning(null)} className="w-full bg-red-500 py-4 rounded-xl font-black uppercase text-xs">Dismiss</button>
+            </motion.div>
+          </div>
+        )}
+
+        {isEditingGroup && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-[#000]/80 backdrop-blur-xl">
+            <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="bg-[#121212] border border-white/10 p-10 rounded-[3rem] w-full max-w-lg">
+              <h3 className="text-3xl font-bold mb-8 italic">Node <span className="text-primary">Identity.</span></h3>
+              <input value={newName} onChange={(e) => setNewName(e.target.value)} className="w-full bg-white/5 border border-white/5 p-5 rounded-2xl mb-6 outline-none focus:border-primary transition-all font-bold" />
+              <div className="flex gap-4">
+                <button onClick={() => setIsEditingGroup(false)} className="flex-grow bg-white/5 py-4 rounded-2xl font-bold">Cancel</button>
+                <button onClick={handleUpdateName} className="flex-grow bg-primary py-4 rounded-2xl font-black uppercase text-xs">Confirm</button>
               </div>
-              <button 
-                type="submit"
-                disabled={!inputText.trim() || isSending}
-                className={cn(
-                  "w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center transition-all",
-                  inputText.trim() 
-                    ? "bg-primary text-white shadow-[0_10px_30px_rgba(83,74,183,0.4)] rotate-45 hover:rotate-0" 
-                    : "bg-white/5 text-gray-700"
-                )}
-              >
-                {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 md:w-5 md:h-5" />}
-              </button>
+            </motion.div>
+          </div>
+        )}
+
+        {showPins && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-bg-dark/80 backdrop-blur-md">
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-[#121212] border border-white/10 p-8 rounded-[2.5rem] w-full max-w-lg max-h-[80vh] flex flex-col">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-bold italic">Pinned <span className="text-primary not-italic">Signals.</span></h3>
+                <button onClick={() => setShowPins(false)}><X /></button>
+              </div>
+              <div className="overflow-y-auto space-y-4 no-scrollbar">
+                {messages.filter(m => m.isPinned).length === 0 ? <p className="text-center text-gray-500 py-10">No signals pinned in this channel.</p> :
+                  messages.filter(m => m.isPinned).map(msg => (
+                    <div key={msg.id} className="p-4 bg-white/5 rounded-2xl border border-white/5 relative group">
+                      <p className="text-sm text-gray-300 mb-2">{msg.text}</p>
+                      <div className="flex justify-between items-center text-[10px] text-gray-500 font-bold uppercase">
+                        <span>{msg.userName}</span>
+                        {isAdmin && <button onClick={() => togglePinMessage(msg.id, false)} className="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">Unpin</button>}
+                      </div>
+                    </div>
+                  ))
+                }
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {!isMember && !rolesLoading && user && (
+          <motion.div initial={{ y: 100 }} animate={{ y: 0 }} className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-2xl px-6">
+            <div className="bg-[#121212]/90 backdrop-blur-3xl border border-primary/30 p-8 rounded-[2.5rem] flex items-center justify-between shadow-2xl">
+              <div>
+                <h3 className="text-xl font-bold tracking-tight italic">Access <span className="text-primary">Restricted.</span></h3>
+                <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">Join this cluster to synchronize signals</p>
+              </div>
+              <button onClick={() => joinGroup(user?.displayName || 'Anonymous')} className="bg-primary text-white px-8 py-4 rounded-xl font-black uppercase text-[10px]">Join Cluster</button>
             </div>
-          </form>
-          <p className="text-[7px] md:text-[9px] text-center mt-3 md:mt-4 font-black uppercase tracking-[0.4em] text-gray-700">
-            Encrypted Signal Transmission Protocol v4.2
-          </p>
-        </div>
-      ) : (
-        <div className="p-4 md:p-10 border-t border-white/5 bg-bg-dark/50 flex items-center justify-center">
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-600">Secure Uplink Required for Transmission</p>
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
+      </AnimatePresence>
     </div>
+  );
+}
+
+// Sub-components
+function ChatSkeleton() {
+  return (
+    <div className="space-y-6">
+      {[1, 2, 3].map(i => (
+        <div key={i} className="flex items-start gap-4 animate-pulse">
+          <div className="w-10 h-10 rounded-full bg-white/5"></div>
+          <div className="flex-grow space-y-2">
+            <div className="h-4 w-32 bg-white/5 rounded"></div>
+            <div className="h-4 w-full bg-white/5 rounded"></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MemberItem({ member, status, isAI = false }: { member: any, status: string, isAI?: boolean, key?: any }) {
+  return (
+    <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-all cursor-pointer group">
+      <div className="relative">
+        <img src={`https://ui-avatars.com/api/?name=${member.userName}&background=random&color=fff`} className="w-8 h-8 rounded-full" />
+        <div className={cn("absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-[#121212]", status === 'online' ? 'bg-green-500' : 'bg-gray-600')}></div>
+      </div>
+      <div className="truncate flex flex-col">
+        <span className="text-xs font-bold truncate text-gray-300">{member.userName}</span>
+        {isAI && <span className="text-[6px] font-black uppercase text-primary">AI Node</span>}
+      </div>
+    </div>
+  );
+}
+
+function MessageNode({ message, isMe, isAdmin, onReact, onDelete, onPin, status }: any) {
+  return (
+    <div className="group/msg hover:bg-white/[0.02] -mx-6 px-6 py-2 transition-all relative flex items-start gap-4">
+      <img src={message.userAvatar || `https://ui-avatars.com/api/?name=${message.userName}&background=random&color=fff`} className="w-10 h-10 rounded-full" />
+      <div className="flex-grow">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-sm font-black text-white/90">{message.userName}</span>
+          <span className="text-[8px] text-gray-700 font-bold uppercase">{message.createdAt?.toDate ? message.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending'}</span>
+          {message.isPinned && <Pin className="w-3 h-3 text-primary" />}
+        </div>
+        <p className="text-sm text-gray-400 leading-relaxed font-medium">{message.text}</p>
+      </div>
+      
+      <div className="absolute right-6 top-2 opacity-0 group-hover/msg:opacity-100 transition-all flex items-center gap-1 bg-[#1a1a1a] border border-white/10 rounded-lg p-1">
+        {isAdmin && (
+          <button onClick={() => onPin(message.id, !message.isPinned)} className={cn("p-1.5 rounded", message.isPinned ? "text-primary" : "text-gray-500")}>
+            <Pin className="w-4 h-4" />
+          </button>
+        )}
+        {isMe && (
+          <button onClick={() => onDelete(message.id)} className="p-1.5 text-gray-500 hover:text-red-500">
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Missing common components could be imported or defined here (Toast, etc)
+// For now assuming they are available or simple enough to inline if needed.
+// I see useToast hook, assuming Toast component is reachable.
+function Toast({ message, type, onClose }: any) {
+  return (
+    <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="fixed bottom-6 right-6 z-[200]">
+      <div className={cn("px-6 py-3 rounded-2xl shadow-full border flex items-center gap-3", type === 'error' ? "bg-red-500/10 border-red-500/20 text-red-500" : "bg-primary/10 border-primary/20 text-primary")}>
+        <CheckCircle2 className="w-4 h-4" />
+        <span className="text-xs font-black uppercase tracking-widest">{message}</span>
+        <button onClick={onClose} className="ml-4 opacity-50 hover:opacity-100"><X className="w-4 h-4" /></button>
+      </div>
+    </motion.div>
   );
 }

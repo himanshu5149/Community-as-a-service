@@ -54,5 +54,17 @@ export function useModeration() {
     await updateDoc(doc(db, 'reports', reportId), { status });
   };
 
-  return { reports, loading, submitReport, updateReportStatus };
+  const moderateMessage = async (text: string) => {
+    // Simple placeholder for AI moderation logic
+    const bannedWords = ['spam', 'abuse', 'offensive'];
+    const lowerText = text.toLowerCase();
+    
+    if (bannedWords.some(word => lowerText.includes(word))) {
+      return { isSafe: false, reason: "Signal contains prohibited content detected by Community Integrity Protocol." };
+    }
+    
+    return { isSafe: true };
+  };
+
+  return { reports, loading, submitReport, updateReportStatus, moderateMessage };
 }

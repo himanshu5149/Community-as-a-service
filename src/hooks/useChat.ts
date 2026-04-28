@@ -13,9 +13,16 @@ export interface Message {
   createdAt: Timestamp;
   isAI?: boolean;
   reactions?: Record<string, string[]>; // emoji: [userIds]
+  replyTo?: {
+    messageId: string;
+    userName: string;
+    text: string;
+  };
+  isEdited?: boolean;
+  isPinned?: boolean;
 }
 
-export function useChat(groupId: string) {
+export function useChat(groupId: string, channelId?: string) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -28,7 +35,12 @@ export function useChat(groupId: string) {
     }
 
     setLoading(true);
-    const path = `groups/${groupId}/messages`;
+    // Support both legacy and new path for transition if needed, but the prompt says 
+    // "Every group must have multiple channels". We'll assume the new path.
+    const path = channelId 
+      ? `groups/${groupId}/channels/${channelId}/messages` 
+      : `groups/${groupId}/messages`; // Default to general if no channelId provided? No, let's force channelId for real-time channels.
+    
     const q = query(
       collection(db, path),
       orderBy('createdAt', 'asc'),
@@ -52,19 +64,26 @@ export function useChat(groupId: string) {
     });
 
     return unsubscribe;
-  }, [groupId, auth.currentUser]);
+  }, [groupId, channelId, auth.currentUser]);
 
   const sendMessage = async (
     text: string, 
     type: Message['type'] = 'text', 
     fileUrl?: string, 
     isAI: boolean = false,
-    options?: { aiName?: string; aiAvatar?: string }
+    options?: { 
+      aiName?: string; 
+      aiAvatar?: string;
+      replyTo?: Message['replyTo'];
+    }
   ) => {
     if (!auth.currentUser || (!text && !fileUrl)) return;
 
     setIsSending(true);
-    const path = `groups/${groupId}/messages`;
+    const path = channelId 
+      ? `groups/${groupId}/channels/${channelId}/messages` 
+      : `groups/${groupId}/messages`;
+      
     try {
       await addDoc(collection(db, path), {
         userId: isAI ? 'system_ai' : auth.currentUser.uid,
@@ -75,7 +94,10 @@ export function useChat(groupId: string) {
         fileUrl: fileUrl || '',
         createdAt: serverTimestamp(),
         isAI,
-        reactions: {}
+        reactions: {},
+        replyTo: options?.replyTo || null,
+        isEdited: false,
+        isPinned: false
       });
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, path);
@@ -95,17 +117,18 @@ export function useChat(groupId: string) {
     const userIds = [...(reactions[emoji] || [])];
 
     if (userIds.includes(userId)) {
-      // Remove reaction
       reactions[emoji] = userIds.filter(id => id !== userId);
       if (reactions[emoji].length === 0) {
         delete reactions[emoji];
       }
     } else {
-      // Add reaction
       reactions[emoji] = [...userIds, userId];
     }
 
-    const path = `groups/${groupId}/messages/${messageId}`;
+    const path = channelId 
+      ? `groups/${groupId}/channels/${channelId}/messages/${messageId}` 
+      : `groups/${groupId}/messages/${messageId}`;
+      
     try {
       await updateDoc(doc(db, path), {
         reactions
@@ -117,7 +140,10 @@ export function useChat(groupId: string) {
 
   const deleteMessage = async (messageId: string) => {
     if (!groupId) return;
-    const path = `groups/${groupId}/messages/${messageId}`;
+    const path = channelId 
+      ? `groups/${groupId}/channels/${channelId}/messages/${messageId}` 
+      : `groups/${groupId}/messages/${messageId}`;
+      
     try {
       await deleteDoc(doc(db, path));
     } catch (err) {
@@ -125,5 +151,35 @@ export function useChat(groupId: string) {
     }
   };
 
-  return { messages, loading, isSending, error, sendMessage, reactToMessage, deleteMessage };
+  const editMessage = async (messageId: string, newText: string) => {
+    if (!groupId || !newText.trim()) return;
+    const path = channelId 
+      ? `groups/${groupId}/channels/${channelId}/messages/${messageId}` 
+      : `groups/${groupId}/messages/${messageId}`;
+    try {
+      await updateDoc(doc(db, path), {
+        text: newText,
+        isEdited: true,
+        updatedAt: serverTimestamp()
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, path);
+    }
+  };
+
+  const togglePinMessage = async (messageId: string, isPinned: boolean) => {
+    if (!groupId) return;
+    const path = channelId 
+      ? `groups/${groupId}/channels/${channelId}/messages/${messageId}` 
+      : `groups/${groupId}/messages/${messageId}`;
+    try {
+      await updateDoc(doc(db, path), {
+        isPinned
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, path);
+    }
+  };
+
+  return { messages, loading, isSending, error, sendMessage, reactToMessage, deleteMessage, editMessage, togglePinMessage };
 }

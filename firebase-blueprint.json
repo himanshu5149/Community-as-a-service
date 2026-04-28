@@ -56,7 +56,7 @@
     },
     "message": {
       "title": "Group Message",
-      "description": "A message sent within a group chat.",
+      "description": "A message sent within a group channel.",
       "type": "object",
       "properties": {
         "userId": { "type": "string" },
@@ -67,9 +67,25 @@
         "fileUrl": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "isAI": { "type": "boolean" },
-        "reactions": { "type": "object", "description": "Map of emoji to list of user IDs" }
+        "reactions": { "type": "object", "description": "Map of emoji to list of user IDs" },
+        "replyTo": { "type": "object", "description": "Reference to original message" },
+        "isEdited": { "type": "boolean" },
+        "isPinned": { "type": "boolean" }
       },
       "required": ["userId", "text", "type", "createdAt"]
+    },
+    "channel": {
+      "title": "Group Channel",
+      "description": "A specific chat channel within a group.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { "type": "string", "enum": ["general", "announcements", "introductions", "resources"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["name", "type", "createdAt"]
     },
     "poll": {
       "title": "Community Poll",
@@ -236,9 +252,13 @@
       "schema": "membership",
       "description": "Members within a group."
     },
-    "/groups/{groupId}/messages/{messageId}": {
+    "/groups/{groupId}/channels/{channelId}": {
+      "schema": "channel",
+      "description": "Specific discussion channels within a group."
+    },
+    "/groups/{groupId}/channels/{channelId}/messages/{messageId}": {
       "schema": "message",
-      "description": "Chat messages within a group."
+      "description": "Messages within a specific group channel."
     },
     "/groups/{groupId}/polls/{pollId}": {
       "schema": "poll",
