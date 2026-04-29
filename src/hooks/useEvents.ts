@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, doc, setDoc, deleteDoc, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -55,17 +55,16 @@ export function useEvents(groupId?: string) {
     
     const eventRef = doc(db, path, event.id);
 
-    // Simple RSVP array management
-    const currentRSVPS = event.rsvps || [];
-    let updated;
-    if (status === 'attending') {
-      updated = [...new Set([...currentRSVPS, auth.currentUser.uid])];
-    } else {
-      updated = currentRSVPS.filter(id => id !== auth.currentUser.uid);
-    }
-
     try {
-      await setDoc(eventRef, { rsvps: updated }, { merge: true });
+      if (status === 'attending') {
+        await updateDoc(eventRef, { 
+          rsvps: arrayUnion(auth.currentUser.uid) 
+        });
+      } else {
+        await updateDoc(eventRef, { 
+          rsvps: arrayRemove(auth.currentUser.uid) 
+        });
+      }
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, path);
     }
@@ -87,10 +86,24 @@ export function useEvents(groupId?: string) {
         createdAt: serverTimestamp(),
         rsvps: [auth.currentUser.uid]
       });
+      return true;
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, path);
+      return false;
     }
   };
 
-  return { events, loading, rsvp, createEvent };
+  const deleteEvent = async (eventId: string) => {
+    if (!auth.currentUser) return;
+    const path = groupId ? `groups/${groupId}/events/${eventId}` : `events_global/${eventId}`;
+    try {
+      await deleteDoc(doc(db, groupId ? `groups/${groupId}/events` : 'events_global', eventId));
+      return true;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, path);
+      return false;
+    }
+  };
+
+  return { events, loading, rsvp, createEvent, deleteEvent };
 }

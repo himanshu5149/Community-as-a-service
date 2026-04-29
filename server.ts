@@ -46,6 +46,33 @@ async function startServer() {
     }
   });
 
+  app.post("/api/ai/agent", async (req, res) => {
+    const { query, agentId, agentName, context } = req.body;
+    if (!query || !agentName) return res.status(400).json({ error: "Missing query or agent info" });
+
+    try {
+      const result = await ai.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent(`
+        System Directive: You are ${agentName}, an autonomous intelligence node in the CaaS ecosystem.
+        ${agentId === 'aria' ? 'Your expertise is in fitness, health, and metabolic optimization.' : ''}
+        ${agentId === 'nova' ? 'Your expertise is in high-tech research, code, and system architecture.' : ''}
+        ${agentId === 'muse' ? 'Your expertise is in arts, creative writing, and aesthetic philosophy.' : ''}
+        ${agentId === 'sage' ? 'Your expertise is in history, library sciences, and general education.' : ''}
+        ${agentId === 'bridge' ? 'Your expertise is in community integration, group dynamics, and conflict resolution.' : ''}
+        
+        Group context: This message was sent in the "${context?.groupName || 'Unknown'}" community, channel "${context?.channelName || 'general'}".
+        
+        User Query: ${query}
+        
+        Respond as ${agentName}. Be concise, helpful, and maintain your specific protocol (persona). Max 3 sentences.
+      `);
+      
+      res.json({ response: result.response.text() || "Signal strength low. Query failed." });
+    } catch (error) {
+      console.error("Agent execution error:", error);
+      res.status(500).json({ response: "Intelligence node offline. Maintenance required." });
+    }
+  });
+
   app.post("/api/ai/summarize", async (req, res) => {
     const { messages } = req.body;
     if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: "Messages array is required" });

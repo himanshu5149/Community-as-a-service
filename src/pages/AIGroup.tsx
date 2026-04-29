@@ -31,6 +31,11 @@ export default function AIGroup() {
             <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Central Intelligence Command</span>
           </motion.div>
           <h1 className="text-6xl md:text-8xl font-black tracking-tighter italic mb-8">Neural <span className="text-primary not-italic">Nexus.</span></h1>
+          <div className="flex items-center justify-center gap-4 mb-4">
+            <Link to="/ai-nexus" className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline">Manage Agents</Link>
+            <span className="w-1 h-1 bg-white/10 rounded-full"></span>
+            <Link to="/admin" className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors">Admin Panel</Link>
+          </div>
           <p className="max-w-2xl mx-auto text-xl text-gray-400 font-medium leading-relaxed">
             Meet the autonomous intelligence nodes powering the CaaS ecosystem. Each agent operates with unique directives to serve their community groups.
           </p>

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { collection, addDoc, query, where, onSnapshot, serverTimestamp, updateDoc, doc, orderBy } from 'firebase/firestore';
+import { collection, addDoc, query, onSnapshot, serverTimestamp, updateDoc, doc, orderBy } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
+import { ai } from '../lib/gemini';
+import { Type } from "@google/genai";
 
 export interface Report {
   id: string;
@@ -22,7 +24,6 @@ export function useModeration() {
       return;
     }
 
-    // Only fetch for admins (this check should be in security rules too)
     const q = query(
       collection(db, 'reports'),
       orderBy('createdAt', 'desc')
@@ -55,15 +56,42 @@ export function useModeration() {
   };
 
   const moderateMessage = async (text: string) => {
-    // Simple placeholder for AI moderation logic
-    const bannedWords = ['spam', 'abuse', 'offensive'];
-    const lowerText = text.toLowerCase();
-    
-    if (bannedWords.some(word => lowerText.includes(word))) {
-      return { isSafe: false, reason: "Signal contains prohibited content detected by Community Integrity Protocol." };
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Analyze the following message for community policy violations (harassment, hate speech, explicit content, spam, or high-risk behavior). 
+        Message: "${text}"
+        
+        Return a JSON object with:
+        - isSafe: boolean
+        - reason: string (brief explanation if not safe, otherwise empty)
+        - riskLevel: "none" | "low" | "medium" | "high"`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              isSafe: { type: Type.BOOLEAN },
+              reason: { type: Type.STRING },
+              riskLevel: { type: Type.STRING }
+            },
+            required: ["isSafe", "reason", "riskLevel"]
+          }
+        }
+      });
+
+      const result = JSON.parse(response.text || "{}");
+      return {
+        isSafe: result.isSafe ?? true,
+        reason: result.reason || "",
+        riskLevel: result.riskLevel || "none"
+      };
+    } catch (error) {
+      console.error("AI Moderation Error:", error);
+      // Fallback to safe if AI fails to avoid blocking user unfairly, 
+      // or implement basic regex as fallback
+      return { isSafe: true, reason: "", riskLevel: "none" };
     }
-    
-    return { isSafe: true };
   };
 
   return { reports, loading, submitReport, updateReportStatus, moderateMessage };

@@ -24,6 +24,7 @@ export default function Conversation() {
   const [convData, setConvData] = useState<any>(null);
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [inputText, setInputText] = useState('');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -152,6 +153,16 @@ export default function Conversation() {
                 isMe ? "bg-primary text-white rounded-br-none" : "bg-white/5 border border-white/5 text-white rounded-bl-none"
               )}>
                 <p className="text-sm font-medium leading-relaxed">{msg.text}</p>
+                {msg.fileUrl && msg.type === 'image' && (
+                  <div className="mt-3 rounded-xl overflow-hidden border border-white/10">
+                    <img src={msg.fileUrl} alt="Attachment" className="max-w-full h-auto" />
+                  </div>
+                )}
+                {msg.fileUrl && msg.type === 'video' && (
+                  <div className="mt-3 rounded-xl overflow-hidden border border-white/10 bg-black aspect-video">
+                    <video src={msg.fileUrl} controls className="w-full h-full" />
+                  </div>
+                )}
                 <div className={cn(
                   "mt-2 text-[8px] font-bold uppercase tracking-widest flex items-center gap-1",
                   isMe ? "text-white/40 justify-end" : "text-gray-600"
@@ -186,9 +197,39 @@ export default function Conversation() {
           />
           
           <div className="flex items-center gap-2">
-            <button type="button" className="text-gray-500 hover:text-white transition-colors p-3">
-              <Smile className="w-5 h-5" />
-            </button>
+            <div className="relative">
+              <button 
+                type="button" 
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                className="text-gray-500 hover:text-white transition-colors p-3"
+              >
+                <Smile className="w-5 h-5" />
+              </button>
+              <AnimatePresence>
+                {showEmojiPicker && (
+                  <motion.div 
+                    initial={{ scale: 0.8, opacity: 0, y: 10 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.8, opacity: 0, y: 10 }}
+                    className="absolute bottom-full right-0 mb-4 p-2 bg-[#121212] border border-white/10 rounded-2xl grid grid-cols-6 gap-1 shadow-full z-[60] w-48"
+                  >
+                     {['👍', '🔥', '🚀', '❤️', '👀', '😂', '💯', '✨', '🙌', '🎉', '💡', '✅', '❌', '⚠️', '🤖', '👾', '🌈', '🍕'].map(emoji => (
+                       <button 
+                         key={emoji}
+                         type="button"
+                         onClick={() => {
+                           setInputText(prev => prev + emoji);
+                           setShowEmojiPicker(false);
+                         }}
+                         className="p-2 hover:bg-white/5 rounded-lg text-lg hover:scale-125 transition-transform"
+                       >
+                         {emoji}
+                       </button>
+                     ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
             <button 
               type="submit"
               disabled={!inputText.trim()}

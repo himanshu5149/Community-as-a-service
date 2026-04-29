@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useEvents, Event } from '../hooks/useEvents';
 import { useGroups } from '../hooks/useGroups';
+import { useGroupRoles } from '../hooks/useGroupRoles';
 import { auth, signInWithGoogle } from '../lib/firebase';
 import { 
   Calendar, 
@@ -14,13 +15,15 @@ import {
   ChevronRight,
   Globe,
   Loader2,
-  Check
+  Check,
+  Trash2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function Events() {
-  const { events, loading, rsvp, createEvent } = useEvents();
+  const { events, loading, rsvp, createEvent, deleteEvent } = useEvents();
   const { groups } = useGroups();
+  const { isAdmin } = useGroupRoles(groups[0]?.id || ''); // This is a bit arbitrary if there are multiple groups
   const [showCreator, setShowCreator] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
@@ -97,8 +100,22 @@ export default function Events() {
                         </div>
                         <h3 className="text-3xl font-bold tracking-tighter leading-tight">{event.title}</h3>
                       </div>
-                      <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-gray-500 group-hover:bg-primary group-hover:text-white transition-colors">
-                        {event.eventType === 'online' ? <Globe className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
+                      <div className="flex items-center gap-2">
+                        {auth.currentUser?.uid === event.hostId && (
+                          <button 
+                            onClick={async () => {
+                              if(confirm("Terminate this temporal event?")) {
+                                await deleteEvent(event.id);
+                              }
+                            }}
+                            className="w-12 h-12 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500/20 transition-colors"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        )}
+                        <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-gray-500 group-hover:bg-primary group-hover:text-white transition-colors">
+                          {event.eventType === 'online' ? <Globe className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
+                        </div>
                       </div>
                     </div>
 

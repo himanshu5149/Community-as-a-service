@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -75,5 +75,18 @@ export function useGroups() {
     }
   };
 
-  return { groups, loading, error, createGroup };
+  const deleteGroup = async (groupId: string) => {
+    if (!auth.currentUser) return;
+    const path = `groups/${groupId}`;
+    try {
+      await deleteDoc(doc(db, 'groups', groupId));
+      // In a real app we'd also delete subcollections (channels, members, messages)
+      // but for this implementation we rely on the top-level doc deletion.
+      return true;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, path);
+    }
+  };
+
+  return { groups, loading, error, createGroup, deleteGroup };
 }

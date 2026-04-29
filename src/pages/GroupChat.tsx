@@ -52,7 +52,7 @@ import {
 export default function GroupChat() {
   const { groupId, channelId } = useParams<{ groupId: string; channelId: string }>();
   const navigate = useNavigate();
-  const { groups } = useGroups();
+  const { groups, deleteGroup } = useGroups();
   const group = groups.find(g => g.id === groupId);
   
   const { channels, loading: channelsLoading, createChannel } = useChannels(groupId || '');
@@ -78,15 +78,15 @@ export default function GroupChat() {
   const [showChannelSidebar, setShowChannelSidebar] = useState(true);
   const [showMemberSidebar, setShowMemberSidebar] = useState(true);
   const [showPins, setShowPins] = useState(false);
-  const [moderationWarning, setModerationWarning] = useState<string | null>(null);
+  const [moderationWarning, setModerationWarning] = useState<{ text: string; reason: string } | null>(null);
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [newChannelName, setNewChannelName] = useState('');
   const [replyTo, setReplyTo] = useState<Message | null>(null);
-  const [showVideoModal, setShowVideoModal] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editBuffer, setEditBuffer] = useState('');
   const [selectedMember, setSelectedMember] = useState<any | null>(null);
   const [showSearchModal, setShowSearchModal] = useState(false);
+  const [inputShowEmojis, setInputShowEmojis] = useState(false);
   const [searchFilters, setSearchFilters] = useState({
     sender: '',
     startDate: '',
@@ -130,19 +130,103 @@ export default function GroupChat() {
     return unsubscribe;
   }, []);
 
-  const handleSendMessage = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!inputText.trim()) return;
+  const handleSlashCommand = async (command: string) => {
+    const parts = command.split(' ');
+    const mainCmd = parts[0].toLowerCase();
 
-    try {
-      const moderation = await moderateMessage(inputText);
-      if (!moderation.isSafe) {
-        setModerationWarning(moderation.reason || "This signal violates community protocols.");
-        return;
+    if (mainCmd === '/help') {
+      showToast("Available Commands: /agent @name query, /summarize, /clear, /poll, /help");
+      return true;
+    }
+
+    if (mainCmd === '/clear') {
+      // Logic for client-side clearing is usually temporary state
+      showToast("Local memory purge complete.");
+      return true;
+    }
+
+    if (mainCmd === '/summarize') {
+      try {
+        const recentMessages = messages.slice(-50).map(m => ({ user: m.userName, text: m.text }));
+        const res = await fetch('/api/ai/summarize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: recentMessages })
+        });
+        const data = await res.json();
+        await sendMessage(data.summary, 'ai', undefined, true, { aiName: 'Bridge', aiAvatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=bridge' });
+      } catch (err) {
+        showToast("Intelligence node sync failed.", 'error');
+      }
+      return true;
+    }
+
+    if (mainCmd === '/agent') {
+      const mention = parts[1];
+      if (!mention || !mention.startsWith('@')) {
+        showToast("Specify an agent: /agent @Aria [query]", 'error');
+        return true;
+      }
+      const agentName = mention.substring(1);
+      const query = parts.slice(2).join(' ');
+      if (!query) {
+        showToast(`What should I transmit to ${agentName}?`, 'error');
+        return true;
       }
 
-      const textToChat = inputText;
+      try {
+        const res = await fetch('/api/ai/agent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            query, 
+            agentId: agentName.toLowerCase(), 
+            agentName,
+            context: { groupName: group?.name, channelName: activeChannel?.name } 
+          })
+        });
+        const data = await res.json();
+        await sendMessage(data.response, 'ai', undefined, true, { 
+          aiName: agentName, 
+          aiAvatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${agentName.toLowerCase()}` 
+        });
+      } catch (err) {
+        showToast("Node connection timeout.", 'error');
+      }
+      return true;
+    }
+
+    return false;
+  };
+
+  const handleSendMessage = async (e?: React.FormEvent, bypassModeration: boolean = false) => {
+    e?.preventDefault();
+    const textToChat = moderationWarning ? moderationWarning.text : inputText;
+    if (!textToChat.trim()) return;
+
+    // Handle Slash Commands
+    if (textToChat.startsWith('/')) {
+      const handled = await handleSlashCommand(textToChat);
+      if (handled) {
+        setInputText('');
+        return;
+      }
+    }
+
+    try {
+      if (!bypassModeration) {
+        const moderation = await moderateMessage(textToChat);
+        if (!moderation.isSafe) {
+          setModerationWarning({
+            text: textToChat,
+            reason: moderation.reason || "This signal violates community protocols."
+          });
+          return;
+        }
+      }
+
       setInputText('');
+      setModerationWarning(null);
       setTyping(false);
       
       const sendOptions = replyTo ? { 
@@ -171,6 +255,20 @@ export default function GroupChat() {
       showToast("Node identity reconfigured successfully.");
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `groups/${groupId}`);
+    }
+  };
+
+  const handleDeleteGroup = async () => {
+    if (!isAdmin || !groupId) return;
+    const confirmed = window.confirm("Are you certain you want to decommission this shard? All synchronization data will be lost.");
+    if (!confirmed) return;
+    
+    try {
+      await deleteGroup(groupId);
+      showToast("Node decommissioned. Sync terminated.");
+      navigate('/groups');
+    } catch (err) {
+      showToast("Decommissioning failed.", 'error');
     }
   };
 
@@ -231,6 +329,14 @@ export default function GroupChat() {
     }
   };
 
+  useEffect(() => {
+    if (!groupId || !user || rolesLoading || isMember) return;
+    
+    // Auto-join group on first visit
+    joinGroup(user.displayName || 'Anonymous');
+    showToast("Synchronized with cluster protocol.");
+  }, [groupId, user, rolesLoading, isMember]);
+
   return (
     <div className="pt-20 h-screen bg-[#0a0a0a] text-white flex overflow-hidden font-sans">
       {/* 1. Channel Sidebar (Left) */}
@@ -261,14 +367,6 @@ export default function GroupChat() {
             </div>
 
             <div className="flex-grow overflow-y-auto no-scrollbar p-2 space-y-6">
-              <button 
-                onClick={() => setShowVideoModal(true)}
-                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-all font-black uppercase text-[10px] tracking-[0.15em] mb-4"
-              >
-                <Play className="w-4 h-4 fill-primary" />
-                System Overview
-              </button>
-              
               <div>
                 <div className="px-2 mb-2 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-500">
                   <span>Text Channels</span>
@@ -360,21 +458,6 @@ export default function GroupChat() {
           </div>
           
           <div className="flex items-center gap-2 md:gap-4">
-            <div className="hidden lg:flex items-center gap-3 px-3 py-1 border-x border-white/5 mx-2">
-              <div className="flex gap-px">
-                {[1, 2, 3, 4].map(i => (
-                  <div key={i} className={cn("w-1 h-2 rounded-full", i <= 3 ? "bg-primary" : "bg-white/10")}></div>
-                ))}
-              </div>
-              <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest text-center">Signal: Stable</span>
-            </div>
-            <button 
-              onClick={() => setShowVideoModal(true)}
-              className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-all font-black uppercase text-[10px] tracking-widest"
-            >
-              <Play className="w-3 h-3 fill-primary" />
-              Walkthrough
-            </button>
             <button 
               onClick={() => setShowPins(!showPins)}
               className={cn("p-2 transition-colors", showPins ? "text-primary" : "text-gray-500 hover:text-white")}
@@ -410,16 +493,56 @@ export default function GroupChat() {
           onScroll={handleScroll}
           className="flex-grow overflow-y-auto no-scrollbar px-6 py-4 space-y-1 relative bg-[radial-gradient(#ffffff04_1px,transparent_1px)] [background-size:20px_20px]"
         >
+           {/* Pinned Messages Banner */}
+           <AnimatePresence>
+             {messages.filter(m => m.isPinned).length > 0 && (
+               <motion.div 
+                 initial={{ opacity: 0, y: -20 }}
+                 animate={{ opacity: 1, y: 0 }}
+                 exit={{ opacity: 0, y: -20 }}
+                 className="sticky top-0 z-40 mb-4 mx-[-24px] px-6"
+               >
+                 <div className="bg-primary/10 backdrop-blur-xl border-b border-primary/20 p-3 rounded-b-2xl flex items-center justify-between shadow-lg">
+                   <div className="flex items-center gap-3 overflow-hidden">
+                     <Pin className="w-3 h-3 text-primary flex-shrink-0" />
+                     <div className="flex flex-col truncate">
+                       <span className="text-[8px] font-black uppercase tracking-widest text-primary/70">Pinned Signals ({messages.filter(m => m.isPinned).length})</span>
+                       <p 
+                         className="text-xs text-gray-300 truncate cursor-pointer hover:text-white"
+                         onClick={() => {
+                           const pinned = messages.filter(m => m.isPinned)[0];
+                           if(pinned) {
+                             const el = document.getElementById(`msg-${pinned.id}`);
+                             el?.scrollIntoView({ behavior: 'smooth' });
+                           }
+                         }}
+                       >
+                         {messages.filter(m => m.isPinned)[0].text}
+                       </p>
+                     </div>
+                   </div>
+                   <button onClick={() => setShowPins(true)} className="text-[8px] font-black uppercase tracking-widest text-primary hover:underline ml-4">View All</button>
+                 </div>
+               </motion.div>
+             )}
+           </AnimatePresence>
            {loading ? (
              <ChatSkeleton />
            ) : filteredMessages.length === 0 ? (
-             <div className="h-full flex flex-col items-center justify-center opacity-40 py-20">
-               <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-4">
-                 <Hash className="w-10 h-10 text-gray-500" />
-               </div>
-               <h3 className="text-xl font-black italic">
-                 {searchQuery ? "No signals matching query" : `Welcome to #${activeChannel?.name || 'general'}!`}
+             <div className="h-full flex flex-col items-center justify-center py-20">
+               <motion.div 
+                 initial={{ opacity: 0, scale: 0.8 }}
+                 animate={{ opacity: 1, scale: 1 }}
+                 className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-4 border border-white/5"
+               >
+                 <Search className="w-10 h-10 text-gray-700" />
+               </motion.div>
+               <h3 className="text-xl font-black italic text-gray-500">
+                 {searchQuery ? "No matches found in this frequency" : `Welcome to #${activeChannel?.name || 'general'}!`}
                </h3>
+               {searchQuery && (
+                 <button onClick={() => setSearchQuery('')} className="mt-4 text-[10px] font-black uppercase text-primary hover:underline">Clear Search</button>
+               )}
              </div>
            ) : (
              filteredMessages.map((msg) => (
@@ -518,9 +641,37 @@ export default function GroupChat() {
                    className="flex-grow bg-transparent border-none outline-none text-sm font-medium h-10"
                 />
                 <div className="flex items-center gap-1">
-                   <button className="text-gray-500 hover:text-primary p-2 transition-all">
-                     <Smile className="w-4 h-4" />
-                   </button>
+                   <div className="relative">
+                      <button 
+                         onClick={() => setInputShowEmojis(!inputShowEmojis)}
+                         className="text-gray-500 hover:text-primary p-2 transition-all"
+                      >
+                        <Smile className="w-4 h-4" />
+                      </button>
+                      <AnimatePresence>
+                        {inputShowEmojis && (
+                          <motion.div 
+                            initial={{ scale: 0.8, opacity: 0, y: 10 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.8, opacity: 0, y: 10 }}
+                            className="absolute bottom-full right-0 mb-4 p-2 bg-[#121212] border border-white/10 rounded-2xl grid grid-cols-6 gap-1 shadow-full z-[60] w-48"
+                          >
+                             {['👍', '🔥', '🚀', '❤️', '👀', '😂', '💯', '✨', '🙌', '🎉', '💡', '✅', '❌', '⚠️', '🤖', '👾', '🌈', '🍕'].map(emoji => (
+                               <button 
+                                 key={emoji}
+                                 onClick={() => {
+                                   setInputText(prev => prev + emoji);
+                                   setInputShowEmojis(false);
+                                 }}
+                                 className="p-2 hover:bg-white/5 rounded-lg text-lg hover:scale-125 transition-transform"
+                               >
+                                 {emoji}
+                               </button>
+                             ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                   </div>
                    <button 
                       onClick={() => handleSendMessage()}
                       disabled={!inputText.trim()}
@@ -625,11 +776,33 @@ export default function GroupChat() {
         )}
         {moderationWarning && (
           <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-red-950/20 backdrop-blur-md">
-            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-[#1a0a0a] border border-red-500/30 p-10 rounded-[3rem] w-full max-w-lg shadow-2xl text-center">
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-[#1a0a0a] border border-red-500/30 p-10 rounded-[3rem] w-full max-w-lg shadow-2xl">
               <ShieldAlert className="w-12 h-12 text-red-500 mx-auto mb-6" />
-              <h3 className="text-2xl font-bold mb-4 italic">Signal <span className="text-red-500">Blocked.</span></h3>
-              <p className="text-gray-400 mb-8">{moderationWarning}</p>
-              <button onClick={() => setModerationWarning(null)} className="w-full bg-red-500 py-4 rounded-xl font-black uppercase text-xs">Dismiss</button>
+              <h3 className="text-2xl font-bold mb-4 italic text-center">Protocol <span className="text-red-500">Violation.</span></h3>
+              <div className="bg-white/5 p-4 rounded-2xl mb-8 border border-white/5">
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">AI Assessment</p>
+                <p className="text-xs text-gray-300 font-medium">{moderationWarning.reason}</p>
+              </div>
+              <div className="space-y-3">
+                <button 
+                  onClick={() => handleSendMessage(undefined, true)} 
+                  className="w-full bg-red-500 py-4 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-red-600 transition-all"
+                >
+                  Force Synchronize
+                </button>
+                <div className="flex gap-3">
+                  <button onClick={() => setModerationWarning(null)} className="flex-grow bg-white/5 py-4 rounded-xl font-bold text-xs">Retract Signal</button>
+                  <button 
+                    onClick={() => {
+                      showToast("Potential false positive reported.");
+                      setModerationWarning(null);
+                    }} 
+                    className="flex-grow bg-white/5 py-4 rounded-xl font-bold text-xs"
+                  >
+                    Report Issue
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}
@@ -639,16 +812,27 @@ export default function GroupChat() {
             <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="bg-[#121212] border border-white/10 p-10 rounded-[3rem] w-full max-w-lg">
               <h3 className="text-3xl font-bold mb-8 italic">Node <span className="text-primary">Identity.</span></h3>
               <input value={newName} onChange={(e) => setNewName(e.target.value)} className="w-full bg-white/5 border border-white/5 p-5 rounded-2xl mb-6 outline-none focus:border-primary transition-all font-bold" />
-              <div className="flex gap-4">
+              <div className="flex gap-4 mb-8">
                 <button onClick={() => setIsEditingGroup(false)} className="flex-grow bg-white/5 py-4 rounded-2xl font-bold">Cancel</button>
                 <button onClick={handleUpdateName} className="flex-grow bg-primary py-4 rounded-2xl font-black uppercase text-xs">Confirm</button>
+              </div>
+              
+              <div className="pt-8 border-t border-white/5">
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-4 ml-4">Danger Zone</p>
+                <button 
+                  onClick={handleDeleteGroup}
+                  className="w-full bg-red-500/10 border border-red-500/20 text-red-500 py-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 hover:bg-red-500/20 transition-all"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Decommission Node
+                </button>
               </div>
             </motion.div>
           </div>
         )}
 
         {showPins && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-bg-dark/80 backdrop-blur-md">
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-[#000]/80 backdrop-blur-md">
             <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-[#121212] border border-white/10 p-8 rounded-[2.5rem] w-full max-w-lg max-h-[80vh] flex flex-col">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-2xl font-bold italic">Pinned <span className="text-primary not-italic">Signals.</span></h3>
@@ -693,56 +877,6 @@ export default function GroupChat() {
                   <button onClick={() => setShowCreateChannel(false)} className="flex-grow bg-white/5 py-4 rounded-2xl font-bold hover:bg-white/10 transition-all">Cancel</button>
                   <button onClick={handleCreateChannel} className="flex-grow bg-primary py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">Establish</button>
                 </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-
-        {showVideoModal && (
-          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 md:p-6 bg-black/90 backdrop-blur-3xl">
-            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-[#050505] border border-white/10 rounded-[3rem] w-full max-w-5xl h-[80vh] relative overflow-hidden shadow-full flex flex-col">
-              <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0a0a0a]">
-                <div className="flex items-center gap-3">
-                  <Play className="w-5 h-5 text-primary fill-primary" />
-                  <h3 className="font-black italic tracking-tighter text-xl">System <span className="text-primary not-italic">Walkthrough.</span></h3>
-                </div>
-                <button onClick={() => setShowVideoModal(false)} className="bg-white/5 p-2 rounded-full hover:bg-white/10 text-white transition-all">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              
-              <div className="flex-grow bg-[#000] relative group">
-                <iframe 
-                  className="w-full h-full"
-                  src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1" 
-                  title="System Demo"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                ></iframe>
-              </div>
-
-              <div className="p-6 bg-[#0a0a0a] grid grid-cols-2 md:grid-cols-4 gap-4">
-                 <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                    <Hash className="w-4 h-4 text-primary mb-1" />
-                    <span className="block text-[8px] font-black uppercase tracking-widest text-white">Channels</span>
-                    <p className="text-[8px] text-gray-500">Segmented intel flows.</p>
-                 </div>
-                 <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                    <Bot className="w-4 h-4 text-primary mb-1" />
-                    <span className="block text-[8px] font-black uppercase tracking-widest text-white">AI Agents</span>
-                    <p className="text-[8px] text-gray-500">Autonomous synthesis.</p>
-                 </div>
-                 <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                    <ShieldAlert className="w-4 h-4 text-primary mb-1" />
-                    <span className="block text-[8px] font-black uppercase tracking-widest text-white">Security</span>
-                    <p className="text-[8px] text-gray-500">Protocol enforcement.</p>
-                 </div>
-                 <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                    <Layers className="w-4 h-4 text-primary mb-1" />
-                    <span className="block text-[8px] font-black uppercase tracking-widest text-white">Presence</span>
-                    <p className="text-[8px] text-gray-500">Real-time node status.</p>
-                 </div>
               </div>
             </motion.div>
           </div>
@@ -846,23 +980,6 @@ export default function GroupChat() {
               )}
             </motion.div>
           </div>
-        )}
-
-        {!isMember && !rolesLoading && user && (
-          <motion.div initial={{ y: 100 }} animate={{ y: 0 }} className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-2xl px-6">
-            <div className="bg-[#121212]/90 backdrop-blur-3xl border border-primary/30 p-8 rounded-[2.5rem] flex items-center justify-between shadow-2xl">
-              <div>
-                <h3 className="text-xl font-bold tracking-tight italic">Access <span className="text-primary tracking-normal">Restricted.</span></h3>
-                <p className="text-[10px] text-gray-500 font-bold uppercase mt-1 tracking-[0.1em]">Join this cluster to synchronize signals</p>
-              </div>
-              <button 
-                onClick={handleJoinCluster} 
-                className="bg-primary text-white px-8 py-4 rounded-xl font-black uppercase text-[10px] tracking-[0.2em] hover:scale-105 active:scale-95 transition-all shadow-xl shadow-primary/20"
-              >
-                Join Cluster
-              </button>
-            </div>
-          </motion.div>
         )}
       </AnimatePresence>
 
@@ -1110,6 +1227,16 @@ function MessageNode({
                 >
                   {message.text}
                 </p>
+              )}
+              {message.fileUrl && message.type === 'image' && (
+                <div className="mt-3 rounded-2xl overflow-hidden border border-white/10 max-w-sm">
+                  <img src={message.fileUrl} alt="Signal Attachment" className="w-full h-auto" />
+                </div>
+              )}
+              {message.fileUrl && message.type === 'video' && (
+                <div className="mt-3 rounded-2xl overflow-hidden border border-white/10 max-w-sm bg-black aspect-video flex items-center justify-center group/vid relative">
+                  <video src={message.fileUrl} controls className="w-full h-full" />
+                </div>
               )}
             </div>
           

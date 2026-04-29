@@ -8,7 +8,8 @@ import {
   updateDoc, 
   doc, 
   increment,
-  serverTimestamp 
+  serverTimestamp,
+  deleteDoc
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 
@@ -68,5 +69,26 @@ export function useAiAgents(groupId?: string) {
     }
   };
 
-  return { agents, loading, recordInteraction };
+  const createAiAgent = async (agentData: Omit<AiAgent, 'id' | 'totalResponses'>) => {
+    try {
+      const docRef = await addDoc(collection(db, 'ai_agents'), {
+        ...agentData,
+        totalResponses: 0,
+        createdAt: serverTimestamp()
+      });
+      return docRef.id;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'ai_agents');
+    }
+  };
+
+  const deleteAiAgent = async (agentId: string) => {
+    try {
+      await deleteDoc(doc(db, 'ai_agents', agentId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `ai_agents/${agentId}`);
+    }
+  };
+
+  return { agents, loading, recordInteraction, createAiAgent, deleteAiAgent };
 }
