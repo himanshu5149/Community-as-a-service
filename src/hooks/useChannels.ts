@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, where } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 
 export interface Channel {
@@ -19,7 +19,11 @@ export function useChannels(groupId: string) {
     if (!groupId) return;
 
     const path = `groups/${groupId}/channels`;
-    const q = query(collection(db, path), orderBy('createdAt', 'asc'));
+    const q = query(
+      collection(db, path),
+      where('groupId', '==', groupId),
+      orderBy('createdAt', 'asc')
+    );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({
@@ -43,6 +47,7 @@ export function useChannels(groupId: string) {
         name,
         description,
         type,
+        groupId,
         createdAt: serverTimestamp(),
         createdBy: userId
       });

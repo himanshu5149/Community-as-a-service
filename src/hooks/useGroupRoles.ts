@@ -60,6 +60,7 @@ export function useGroupRoles(groupId: string) {
     try {
       await setDoc(doc(db, path), {
         userId: auth.currentUser.uid,
+        groupId,
         userName,
         role: isFirstMember ? 'admin' : 'member',
         joinedAt: serverTimestamp()

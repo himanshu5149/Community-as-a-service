@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, doc, setDoc, deleteDoc, where } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -22,7 +22,11 @@ export function useGroups() {
   useEffect(() => {
     setLoading(true);
     const path = 'groups';
-    const q = query(collection(db, path), orderBy('name', 'asc'));
+    const q = query(
+      collection(db, path),
+      where('name', '>=', ''),
+      orderBy('name', 'asc')
+    );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({
@@ -64,6 +68,7 @@ export function useGroups() {
       // Also add the user as admin member
       await setDoc(doc(db, `groups/${docRef.id}/members/${auth.currentUser.uid}`), {
         userId: auth.currentUser.uid,
+        groupId: docRef.id,
         userName: auth.currentUser.displayName || 'Anonymous Agent',
         role: 'admin',
         joinedAt: serverTimestamp()

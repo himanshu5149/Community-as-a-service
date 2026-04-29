@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, where } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { GroupMember } from './useGroupRoles';
 
@@ -13,7 +13,11 @@ export function useGroupMembers(groupId: string) {
 
     setLoading(true);
     const path = `groups/${groupId}/members`;
-    const q = query(collection(db, path), orderBy('joinedAt', 'desc'));
+    const q = query(
+      collection(db, path),
+      where('groupId', '==', groupId),
+      orderBy('joinedAt', 'desc')
+    );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, addDoc, query, onSnapshot, serverTimestamp, updateDoc, doc, orderBy } from 'firebase/firestore';
+import { collection, addDoc, query, onSnapshot, serverTimestamp, updateDoc, doc, orderBy, where } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { ai } from '../lib/gemini';
 import { Type } from "@google/genai";
@@ -26,6 +26,7 @@ export function useModeration() {
 
     const q = query(
       collection(db, 'reports'),
+      where('reporterId', '==', auth.currentUser.uid),
       orderBy('createdAt', 'desc')
     );
 

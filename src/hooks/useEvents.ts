@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, arrayUnion, arrayRemove, where } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -26,7 +26,17 @@ export function useEvents(groupId?: string) {
     
     const startListener = () => {
       const path = groupId ? `groups/${groupId}/events` : 'events_global';
-      const q = query(collection(db, path), orderBy('startTime', 'asc'));
+      const q = groupId 
+        ? query(
+            collection(db, path), 
+            where('groupId', '==', groupId),
+            orderBy('startTime', 'asc')
+          )
+        : query(
+            collection(db, path),
+            where('eventType', '>=', ''),
+            orderBy('startTime', 'asc')
+          );
 
       unsubscribe = onSnapshot(q, (snapshot) => {
         setEvents(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Event[]);
@@ -82,6 +92,7 @@ export function useEvents(groupId?: string) {
     try {
       await addDoc(targetCollection, {
         ...eventData,
+        groupId: groupId || 'global',
         hostId: auth.currentUser.uid,
         createdAt: serverTimestamp(),
         rsvps: [auth.currentUser.uid]
