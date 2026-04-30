@@ -6,11 +6,12 @@ import ScrollToTop from './components/ScrollToTop';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 import PageLayout from './components/PageLayout';
-import { AuthProvider } from './hooks/useAuth';
+import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ThemeProvider } from './hooks/useTheme';
 
 // Pages
 import Home from './pages/Home';
+import Dashboard from './pages/Dashboard';
 import Groups from './pages/Groups';
 import HowItWorks from './pages/HowItWorks';
 import Blog from './pages/Blog';
@@ -36,17 +37,28 @@ import AIAgent from './pages/AIAgent';
 import AiManagement from './pages/AiManagement';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import Onboarding from './pages/Onboarding';
 
 function AnimatedRoutes() {
   const location = useLocation();
+  const { user, loading } = useAuth();
   
+  if (loading) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-bg-dark">
+         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <AnimatePresence mode="wait">
       <Routes location={location}>
         {/* Public Routes */}
-        <Route path="/" element={<PageLayout><Home /></PageLayout>} />
+        <Route path="/" element={<PageLayout>{user ? <Dashboard /> : <Home />}</PageLayout>} />
         <Route path="/login" element={<PageLayout><Login /></PageLayout>} />
         <Route path="/signup" element={<PageLayout><Signup /></PageLayout>} />
+        <Route path="/onboarding" element={<ProtectedRoute><PageLayout><Onboarding /></PageLayout></ProtectedRoute>} />
         <Route path="/how-it-works" element={<PageLayout><HowItWorks /></PageLayout>} />
         <Route path="/blog" element={<PageLayout><Blog /></PageLayout>} />
         <Route path="/pricing" element={<PageLayout><Pricing /></PageLayout>} />

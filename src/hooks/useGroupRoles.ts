@@ -10,6 +10,7 @@ export interface GroupMember {
   userName: string;
   role: UserRole;
   joinedAt: any;
+  email?: string; // Adding optional email field
 }
 
 export function useGroupRoles(groupId: string) {
@@ -18,17 +19,16 @@ export function useGroupRoles(groupId: string) {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!groupId) return;
+    if (!groupId) {
+      setLoading(false);
+      return;
+    }
 
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        setMember(null);
-        setLoading(false);
-        return;
-      }
+    let unsubscribeMember = () => {};
 
-      const path = `groups/${groupId}/members/${user.uid}`;
-      const unsubscribeMember = onSnapshot(doc(db, path), (snapshot) => {
+    const startListener = (uid: string) => {
+      const path = `groups/${groupId}/members/${uid}`;
+      unsubscribeMember = onSnapshot(doc(db, path), (snapshot) => {
         if (snapshot.exists()) {
           setMember(snapshot.data() as GroupMember);
         } else {
@@ -37,31 +37,47 @@ export function useGroupRoles(groupId: string) {
         setLoading(false);
       }, (err) => {
         setLoading(false);
-        try {
-          handleFirestoreError(err, OperationType.GET, path);
-        } catch (e: any) {
-          setError(e);
+        if (err.code !== 'permission-denied') {
+          try {
+            handleFirestoreError(err, OperationType.GET, path);
+          } catch (e: any) {
+            setError(e);
+          }
         }
       });
+    };
 
-      return () => unsubscribeMember();
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        startListener(user.uid);
+      } else {
+        setMember(null);
+        setLoading(false);
+        unsubscribeMember();
+      }
     });
 
-    return () => unsubscribeAuth();
+    return () => {
+      unsubscribeAuth();
+      unsubscribeMember();
+    };
   }, [groupId]);
 
   const joinGroup = async (userName: string) => {
     if (!auth.currentUser || !groupId) return;
     const path = `groups/${groupId}/members/${auth.currentUser.uid}`;
     
-    // Check if any members exist
-    const isFirstMember = !member && !loading; // This is a rough check, rules might be better
-    
     try {
+      // Get member count to determine if this is the pioneer member
+      const { collection, getCountFromServer } = await import('firebase/firestore');
+      const membersRef = collection(db, `groups/${groupId}/members`);
+      const snapshot = await getCountFromServer(membersRef);
+      const isFirstMember = snapshot.data().count === 0;
+
       await setDoc(doc(db, path), {
         userId: auth.currentUser.uid,
-        groupId,
         userName,
+        email: auth.currentUser.email,
         role: isFirstMember ? 'admin' : 'member',
         joinedAt: serverTimestamp()
       });
@@ -72,6 +88,12 @@ export function useGroupRoles(groupId: string) {
 
   const updateRole = async (targetUserId: string, newRole: UserRole) => {
     if (!auth.currentUser || !groupId) return;
+    
+    // Safety check: local permission enforcement
+    if (member?.role !== 'admin' && member?.role !== 'moderator') {
+      throw new Error("Unauthorized: Only admins and moderators can change roles.");
+    }
+
     const path = `groups/${groupId}/members/${targetUserId}`;
     try {
       await setDoc(doc(db, path), { role: newRole }, { merge: true });
@@ -88,6 +110,13 @@ export function useGroupRoles(groupId: string) {
     updateRole,
     isAdmin: member?.role === 'admin',
     isModerator: member?.role === 'admin' || member?.role === 'moderator',
-    isMember: !!member
+    isMember: !!member,
+    permissions: {
+      canDeleteMessage: member?.role === 'admin' || member?.role === 'moderator',
+      canEditGroup: member?.role === 'admin',
+      canCreateChannel: member?.role === 'admin',
+      canManageMembers: member?.role === 'admin' || member?.role === 'moderator',
+      canUseAI: !!member // Everyone who joined can use AI
+    }
   };
 }

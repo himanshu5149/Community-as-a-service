@@ -10,9 +10,11 @@ import { useChannels } from '../hooks/useChannels';
 import { useTyping } from '../hooks/useTyping';
 import { usePresence } from '../hooks/usePresence';
 import { useAiAgents } from '../hooks/useAiAgents';
+import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
-import { useToast } from '../hooks/useToast';
+import { useToast, Toast } from '../components/Toast';
 import { useModeration } from '../hooks/useModeration';
+import { useAiModerator } from '../hooks/useAiModerator';
 import { auth, db } from '../lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { doc, updateDoc, deleteDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
@@ -59,14 +61,15 @@ export default function GroupChat() {
   const activeChannel = channels.find(c => c.id === channelId) || channels[0];
   
   const { messages, loading, sendMessage, reactToMessage, deleteMessage, editMessage, togglePinMessage } = useChat(groupId || '', activeChannel?.id);
-  const { loading: rolesLoading, joinGroup, isAdmin, isMember, updateRole } = useGroupRoles(groupId || '');
+  const { member, loading: rolesLoading, joinGroup, isAdmin, isMember, permissions, updateRole } = useGroupRoles(groupId || '');
   const { members } = useGroupMembers(groupId || '');
   const { agents } = useAiAgents(groupId || '');
   const { addPoints } = useGamification();
   const { toast, hideToast, showToast } = useToast();
   const { moderateMessage } = useModeration();
+  useAiModerator(groupId || '', activeChannel?.id);
   
-  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const { user, loading: authLoading } = useAuth();
   const statuses = usePresence(user?.uid);
   const { typingUsers, setTyping } = useTyping(activeChannel?.id || '', user?.uid, user?.displayName || 'Anonymous');
 
@@ -87,6 +90,7 @@ export default function GroupChat() {
   const [selectedMember, setSelectedMember] = useState<any | null>(null);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [inputShowEmojis, setInputShowEmojis] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
   const [searchFilters, setSearchFilters] = useState({
     sender: '',
     startDate: '',
@@ -125,11 +129,6 @@ export default function GroupChat() {
     scrollToBottom("auto");
   }, []);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
-    return unsubscribe;
-  }, []);
-
   const handleSlashCommand = async (command: string) => {
     const parts = command.split(' ');
     const mainCmd = parts[0].toLowerCase();
@@ -146,6 +145,10 @@ export default function GroupChat() {
     }
 
     if (mainCmd === '/summarize') {
+      if (!permissions.canUseAI) {
+        showToast("Join this community to use AI features.", "error");
+        return true;
+      }
       try {
         const recentMessages = messages.slice(-50).map(m => ({ user: m.userName, text: m.text }));
         const res = await fetch('/api/ai/summarize', {
@@ -162,6 +165,10 @@ export default function GroupChat() {
     }
 
     if (mainCmd === '/agent') {
+      if (!permissions.canUseAI) {
+        showToast("Join this community to use AI features.", "error");
+        return true;
+      }
       const mention = parts[1];
       if (!mention || !mention.startsWith('@')) {
         showToast("Specify an agent: /agent @Aria [query]", 'error');
@@ -201,6 +208,10 @@ export default function GroupChat() {
 
   const handleSendMessage = async (e?: React.FormEvent, bypassModeration: boolean = false) => {
     e?.preventDefault();
+    if (!isMember) {
+      showToast("Identity not synchronized. Please join the cluster first.", "error");
+      return;
+    }
     const textToChat = moderationWarning ? moderationWarning.text : inputText;
     if (!textToChat.trim()) return;
 
@@ -240,6 +251,45 @@ export default function GroupChat() {
       await sendMessage(textToChat, 'text', undefined, false, sendOptions);
       setReplyTo(null);
       if (user) addPoints(10);
+
+      // AI Mention Detection Logic
+      if (permissions.canUseAI) {
+        const mentions = agents.filter(agent => textToChat.toLowerCase().includes(`@${agent.name.toLowerCase()}`));
+        if (mentions.length > 0) {
+          // Trigger responses from all mentioned agents (usually just one)
+          for (const agent of mentions) {
+            try {
+              const res = await fetch('/api/ai/persona', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                  query: textToChat, 
+                  persona: {
+                    name: agent.name,
+                    role: agent.expertise?.join(', ') || 'AI Assistant',
+                    systemInstruction: agent.personality
+                  },
+                  context: { 
+                    groupName: group?.name || 'Unknown', 
+                    recentMessages: messages.slice(-5).map(m => ({ user: m.userName, text: m.text, isAI: m.userId === agent.id }))
+                  } 
+                })
+              });
+              const data = await res.json();
+              if (data.response) {
+                await sendMessage(data.response, 'ai', undefined, true, { 
+                  aiName: agent.name, 
+                  aiAvatar: agent.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${agent.name.toLowerCase()}`,
+                  aiRole: agent.role,
+                  aiColor: agent.accentColor
+                });
+              }
+            } catch (err) {
+              console.error("AI mention logic failure:", err);
+            }
+          }
+        }
+      }
     } catch (err: any) {
       showToast("Signal failed to transmit. Internal logic error.", 'error');
       console.error("Link Failure:", err);
@@ -247,7 +297,7 @@ export default function GroupChat() {
   };
 
   const handleUpdateName = async () => {
-    if (!isAdmin || !groupId || !newName.trim()) return;
+    if (!permissions.canEditGroup || !groupId || !newName.trim()) return;
     try {
       await updateDoc(doc(db, 'groups', groupId), { name: newName });
       setIsEditingGroup(false);
@@ -259,7 +309,7 @@ export default function GroupChat() {
   };
 
   const handleDeleteGroup = async () => {
-    if (!isAdmin || !groupId) return;
+    if (!permissions.canEditGroup || !groupId) return;
     const confirmed = window.confirm("Are you certain you want to decommission this shard? All synchronization data will be lost.");
     if (!confirmed) return;
     
@@ -295,17 +345,20 @@ export default function GroupChat() {
   });
 
   const handleJoinCluster = async () => {
+    setIsJoining(true);
     try {
       await joinGroup(user?.displayName || 'Anonymous');
       showToast("Identity synchronized with cluster.");
       addPoints(50);
     } catch (err: any) {
       showToast("Synchronization failed.", 'error');
+    } finally {
+      setIsJoining(false);
     }
   };
 
   const handleCreateChannel = async () => {
-    if (!newChannelName.trim() || !user) return;
+    if (!permissions.canCreateChannel || !newChannelName.trim() || !user) return;
     try {
       await createChannel(newChannelName, "Node signal channel", 'general', user.uid);
       setShowCreateChannel(false);
@@ -329,13 +382,34 @@ export default function GroupChat() {
     }
   };
 
-  useEffect(() => {
-    if (!groupId || !user || rolesLoading || isMember) return;
-    
-    // Auto-join group on first visit
-    joinGroup(user.displayName || 'Anonymous');
-    showToast("Synchronized with cluster protocol.");
-  }, [groupId, user, rolesLoading, isMember]);
+  const handlePin = async (messageId: string, isPinned: boolean) => {
+    if (!permissions.canDeleteMessage) {
+        showToast("Administrative clearance required to pin signal.", "error");
+        return;
+    }
+    try {
+        await togglePinMessage(messageId, isPinned);
+        showToast(isPinned ? "Signal locked to mainframe." : "Signal released.");
+    } catch (err) {
+        showToast("Failed to modify signal pin.", "error");
+    }
+  };
+
+  const handleDelete = async (messageId: string) => {
+    if (!permissions.canDeleteMessage) {
+        const msg = messages.find(m => m.id === messageId);
+        if (msg?.userId !== user?.uid) {
+            showToast("Administrative clearance required to redact external signals.", "error");
+            return;
+        }
+    }
+    try {
+        await deleteMessage(messageId);
+        showToast("Signal redacted.");
+    } catch (err) {
+        showToast("Failed to redact signal.", "error");
+    }
+  };
 
   return (
     <div className="pt-20 h-screen bg-[#0a0a0a] text-white flex overflow-hidden font-sans">
@@ -413,7 +487,7 @@ export default function GroupChat() {
                 <Settings className="w-4 h-4" />
               </button>
             </div>
-          </motion.div>
+        </motion.div>
         )}
       </AnimatePresence>
 
@@ -550,11 +624,11 @@ export default function GroupChat() {
                  key={msg.id} 
                  message={msg} 
                  isMe={msg.userId === user?.uid} 
-                 isAdmin={isAdmin}
+                 permissions={permissions}
                  onReact={reactToMessage}
-                 onDelete={deleteMessage}
+                 onDelete={handleDelete}
                  onEdit={editMessage}
-                 onPin={togglePinMessage}
+                 onPin={handlePin}
                  onReply={(msg: Message) => setReplyTo(msg)}
                  onProfileClick={(userId: string) => {
                    const found = (members as any[]).find(m => m.userId === userId) || (agents as any[]).find(a => a.id === userId);
@@ -574,6 +648,35 @@ export default function GroupChat() {
              ))
            )}
            <div ref={messagesEndRef} />
+
+           {/* Join Overlay for non-members */}
+           <AnimatePresence>
+             {!loading && !isMember && (
+               <div className="absolute inset-x-0 bottom-0 top-0 z-[60] flex flex-col items-center justify-center bg-[#0a0a0a]/80 backdrop-blur-md px-6 text-center">
+                 <motion.div 
+                   initial={{ scale: 0.9, opacity: 0 }}
+                   animate={{ scale: 1, opacity: 1 }}
+                   className="max-w-md p-10 bg-[#121212] border border-white/10 rounded-[3rem] shadow-full text-white"
+                 >
+                   <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-8 border border-primary/20">
+                     <Lock className="w-8 h-8 text-primary animate-pulse" />
+                   </div>
+                   <h2 className="text-3xl font-black italic mb-4 tracking-tighter uppercase">Cluster <span className="text-primary not-italic tracking-normal">Locked.</span></h2>
+                   <p className="text-gray-400 font-medium leading-relaxed mb-10 text-sm italic">
+                     "This node is restricted to verified identities. Join the cluster to transmit signals and neural agents."
+                   </p>
+                   <button 
+                     onClick={handleJoinCluster}
+                     disabled={isJoining}
+                     className="w-full bg-primary py-5 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] shadow-2xl shadow-primary/30 flex items-center justify-center gap-3 disabled:opacity-50"
+                   >
+                     {isJoining ? "Synchronizing..." : "Initialize Node Sync"}
+                   </button>
+                   <button onClick={() => navigate('/groups')} className="w-full mt-4 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-white transition-colors">Abort Frequency</button>
+                 </motion.div>
+               </div>
+             )}
+           </AnimatePresence>
            
            {/* Jump to Bottom Button */}
            <AnimatePresence>
@@ -672,6 +775,7 @@ export default function GroupChat() {
                         )}
                       </AnimatePresence>
                    </div>
+                </div>
                    <button 
                       onClick={() => handleSendMessage()}
                       disabled={!inputText.trim()}
@@ -686,10 +790,7 @@ export default function GroupChat() {
               </div>
             </div>
         </div>
-      </div>
-
-      {/* 3. Member Sidebar (Right) */}
-      <AnimatePresence>
+       <AnimatePresence>
         {showMemberSidebar && (
           <motion.div 
             initial={{ width: 0 }}
@@ -699,31 +800,44 @@ export default function GroupChat() {
           >
             <div className="p-4 overflow-y-auto no-scrollbar space-y-8">
                {/* AI Agents Section */}
-               {agents.length > 0 && (
-                 <div>
-                   <div className="px-3 mb-3 flex items-center gap-2">
-                     <div className="w-1 h-1 bg-primary rounded-full"></div>
-                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Neural Nodes — {agents.length}</span>
-                   </div>
-                   <div className="space-y-1">
-                     {agents.map(a => (
-                       <MemberItem 
-                         key={a.id} 
-                         member={{ 
-                           userId: a.id, 
-                           userName: a.name, 
-                           role: 'Ai' as any, 
-                           joinedAt: null,
-                           bio: a.description || "Experimental intelligence node focused on group protocol optimization."
-                         }} 
-                         status="online" 
-                         isAI 
-                         onClick={() => setSelectedMember(a)}
-                       />
-                     ))}
-                   </div>
-                 </div>
-               )}
+               <div>
+                  <div className="px-3 mb-3 flex items-center gap-2">
+                    <div className="w-1 h-1 bg-primary rounded-full"></div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Neural Nodes — {agents.length}</span>
+                  </div>
+                  {agents.length > 0 ? (
+                    <div className="space-y-1">
+                      {agents.map(a => (
+                        <MemberItem 
+                          key={a.id} 
+                          member={{ 
+                            userId: a.id, 
+                            userName: a.name, 
+                            role: 'Ai' as any, 
+                            joinedAt: null,
+                            bio: a.description || "Experimental intelligence node focused on group protocol optimization."
+                          }} 
+                          status="online" 
+                          isAI 
+                          onClick={() => setSelectedMember(a)}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="px-3 py-6 bg-white/[0.02] border border-dashed border-white/5 rounded-2xl text-center">
+                      <Bot className="w-6 h-6 text-gray-700 mx-auto mb-3 opacity-50" />
+                      <p className="text-[9px] font-bold text-gray-600 uppercase tracking-widest leading-relaxed mb-4">
+                        Neural void detected. This cluster has no dedicated AI nodes.
+                      </p>
+                      <button 
+                        onClick={() => navigate('/ai-management')}
+                        className="w-full py-2 bg-primary/10 hover:bg-primary/20 text-primary text-[8px] font-black uppercase tracking-[0.2em] rounded-lg transition-all border border-primary/20"
+                      >
+                        Enlist Node
+                      </button>
+                    </div>
+                  )}
+               </div>
 
                {/* Online Members Section */}
                <div>
@@ -764,6 +878,7 @@ export default function GroupChat() {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
 
       {/* Modals */}
       <AnimatePresence>
@@ -986,7 +1101,6 @@ export default function GroupChat() {
       <AnimatePresence>
         {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
       </AnimatePresence>
-    </div>
   );
 }
 
@@ -1032,10 +1146,12 @@ function MemberItem({ member, status, isAI = false, onClick }: any) {
       </div>
       <div className="truncate flex flex-col min-w-0">
         <div className="flex items-center gap-2">
-          <span className={cn(
-            "text-xs font-black truncate transition-colors", 
-            status === 'online' ? (roleColors[member.role] || 'text-white') : 'text-gray-500'
-          )}>
+          <span 
+            className={cn(
+              "text-xs font-black truncate transition-colors"
+            )}
+            style={status === 'online' ? (isAI && member.accentColor ? { color: member.accentColor } : (roleColors[member.role] ? { color: roleColors[member.role] } : { color: 'white' })) : { color: '#4b5563' }}
+          >
             {member.userName}
           </span>
           {member.role === 'admin' && <Crown className="w-3 h-3 text-red-400 fill-red-400/10" />}
@@ -1045,7 +1161,7 @@ function MemberItem({ member, status, isAI = false, onClick }: any) {
         <div className="flex items-center gap-1.5 mt-0.5">
           <div className={cn("w-1 h-1 rounded-full", status === 'online' ? "bg-green-500" : "bg-gray-600")}></div>
           <span className="text-[8px] font-black uppercase tracking-widest text-gray-600">
-            {status === 'online' ? 'Online' : 'Offline'} — {isAI ? 'Neural Agent' : member.role}
+            {status === 'online' ? 'Online' : 'Offline'} — {isAI ? (member.role || 'Neural Agent') : member.role}
           </span>
         </div>
       </div>
@@ -1093,21 +1209,23 @@ function ProfileModal({ member, isAI, onClose }: { member: any, isAI: boolean, o
             {member.userName || member.name}
           </h3>
           <div className="flex items-center justify-center gap-2 mb-6">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
-              {isAI ? 'Neural Synthesis' : member.role}
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary" style={isAI && member.accentColor ? { color: member.accentColor } : {}}>
+              {isAI ? (member.role || 'Neural Synthesis') : member.role}
             </span>
             <div className="w-1 h-1 bg-gray-800 rounded-full"></div>
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
-              #{ (member.userId || member.id).slice(0, 6) }
+              #{ (member.userId || member.id || '').slice(0, 6) }
             </span>
           </div>
 
           <div className="text-left space-y-6">
             <div>
-              <span className="text-[9px] font-black uppercase tracking-[0.25em] text-gray-600 block mb-2 px-1">Node Biography</span>
+              <span className="text-[9px] font-black uppercase tracking-[0.25em] text-gray-600 block mb-2 px-1">
+                {isAI ? 'Node Logic & Directive' : 'Node Biography'}
+              </span>
               <div className="bg-white/[0.03] border border-white/5 p-4 rounded-2xl">
                 <p className="text-xs text-gray-400 leading-relaxed font-medium">
-                  {member.bio || `A key stakeholder in the ${member.userName || member.name} sub-cluster. Primary focus: high-signal collaboration.`}
+                  {isAI ? (member.description || member.personality || 'Directive not established.') : (member.bio || `A key stakeholder in the ${member.userName || member.name} sub-cluster. Primary focus: high-signal collaboration.`)}
                 </p>
               </div>
             </div>
@@ -1144,7 +1262,7 @@ function ProfileModal({ member, isAI, onClose }: { member: any, isAI: boolean, o
 function MessageNode({ 
   message, 
   isMe, 
-  isAdmin, 
+  permissions, 
   onReact, 
   onDelete, 
   onPin, 
@@ -1183,17 +1301,35 @@ function MessageNode({
           <div className="flex items-center gap-2 mb-1">
             <span 
               onClick={() => onProfileClick(message.userId)}
-              className={cn("text-xs font-black tracking-tight cursor-pointer hover:underline flex items-center gap-1.5 relative", message.isAI ? "text-primary" : "text-white/90")}
+              className={cn("text-xs font-black tracking-tight cursor-pointer hover:underline flex items-center gap-1.5 relative", message.isAI ? "" : "text-white/90")}
+              style={message.isAI ? { color: message.aiColor || '#534ab7' } : {}}
             >
               <div className={cn("inline-block w-1.5 h-1.5 rounded-full mr-1", status === 'online' ? "bg-green-500" : "bg-gray-700")}></div>
               {message.userName}
               {message.role === 'admin' && <Crown className="w-3 h-3 text-red-500 fill-red-500/10 inline" />}
               {message.role === 'moderator' && <Star className="w-3 h-3 text-purple-500 fill-purple-500/10 inline" />}
-              {message.isAI && <span className="ml-1 py-0.5 px-1.5 bg-primary/20 text-primary border border-primary/30 rounded text-[6px] font-black uppercase tracking-widest">AI Agent</span>}
+              {message.isAI && (
+                <span 
+                  className="ml-1 py-0.5 px-1.5 border rounded text-[6px] font-black uppercase tracking-widest flex items-center gap-1"
+                  style={{ 
+                    backgroundColor: (message.aiColor || '#534ab7') + '33', 
+                    color: message.aiColor || '#534ab7',
+                    borderColor: (message.aiColor || '#534ab7') + '4d' 
+                  }}
+                >
+                  AI Agent {message.aiRole && <span className="opacity-60 border-l border-current pl-1 ml-1">{message.aiRole}</span>}
+                </span>
+              )}
             </span>
             <span className="text-[8px] text-gray-700 font-bold uppercase">{message.createdAt?.toDate ? message.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending'}</span>
             {message.isPinned && <Pin className="w-3 h-3 text-primary fill-primary/20" />}
             {message.isEdited && <span className="text-[7px] text-gray-700 font-bold uppercase">(edited)</span>}
+            {message.moderationStatus === 'flagged' && (
+              <span className="text-[7px] text-red-500 font-black uppercase tracking-widest px-1.5 py-0.5 bg-red-500/10 border border-red-500/20 rounded-md flex items-center gap-1">
+                <ShieldAlert className="w-2 h-2" />
+                Flagged: {message.moderationType}
+              </span>
+            )}
           </div>
             <div className="relative">
               {isEditing ? (
@@ -1222,7 +1358,8 @@ function MessageNode({
                   onDoubleClick={() => isMe && onEditStart()}
                   className={cn(
                     "text-sm text-gray-400 leading-relaxed font-medium transition-colors group-hover/msg:text-gray-300",
-                    isMe && "cursor-pointer"
+                    isMe && "cursor-pointer",
+                    message.moderationStatus === 'flagged' && "opacity-40 line-through decoration-red-500/50"
                   )}
                 >
                   {message.text}
@@ -1303,13 +1440,13 @@ function MessageNode({
             <Reply className="w-4 h-4" />
           </button>
 
-          {isAdmin && (
+          {permissions?.canDeleteMessage && (
             <button onClick={() => onPin(message.id, !message.isPinned)} className={cn("p-1.5 rounded-md hover:bg-white/5 transition-all", message.isPinned ? "text-primary" : "text-gray-500 hover:text-white")}>
               <Pin className="w-4 h-4" />
             </button>
           )}
 
-          {(isMe || isAdmin) && (
+          {(isMe || permissions?.canDeleteMessage) && (
             <button onClick={() => onDelete(message.id)} className="p-1.5 text-gray-500 hover:text-red-500 transition-all hover:bg-white/5 rounded-md">
               <Trash2 className="w-4 h-4" />
             </button>
@@ -1323,14 +1460,3 @@ function MessageNode({
 // Missing common components could be imported or defined here (Toast, etc)
 // For now assuming they are available or simple enough to inline if needed.
 // I see useToast hook, assuming Toast component is reachable.
-function Toast({ message, type, onClose }: any) {
-  return (
-    <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="fixed bottom-6 right-6 z-[200]">
-      <div className={cn("px-6 py-3 rounded-2xl shadow-full border flex items-center gap-3", type === 'error' ? "bg-red-500/10 border-red-500/20 text-red-500" : "bg-primary/10 border-primary/20 text-primary")}>
-        <CheckCircle2 className="w-4 h-4" />
-        <span className="text-xs font-black uppercase tracking-widest">{message}</span>
-        <button onClick={onClose} className="ml-4 opacity-50 hover:opacity-100"><X className="w-4 h-4" /></button>
-      </div>
-    </motion.div>
-  );
-}

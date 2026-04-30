@@ -31,22 +31,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (user) {
         // sync profile and check admin state
-        const userDoc = await getDoc(doc(db, 'profiles', user.uid));
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const isSuperAdmin = user.email === 'royalisdevil@gmail.com';
+        
         if (!userDoc.exists()) {
-          await setDoc(doc(db, 'profiles', user.uid), {
+          await setDoc(doc(db, 'users', user.uid), {
             uid: user.uid,
             email: user.email,
-            displayName: user.displayName,
-            photoURL: user.photoURL,
+            displayName: user.displayName || 'Operator',
+            photoURL: user.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.uid}`,
+            role: isSuperAdmin ? 'admin' : 'user',
             createdAt: serverTimestamp(),
-            lastLogin: serverTimestamp()
+            lastLogin: serverTimestamp(),
+            points: 0,
+            level: 1,
+            groups: []
           });
         } else {
-          await setDoc(doc(db, 'profiles', user.uid), { lastLogin: serverTimestamp() }, { merge: true });
+          await setDoc(doc(db, 'users', user.uid), { 
+            lastLogin: serverTimestamp(),
+            // Sync admin role if email matches
+            ...(isSuperAdmin ? { role: 'admin' } : {})
+          }, { merge: true });
         }
 
-        // admin check (hardcoded as requested)
-        setIsAdmin(user.email === 'royalisdevil@gmail.com');
+        // admin check
+        setIsAdmin(isSuperAdmin);
       } else {
         setIsAdmin(false);
       }

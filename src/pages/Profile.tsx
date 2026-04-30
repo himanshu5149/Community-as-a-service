@@ -33,7 +33,7 @@ export default function Profile() {
     async function fetchProfile() {
       if (!userId) return;
       try {
-        const docRef = doc(db, 'profiles', userId);
+        const docRef = doc(db, 'users', userId);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           setProfile(docSnap.data());

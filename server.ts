@@ -11,6 +11,75 @@ async function startServer() {
 
   const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
+  // Lemon Squeezy API Routes
+  app.post("/api/lemonsqueezy", async (req, res) => {
+    const LEMON_SQUEEZY_API_KEY = process.env.LEMON_SQUEEZY_API_KEY;
+    const LEMON_SQUEEZY_STORE_ID = process.env.LEMON_SQUEEZY_STORE_ID;
+
+    if (!LEMON_SQUEEZY_API_KEY || !LEMON_SQUEEZY_STORE_ID) {
+      return res.status(500).json({ error: "Missing Lemon Squeezy configuration" });
+    }
+
+    try {
+      const { variantId, successUrl, checkoutData } = req.body;
+
+      const response = await fetch("https://api.lemonsqueezy.com/v1/checkouts", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LEMON_SQUEEZY_API_KEY}`,
+          "Content-Type": "application/json",
+          Accept: "application/vnd.api+json",
+        },
+        body: JSON.stringify({
+          data: {
+            type: "checkouts",
+            attributes: {
+              product_options: {
+                enabled_variants: [variantId],
+                redirect_url: successUrl,
+              },
+              checkout_options: {
+                embed: false,
+                media: false,
+                logo: true,
+                original_window_refresh_url: successUrl,
+              },
+              checkout_data: {
+                custom: checkoutData || {},
+              },
+            },
+            relationships: {
+              store: {
+                data: {
+                  type: "stores",
+                  id: LEMON_SQUEEZY_STORE_ID,
+                },
+              },
+              variant: {
+                data: {
+                  type: "variants",
+                  id: variantId,
+                },
+              },
+            },
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.error("Lemon Squeezy error:", errorBody);
+        return res.status(500).json({ error: "Failed to create checkout" });
+      }
+
+      const data = await response.json();
+      res.json({ checkoutUrl: data.data.attributes.url });
+    } catch (error: any) {
+      console.error("Server error in /api/lemonsqueezy:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // AI API Routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "healthy", timestamp: new Date().toISOString() });

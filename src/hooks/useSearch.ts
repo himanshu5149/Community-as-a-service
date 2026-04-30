@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 
 export interface SearchResult {
   id: string;
@@ -22,6 +22,10 @@ export function useSearch(searchTerm: string) {
     }
 
     const performSearch = async () => {
+      if (!auth.currentUser) {
+        setResults([]);
+        return;
+      }
       setLoading(true);
       const output: SearchResult[] = [];
 

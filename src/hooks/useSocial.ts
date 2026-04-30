@@ -34,44 +34,64 @@ export function useSocial() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!auth.currentUser) {
-      setLoading(false);
-      return;
-    }
+    let unsubRequests = () => {};
+    let unsubFriends = () => {};
 
-    const userId = auth.currentUser.uid;
+    const startListeners = (userId: string) => {
+      // Listen for friend requests to the user
+      const qRequests = query(
+        collection(db, 'friend_requests'),
+        where('toId', '==', userId),
+        where('status', '==', 'pending')
+      );
 
-    // Listen for friend requests to the user
-    const qRequests = query(
-      collection(db, 'friend_requests'),
-      where('toId', '==', userId),
-      where('status', '==', 'pending')
-    );
+      // Listen for friendships involving the user
+      const qFriends = query(
+        collection(db, 'friendships'),
+        where('users', 'array-contains', userId)
+      );
 
-    // Listen for friendships involving the user
-    const qFriends = query(
-      collection(db, 'friendships'),
-      where('users', 'array-contains', userId)
-    );
+      unsubRequests = onSnapshot(qRequests, (snapshot) => {
+        setRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FriendRequest)));
+      }, (err) => {
+        if (err.code !== 'permission-denied') {
+          handleFirestoreError(err, OperationType.LIST, 'friend_requests');
+        }
+      });
 
-    const unsubRequests = onSnapshot(qRequests, (snapshot) => {
-      setRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FriendRequest)));
-    }, (err) => handleFirestoreError(err, OperationType.LIST, 'friend_requests'));
+      unsubFriends = onSnapshot(qFriends, (snapshot) => {
+        const friendIds = snapshot.docs.map(doc => {
+          const data = doc.data() as Friendship;
+          return data.users.find(id => id !== userId);
+        }).filter(Boolean) as string[];
+        setFriends(friendIds);
+        setLoading(false);
+      }, (err) => {
+        if (err.code !== 'permission-denied') {
+          handleFirestoreError(err, OperationType.LIST, 'friendships');
+        }
+        setLoading(false);
+      });
+    };
 
-    const unsubFriends = onSnapshot(qFriends, (snapshot) => {
-      const friendIds = snapshot.docs.map(doc => {
-        const data = doc.data() as Friendship;
-        return data.users.find(id => id !== userId);
-      }).filter(Boolean) as string[];
-      setFriends(friendIds);
-      setLoading(false);
-    }, (err) => handleFirestoreError(err, OperationType.LIST, 'friendships'));
+    const authUnsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        startListeners(user.uid);
+      } else {
+        setRequests([]);
+        setFriends([]);
+        setLoading(false);
+        unsubRequests();
+        unsubFriends();
+      }
+    });
 
     return () => {
+      authUnsubscribe();
       unsubRequests();
-      unsubFriends( );
+      unsubFriends();
     };
-  }, [auth.currentUser?.uid]);
+  }, []);
 
   const sendRequest = async (toId: string) => {
     if (!auth.currentUser) return;
@@ -116,7 +136,7 @@ export function useSocial() {
       });
 
       // Notify the person who sent the request
-      await addDoc(collection(db, `profiles/${data.fromId}/notifications`), {
+      await addDoc(collection(db, `users/${data.fromId}/notifications`), {
         title: 'Connection Established',
         message: 'A new neural link has been synchronized with another node.',
         type: 'social',

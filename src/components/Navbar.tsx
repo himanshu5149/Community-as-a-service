@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import { Menu, X, Users, LogIn, LogOut, User, Bell, MessageSquare, ShieldCheck, Sun, Moon, Eye } from 'lucide-react';
+import { Menu, X, Users, LogIn, LogOut, User, Bell, MessageSquare, ShieldCheck, Sun, Moon, Eye, Bot } from 'lucide-react';
 import { signInWithGoogle } from '../lib/firebase';
 import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../hooks/useAuth';
@@ -26,11 +26,11 @@ export default function Navbar() {
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const links = [
-    { name: 'Nexus', href: '/' },
-    { name: 'Groups', href: '/groups' },
-    { name: 'Spaces', href: '/spaces' },
-    { name: 'Events', href: '/events' },
-    { name: 'Intelligence', href: '/ai' },
+    { name: 'Nexus', href: '/', icon: Sun },
+    { name: 'Groups', href: '/groups', icon: Users },
+    { name: 'Direct', href: '/messages', icon: MessageSquare },
+    { name: 'Events', href: '/events', icon: Bell },
+    { name: 'Intelligence', href: '/ai', icon: Bot },
   ];
 
   const handleLogout = async () => {
@@ -39,29 +39,36 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="fixed top-0 w-full z-50 bg-bg-dark/80 backdrop-blur-md border-b border-white/10 text-text-main shadow-sm">
+    <nav className="fixed top-0 w-full z-50 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-white/5 text-white shadow-2xl">
       <div className="max-w-7xl auto px-6 md:px-10 h-20 flex items-center justify-between mx-auto">
         <Link to="/" className="flex items-center gap-4 group transition-transform active:scale-95">
           <BrandLogo className="w-10 h-10 group-hover:rotate-6 transition-transform" />
-          <span className="text-2xl font-black tracking-tighter uppercase mr-6">CaaS</span>
+          <span className="text-2xl font-black tracking-tighter uppercase mr-6 italic">C<span className="text-primary not-italic">aaS</span></span>
         </Link>
 
         {/* Desktop Links */}
-        <div className="hidden md:flex items-center gap-8">
+        <div className="hidden lg:flex items-center gap-10">
           {links.map((link) => (
             <Link
               key={link.name}
               to={link.href}
               className={cn(
-                "text-xs font-black uppercase tracking-widest transition-all hover:text-primary",
-                location.pathname === link.href ? "text-primary italic" : "text-gray-500"
+                "text-[10px] font-black uppercase tracking-[0.25em] transition-all relative py-2 group",
+                location.pathname === link.href ? "text-primary" : "text-gray-500 hover:text-white"
               )}
             >
               {link.name}
+              {location.pathname === link.href && (
+                  <motion.div 
+                    layoutId="nav-underline"
+                    className="absolute -bottom-1 left-0 right-0 h-[2px] bg-primary rounded-full"
+                  />
+              )}
+              <div className="absolute -bottom-1 left-0 right-0 h-[2px] bg-white/20 rounded-full scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
             </Link>
           ))}
           
-          <div className="h-4 w-px bg-white/10 mx-2" />
+          <div className="h-4 w-px bg-white/10" />
 
           {/* Theme Toggles */}
           <div className="flex items-center gap-2 bg-white/5 p-1 rounded-xl">
@@ -187,7 +194,7 @@ export default function Navbar() {
         </div>
 
         {/* Mobile Menu Button */}
-        <button className="md:hidden p-2 text-gray-400" onClick={() => setIsOpen(!isOpen)}>
+        <button className="lg:hidden p-2 text-gray-400" onClick={() => setIsOpen(!isOpen)}>
           {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </button>
       </div>

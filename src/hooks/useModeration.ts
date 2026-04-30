@@ -19,27 +19,39 @@ export function useModeration() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!auth.currentUser) {
-      setLoading(false);
-      return;
-    }
+    let unsubscribe = () => {};
 
-    const q = query(
-      collection(db, 'reports'),
-      where('reporterId', '==', auth.currentUser.uid),
-      orderBy('createdAt', 'desc')
-    );
+    const startListener = (uid: string) => {
+      const q = query(
+        collection(db, 'reports'),
+        where('reporterId', '==', uid),
+        orderBy('createdAt', 'desc')
+      );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setReports(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Report[]);
-      setLoading(false);
-    }, (err) => {
-      console.error("Moderation fetch failed:", err);
-      setLoading(false);
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        setReports(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Report[]);
+        setLoading(false);
+      }, (err) => {
+        console.error("Moderation fetch failed:", err);
+        setLoading(false);
+      });
+    };
+
+    const authUnsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        startListener(user.uid);
+      } else {
+        setReports([]);
+        setLoading(false);
+        unsubscribe();
+      }
     });
 
-    return unsubscribe;
-  }, [auth.currentUser]);
+    return () => {
+      authUnsubscribe();
+      unsubscribe();
+    };
+  }, []);
 
   const submitReport = async (report: Omit<Report, 'id' | 'reporterId' | 'status' | 'createdAt'>) => {
     if (!auth.currentUser) return;
@@ -59,13 +71,24 @@ export function useModeration() {
   const moderateMessage = async (text: string) => {
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `Analyze the following message for community policy violations (harassment, hate speech, explicit content, spam, or high-risk behavior). 
+        model: "gemini-1.5-flash",
+        contents: `You are Aegis, a high-fidelity community moderation AI. Analyze the message below for violations of community safety protocols.
+        
+        Protocols:
+        - Harassment/Bullying
+        - Hate Speech
+        - Explicit/Graphic Content
+        - High-Risk Behavior (self-harm, threats)
+        - Extreme Toxic Speech
+        - Spam/Phishing
+        
         Message: "${text}"
         
         Return a JSON object with:
         - isSafe: boolean
-        - reason: string (brief explanation if not safe, otherwise empty)
+        - violationType: string | null (one of the protocols above or null)
+        - confidence: number (0.0 to 1.0)
+        - reason: string (1-sentence professional explanation of why it was flagged)
         - riskLevel: "none" | "low" | "medium" | "high"`,
         config: {
           responseMimeType: "application/json",
@@ -73,10 +96,12 @@ export function useModeration() {
             type: Type.OBJECT,
             properties: {
               isSafe: { type: Type.BOOLEAN },
+              violationType: { type: Type.STRING, nullable: true },
+              confidence: { type: Type.NUMBER },
               reason: { type: Type.STRING },
               riskLevel: { type: Type.STRING }
             },
-            required: ["isSafe", "reason", "riskLevel"]
+            required: ["isSafe", "violationType", "confidence", "reason", "riskLevel"]
           }
         }
       });
@@ -84,14 +109,14 @@ export function useModeration() {
       const result = JSON.parse(response.text || "{}");
       return {
         isSafe: result.isSafe ?? true,
+        violationType: result.violationType || null,
+        confidence: result.confidence || 0,
         reason: result.reason || "",
         riskLevel: result.riskLevel || "none"
       };
     } catch (error) {
       console.error("AI Moderation Error:", error);
-      // Fallback to safe if AI fails to avoid blocking user unfairly, 
-      // or implement basic regex as fallback
-      return { isSafe: true, reason: "", riskLevel: "none" };
+      return { isSafe: true, violationType: null, confidence: 0, reason: "", riskLevel: "none" };
     }
   };
 

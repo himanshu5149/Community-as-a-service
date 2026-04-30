@@ -35,9 +35,18 @@ export function useSpaces() {
       });
     };
 
-    startListener();
+    const authUnsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        startListener();
+      } else {
+        setSpaces([]);
+        setLoading(false);
+        unsubscribe();
+      }
+    });
 
     return () => {
+      authUnsubscribe();
       unsubscribe();
     };
   }, []);

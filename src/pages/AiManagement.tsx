@@ -4,7 +4,7 @@ import { useAiAgents, AiAgent } from '../hooks/useAiAgents';
 import { useGroups } from '../hooks/useGroups';
 import { Bot, Plus, X, Tag, Globe, Activity, Loader2, Trash2, Brain, Sparkles } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { useToast } from '../hooks/useToast';
+import { useToast, Toast } from '../components/Toast';
 
 export default function AiManagement() {
   const { agents, loading, createAiAgent, deleteAiAgent } = useAiAgents();
@@ -13,11 +13,14 @@ export default function AiManagement() {
   const [showCreator, setShowCreator] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
+    role: '',
+    description: '',
     personality: '',
     expertise: '',
     groupId: '',
     isCrossGroup: false,
-    model: 'gemini-3-flash-preview'
+    model: 'gemini-3-flash-preview',
+    accentColor: '#534ab7'
   });
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -27,20 +30,26 @@ export default function AiManagement() {
     try {
       await createAiAgent({
         name: formData.name,
+        role: formData.role || 'Neural Assistant',
+        description: formData.description || formData.personality,
         personality: formData.personality,
         expertise: expertiseArray,
         groupId: formData.groupId || 'global',
         isCrossGroup: formData.isCrossGroup,
-        model: formData.model
+        model: formData.model,
+        accentColor: formData.accentColor
       });
       setShowCreator(false);
       setFormData({
         name: '',
+        role: '',
+        description: '',
         personality: '',
         expertise: '',
         groupId: '',
         isCrossGroup: false,
-        model: 'gemini-3-flash-preview'
+        model: 'gemini-3-flash-preview',
+        accentColor: '#534ab7'
       });
       showToast("AI Agent deployed to the Nexus.");
     } catch (err) {
@@ -170,15 +179,38 @@ export default function AiManagement() {
                   </div>
 
                   <form onSubmit={handleCreate} className="space-y-8">
+                     <div className="grid grid-cols-2 gap-8">
+                        <div className="space-y-3">
+                           <label className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500 ml-2">Designation</label>
+                           <input 
+                             required
+                             value={formData.name}
+                             onChange={(e) => setFormData({...formData, name: e.target.value})}
+                             className="w-full bg-white/5 border border-white/5 p-6 rounded-2xl outline-none focus:border-primary transition-all text-xl font-bold"
+                             placeholder="Node name (e.g., Nexus Sentinel)"
+                           />
+                        </div>
+                        <div className="space-y-3">
+                           <label className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500 ml-2">Role Title</label>
+                           <input 
+                             required
+                             value={formData.role}
+                             onChange={(e) => setFormData({...formData, role: e.target.value})}
+                             className="w-full bg-white/5 border border-white/5 p-6 rounded-2xl outline-none focus:border-primary transition-all text-xl font-bold"
+                             placeholder="e.g. Moderator"
+                           />
+                        </div>
+                     </div>
+
                      <div className="space-y-3">
-                        <label className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500 ml-2">Designation</label>
-                        <input 
-                          required
-                          value={formData.name}
-                          onChange={(e) => setFormData({...formData, name: e.target.value})}
-                          className="w-full bg-white/5 border border-white/5 p-6 rounded-2xl outline-none focus:border-primary transition-all text-xl font-bold"
-                          placeholder="Node name (e.g., Nexus Sentinel)"
-                        />
+                       <label className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500 ml-2">Public Description</label>
+                       <input 
+                         required
+                         value={formData.description}
+                         onChange={(e) => setFormData({...formData, description: e.target.value})}
+                         className="w-full bg-white/5 border border-white/5 p-6 rounded-2xl outline-none focus:border-primary transition-all font-bold"
+                         placeholder="Briefly describe this agent's purpose to users..."
+                       />
                      </div>
 
                      <div className="space-y-3">
@@ -221,6 +253,30 @@ export default function AiManagement() {
                      </div>
 
                      <div className="space-y-3">
+                        <label className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500 ml-2">Accent Color</label>
+                        <div className="flex gap-4">
+                           {['#534ab7', '#EF4444', '#10B981', '#F59E0B', '#3B82F6', '#EC4899'].map(color => (
+                              <button 
+                                key={color}
+                                type="button"
+                                onClick={() => setFormData({...formData, accentColor: color})}
+                                className={cn(
+                                   "w-12 h-12 rounded-xl transition-all border-2",
+                                   formData.accentColor === color ? "border-white scale-110" : "border-transparent"
+                                )}
+                                style={{ backgroundColor: color }}
+                              />
+                           ))}
+                           <input 
+                              type="color" 
+                              value={formData.accentColor}
+                              onChange={(e) => setFormData({...formData, accentColor: e.target.value})}
+                              className="w-12 h-12 bg-transparent border-none outline-none cursor-pointer p-0"
+                           />
+                        </div>
+                     </div>
+
+                     <div className="space-y-3">
                         <label className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500 ml-2">Cognitive Directive</label>
                         <textarea 
                            required
@@ -248,25 +304,11 @@ export default function AiManagement() {
       {/* Toast Notification */}
       <AnimatePresence>
         {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: 50, x: '-50%' }}
-            animate={{ opacity: 1, y: 0, x: '-50%' }}
-            exit={{ opacity: 0, y: 50, x: '-50%' }}
-            className="fixed bottom-10 left-1/2 z-[200] w-full max-w-md px-6"
-          >
-            <div className={cn(
-              "px-8 py-5 rounded-3xl backdrop-blur-2xl border flex items-center justify-between shadow-2xl",
-              toast.type === 'error' ? "bg-red-500/20 border-red-500/30 text-red-100" : "bg-primary/20 border-primary/30 text-primary-100"
-            )}>
-              <div className="flex items-center gap-3">
-                <Sparkles className="w-4 h-4" />
-                <span className="text-xs font-black uppercase tracking-widest">{toast.message}</span>
-              </div>
-              <button onClick={hideToast} className="p-1 hover:bg-white/10 rounded-lg transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </motion.div>
+          <Toast 
+            message={toast.message} 
+            type={toast.type} 
+            onClose={hideToast} 
+          />
         )}
       </AnimatePresence>
     </div>

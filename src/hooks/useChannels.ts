@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, where } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 
 export interface Channel {
   id: string;
@@ -16,28 +16,49 @@ export function useChannels(groupId: string) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!groupId) return;
-
-    const path = `groups/${groupId}/channels`;
-    const q = query(
-      collection(db, path),
-      where('groupId', '==', groupId),
-      orderBy('createdAt', 'asc')
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Channel[];
-      setChannels(data);
+    if (!groupId) {
       setLoading(false);
-    }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, path);
-      setLoading(false);
+      return;
+    }
+
+    let unsubscribe = () => {};
+
+    const startListener = () => {
+      const path = `groups/${groupId}/channels`;
+      const q = query(
+        collection(db, path),
+        orderBy('createdAt', 'asc')
+      );
+
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        const data = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Channel[];
+        setChannels(data);
+        setLoading(false);
+      }, (err: any) => {
+        if (err.code !== 'permission-denied') {
+          handleFirestoreError(err, OperationType.LIST, path);
+        }
+        setLoading(false);
+      });
+    };
+
+    const authUnsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        startListener();
+      } else {
+        setChannels([]);
+        setLoading(false);
+        unsubscribe();
+      }
     });
 
-    return unsubscribe;
+    return () => {
+      authUnsubscribe();
+      unsubscribe();
+    };
   }, [groupId]);
 
   const createChannel = async (name: string, description: string, type: string, userId: string) => {

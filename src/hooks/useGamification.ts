@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { doc, onSnapshot, setDoc, updateDoc, increment, serverTimestamp, getDoc } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 
 export interface UserPoints {
   points: number;
@@ -14,29 +14,51 @@ export function useGamification() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!auth.currentUser) return;
+    let unsubscribe = () => {};
 
-    const userRef = doc(db, 'users', auth.currentUser.uid, 'points', 'stats');
-    
-    const unsubscribe = onSnapshot(userRef, (docSnap) => {
-      if (docSnap.exists()) {
-        setStats(docSnap.data() as UserPoints);
+    const startListener = (uid: string) => {
+      const userRef = doc(db, 'users', uid, 'points', 'stats');
+      
+      unsubscribe = onSnapshot(userRef, (docSnap) => {
+        if (docSnap.exists()) {
+          setStats(docSnap.data() as UserPoints);
+        } else {
+          // Initialize stats
+          const initialStats: UserPoints = {
+            points: 0,
+            level: 'Newcomer',
+            streakDays: 1,
+            lastActivity: serverTimestamp()
+          };
+          setDoc(userRef, initialStats).catch(err => {
+            handleFirestoreError(err, OperationType.WRITE, `users/${uid}/points/stats`);
+          });
+          setStats(initialStats);
+        }
+        setLoading(false);
+      }, (err) => {
+        setLoading(false);
+        if (err.code !== 'permission-denied') {
+          handleFirestoreError(err, OperationType.GET, `users/${uid}/points/stats`);
+        }
+      });
+    };
+
+    const authUnsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        startListener(user.uid);
       } else {
-        // Initialize stats
-        const initialStats: UserPoints = {
-          points: 0,
-          level: 'Newcomer',
-          streakDays: 1,
-          lastActivity: serverTimestamp()
-        };
-        setDoc(userRef, initialStats);
-        setStats(initialStats);
+        setStats(null);
+        setLoading(false);
+        unsubscribe();
       }
-      setLoading(false);
     });
 
-    return unsubscribe;
-  }, [auth.currentUser]);
+    return () => {
+      authUnsubscribe();
+      unsubscribe();
+    };
+  }, []);
 
   const addPoints = async (amount: number) => {
     if (!auth.currentUser) return;

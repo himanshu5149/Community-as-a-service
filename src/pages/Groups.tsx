@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { GroupSkeleton } from '../components/ui/Skeleton';
 import { useGroups, Group } from '../hooks/useGroups';
 import { motion, AnimatePresence } from 'motion/react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { db, auth, signInWithGoogle } from '../lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
-import { Users, Loader2, ArrowRight, Lock, LogIn, Plus, X, LayoutGrid, Type, AlignLeft, Sparkles, Zap } from 'lucide-react';
+import { Users, Loader2, ArrowRight, Lock, LogIn, Plus, X, LayoutGrid, Type, AlignLeft, Sparkles, Zap, List } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Toast, useToast } from '../components/Toast';
 
@@ -15,6 +15,9 @@ export default function Groups() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [searchParams] = useSearchParams();
+  
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupDesc, setNewGroupDesc] = useState("");
   const [newGroupCat, setNewGroupCat] = useState("General");
@@ -30,6 +33,12 @@ export default function Groups() {
     });
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (searchParams.get('create') === 'true') {
+      setShowCreateModal(true);
+    }
+  }, [searchParams]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,7 +106,21 @@ export default function Groups() {
               Browse our ecosystem of high-fidelity communities. Each node is powered by enterprise community architecture.
             </p>
           </div>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex bg-white/5 p-1 rounded-2xl mr-4">
+               <button 
+                onClick={() => setViewMode('grid')}
+                className={cn("p-4 rounded-xl transition-all", viewMode === 'grid' ? "bg-primary text-white" : "text-gray-500 hover:text-white")}
+               >
+                 <LayoutGrid className="w-5 h-5" />
+               </button>
+               <button 
+                onClick={() => setViewMode('list')}
+                className={cn("p-4 rounded-xl transition-all", viewMode === 'list' ? "bg-primary text-white" : "text-gray-500 hover:text-white")}
+               >
+                 <List className="w-5 h-5" />
+               </button>
+            </div>
             <button 
               onClick={() => user ? setShowCreateModal(true) : signInWithGoogle()}
               className="px-8 py-5 bg-white/5 border border-white/10 text-white rounded-3xl font-bold hover:bg-white/10 transition-all flex items-center gap-3 backdrop-blur-xl shrink-0"
@@ -151,9 +174,13 @@ export default function Groups() {
                  </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+              <div className={cn(
+                viewMode === 'grid' 
+                  ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10" 
+                  : "flex flex-col gap-4"
+              )}>
                 {groups.map((group, i) => (
-                  <GroupCard key={group.id} group={group} index={i} />
+                  <GroupCard key={group.id} group={group} index={i} variant={viewMode} />
                 ))}
               </div>
             )}
@@ -261,10 +288,57 @@ export default function Groups() {
 interface GroupCardProps {
   group: Group;
   index: number;
+  variant?: 'grid' | 'list';
 }
 
-const GroupCard: React.FC<GroupCardProps> = ({ group, index }) => {
+const GroupCard: React.FC<GroupCardProps> = ({ group, index, variant = 'grid' }) => {
   const navigate = useNavigate();
+  
+  if (variant === 'list') {
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: index * 0.05 }}
+        onClick={() => navigate(`/groups/${group.id}`)}
+        className="group bg-white/[0.03] rounded-3xl p-6 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all cursor-pointer flex items-center gap-6 backdrop-blur-sm"
+      >
+        <div 
+          className="w-16 h-16 rounded-2xl flex-shrink-0 flex items-center justify-center text-white shadow-xl"
+          style={{ backgroundColor: group.accentColor || '#3B82F6' }}
+        >
+          <div className="text-2xl font-bold italic">
+            {group.name[0]}
+          </div>
+        </div>
+        
+        <div className="flex-grow min-w-0">
+          <div className="flex items-center gap-3 mb-1">
+            <h3 className="text-xl font-bold tracking-tight group-hover:text-primary transition-colors truncate">
+              {group.name}
+            </h3>
+            <span className="text-[9px] font-black text-gray-500 uppercase tracking-[0.2em] px-2 py-1 bg-white/5 rounded-md">
+              {group.category}
+            </span>
+          </div>
+          <p className="text-gray-500 text-sm font-medium line-clamp-1">
+            {group.description}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-6 flex-shrink-0 sm:pr-4">
+           <div className="flex items-center gap-2 text-white font-bold">
+            <Users className="w-4 h-4 text-primary" />
+            <span className="text-sm font-black tracking-widest">{(group.memberCount || 0).toLocaleString()}</span>
+          </div>
+          <div className="text-primary font-black uppercase text-[9px] tracking-widest opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
+            Link <ArrowRight className="w-4 h-4" />
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 30 }}

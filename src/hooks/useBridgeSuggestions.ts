@@ -8,7 +8,7 @@ import {
   serverTimestamp,
   orderBy
 } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 
 export interface BridgeSuggestion {
   id: string;
@@ -25,25 +25,44 @@ export function useBridgeSuggestions(postId?: string) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let q = query(collection(db, 'bridge_suggestions'), orderBy('createdAt', 'desc'));
-    
-    if (postId) {
-      q = query(collection(db, 'bridge_suggestions'), where('postId', '==', postId), orderBy('createdAt', 'desc'));
-    }
+    let unsubscribe = () => {};
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as BridgeSuggestion[];
-      setSuggestions(data);
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'bridge_suggestions');
-      setLoading(false);
+    const startListener = () => {
+      let q = query(collection(db, 'bridge_suggestions'), orderBy('createdAt', 'desc'));
+      
+      if (postId) {
+        q = query(collection(db, 'bridge_suggestions'), where('postId', '==', postId), orderBy('createdAt', 'desc'));
+      }
+
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        const data = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as BridgeSuggestion[];
+        setSuggestions(data);
+        setLoading(false);
+      }, (error) => {
+        if (error.code !== 'permission-denied') {
+          handleFirestoreError(error, OperationType.GET, 'bridge_suggestions');
+        }
+        setLoading(false);
+      });
+    };
+
+    const authUnsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        startListener();
+      } else {
+        setSuggestions([]);
+        setLoading(false);
+        unsubscribe();
+      }
     });
 
-    return () => unsubscribe();
+    return () => {
+      authUnsubscribe();
+      unsubscribe();
+    };
   }, [postId]);
 
   const suggestBridge = async (postId: string, fromGroup: string, suggestedGroup: string, reason: string) => {

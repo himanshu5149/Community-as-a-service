@@ -16,31 +16,51 @@ export function usePolls(groupId: string) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!groupId || !auth.currentUser) {
+    if (!groupId) {
       setLoading(false);
       return;
     }
 
-    const path = `groups/${groupId}/polls`;
-    const q = query(
-      collection(db, path),
-      orderBy('createdAt', 'desc'),
-      limit(5)
-    );
+    let unsubscribe = () => {};
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Poll[];
-      setPolls(data);
-      setLoading(false);
-    }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, path);
+    const startListener = () => {
+      const path = `groups/${groupId}/polls`;
+      const q = query(
+        collection(db, path),
+        orderBy('createdAt', 'desc'),
+        limit(5)
+      );
+
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        const data = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Poll[];
+        setPolls(data);
+        setLoading(false);
+      }, (err) => {
+        if (err.code !== 'permission-denied') {
+          handleFirestoreError(err, OperationType.LIST, path);
+        }
+        setLoading(false);
+      });
+    };
+
+    const authUnsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        startListener();
+      } else {
+        setPolls([]);
+        setLoading(false);
+        unsubscribe();
+      }
     });
 
-    return unsubscribe;
-  }, [groupId, auth.currentUser]);
+    return () => {
+      authUnsubscribe();
+      unsubscribe();
+    };
+  }, [groupId]);
 
   const vote = async (pollId: string, optionIndex: number) => {
     if (!auth.currentUser || !groupId) return;

@@ -25,16 +25,21 @@ export default function Signup() {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(userCredential.user, { displayName: name });
       
-      // Explicitly create profile to avoid race condition with useAuth hook
-      await setDoc(doc(db, 'profiles', userCredential.user.uid), {
+      // Explicitly create user profile to avoid race condition with useAuth hook
+      await setDoc(doc(db, 'users', userCredential.user.uid), {
         uid: userCredential.user.uid,
         email: userCredential.user.email,
         displayName: name,
+        photoURL: `https://api.dicebear.com/7.x/bottts/svg?seed=${userCredential.user.uid}`,
+        role: userCredential.user.email === 'royalisdevil@gmail.com' ? 'admin' : 'user',
         createdAt: serverTimestamp(),
-        lastLogin: serverTimestamp()
+        lastLogin: serverTimestamp(),
+        points: 0,
+        level: 1,
+        groups: []
       });
 
-      navigate('/');
+      navigate('/onboarding');
     } catch (err: any) {
       if (err.code === 'auth/operation-not-allowed') {
         setError('Registration is currently disabled. Please enable the Email/Password provider in your Firebase Console.');

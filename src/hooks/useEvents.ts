@@ -49,9 +49,18 @@ export function useEvents(groupId?: string) {
       });
     };
 
-    startListener();
+    const authUnsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        startListener();
+      } else {
+        setEvents([]);
+        setLoading(false);
+        unsubscribe();
+      }
+    });
 
     return () => {
+      authUnsubscribe();
       unsubscribe();
     };
   }, [groupId]);

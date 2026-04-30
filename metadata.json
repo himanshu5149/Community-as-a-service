@@ -1,6 +1,6 @@
 {
-  "name": "CaaS — AI Community OS",
-  "description": "High-fidelity community infrastructure with AI as a community member. Features vertical networking, neural moderation, and intelligent personas that motivate, debug, and study with you.",
+  "name": "CaaS — Community as a Service",
+  "description": "Infrastructure for your community. We handle the tech and moderation so you can focus on building connections.",
   "requestFramePermissions": [
     "camera",
     "microphone",

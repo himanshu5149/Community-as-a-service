@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   collection, onSnapshot, query, orderBy, limit, addDoc, 
   serverTimestamp, Timestamp, doc, updateDoc, deleteDoc, 
-  startAfter, getDocs, QueryDocumentSnapshot, where 
+  startAfter, getDocs, QueryDocumentSnapshot
 } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 
@@ -16,6 +16,8 @@ export interface Message {
   fileUrl?: string;
   createdAt: Timestamp;
   isAI?: boolean;
+  aiRole?: string;
+  aiColor?: string;
   reactions?: Record<string, string[]>; // emoji: [userIds]
   replyTo?: {
     messageId: string;
@@ -25,6 +27,9 @@ export interface Message {
   isEdited?: boolean;
   isPinned?: boolean;
   status?: 'pending' | 'sent' | 'error';
+  moderationStatus?: 'flagged' | 'safe' | 'pending';
+  moderationReason?: string;
+  moderationType?: string;
 }
 
 export function useChat(groupId: string, channelId?: string) {
@@ -39,65 +44,75 @@ export function useChat(groupId: string, channelId?: string) {
 
   // Real-time listener for NEW messages
   useEffect(() => {
-    if (!groupId || !auth.currentUser) {
+    if (!groupId) {
       setLoading(false);
       return;
     }
 
-    const path = channelId 
-      ? `groups/${groupId}/channels/${channelId}/messages` 
-      : `groups/${groupId}/messages`;
-    
-    // Listen for recent messages
-    const q = query(
-      collection(db, path),
-      where('groupId', '==', groupId),
-      orderBy('createdAt', 'desc'),
-      limit(PAGE_SIZE)
-    );
+    // Wait for auth to be ready
+    const unsubscribeAuth = auth.onAuthStateChanged((currentUser) => {
+      if (!currentUser) {
+        setMessages([]);
+        setLoading(false);
+        return;
+      }
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        status: 'sent'
-      })).reverse() as Message[];
+      const path = channelId 
+        ? `groups/${groupId}/channels/${channelId}/messages` 
+        : `groups/${groupId}/messages`;
       
-      setMessages(prev => {
-        const existingIds = new Set(data.map(m => m.id));
+      const q = query(
+        collection(db, path),
+        orderBy('createdAt', 'desc'),
+        limit(PAGE_SIZE)
+      );
+
+      const unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
+        const data = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          status: 'sent'
+        })).reverse() as Message[];
         
-        // Find messages older than the current batch to preserve history
-        const oldestIncomingTime = data.length > 0 && data[0].createdAt 
-          ? data[0].createdAt.toMillis() 
-          : Infinity;
+        setMessages(prev => {
+          const existingIds = new Set(data.map(m => m.id));
           
-        const historical = prev.filter(m => 
-          !existingIds.has(m.id) && 
-          m.status !== 'pending' && 
-          m.createdAt && m.createdAt.toMillis() < oldestIncomingTime
-        );
+          const oldestIncomingTime = data.length > 0 && data[0].createdAt 
+            ? data[0].createdAt.toMillis() 
+            : Infinity;
+            
+          const historical = prev.filter(m => 
+            !existingIds.has(m.id) && 
+            m.status !== 'pending' && 
+            m.createdAt && m.createdAt.toMillis() < oldestIncomingTime
+          );
 
-        const optimistic = prev.filter(m => m.status === 'pending' && !existingIds.has(m.id));
+          const optimistic = prev.filter(m => m.status === 'pending' && !existingIds.has(m.id));
+          
+          return [...historical, ...data, ...optimistic];
+        });
         
-        return [...historical, ...data, ...optimistic];
+        if (lastDocRef.current === null) {
+          lastDocRef.current = snapshot.docs[snapshot.docs.length - 1];
+        }
+        
+        setLoading(false);
+      }, (err: any) => {
+        setLoading(false);
+        if (err.code !== 'permission-denied') {
+          try {
+            handleFirestoreError(err, OperationType.LIST, path);
+          } catch (e: any) {
+            setError(e);
+          }
+        }
       });
-      
-      if (lastDocRef.current === null) {
-        lastDocRef.current = snapshot.docs[snapshot.docs.length - 1];
-      }
-      
-      setLoading(false);
-    }, (err) => {
-      setLoading(false);
-      try {
-        handleFirestoreError(err, OperationType.LIST, path);
-      } catch (e: any) {
-        setError(e);
-      }
+
+      return () => unsubscribeSnapshot();
     });
 
-    return unsubscribe;
-  }, [groupId, channelId, auth.currentUser]);
+    return () => unsubscribeAuth();
+  }, [groupId, channelId]);
 
   const loadMore = useCallback(async () => {
     if (!lastDocRef.current || !hasMore || !groupId) return;
@@ -108,7 +123,6 @@ export function useChat(groupId: string, channelId?: string) {
 
     const q = query(
       collection(db, path),
-      where('groupId', '==', groupId),
       orderBy('createdAt', 'desc'),
       startAfter(lastDocRef.current),
       limit(PAGE_SIZE)
@@ -142,6 +156,8 @@ export function useChat(groupId: string, channelId?: string) {
     options?: { 
       aiName?: string; 
       aiAvatar?: string;
+      aiRole?: string;
+      aiColor?: string;
       replyTo?: Message['replyTo'];
     }
   ) => {
@@ -157,13 +173,15 @@ export function useChat(groupId: string, channelId?: string) {
       userId: isAI ? 'system_ai' : auth.currentUser.uid,
       userName: isAI ? (options?.aiName || 'Mainframe') : (auth.currentUser.displayName || 'Anonymous'),
       userAvatar: isAI ? (options?.aiAvatar || '') : (auth.currentUser.photoURL || ''),
+      aiRole: options?.aiRole,
+      aiColor: options?.aiColor,
       text,
       type,
       fileUrl: fileUrl || '',
       createdAt: Timestamp.now(),
       isAI,
       reactions: {},
-      replyTo: options?.replyTo || null,
+      replyTo: options?.replyTo || undefined,
       isEdited: false,
       isPinned: false,
       status: 'pending'

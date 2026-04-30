@@ -11,11 +11,16 @@ import {
   serverTimestamp,
   deleteDoc
 } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 
 export interface AiAgent {
   id: string;
   name: string;
+  role: string;
+  description: string;
+  systemInstruction?: string;
+  avatarUrl?: string;
+  accentColor?: string;
   personality: string;
   expertise: string[];
   groupId: string;
@@ -29,23 +34,42 @@ export function useAiAgents(groupId?: string) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = groupId 
-      ? query(collection(db, 'ai_agents'), where('groupId', '==', groupId))
-      : query(collection(db, 'ai_agents'), where('isCrossGroup', '==', true));
+    let unsubscribe = () => {};
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const agentsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as AiAgent[];
-      setAgents(agentsData);
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'ai_agents');
-      setLoading(false);
+    const startListener = () => {
+      const q = groupId 
+        ? query(collection(db, 'ai_agents'), where('groupId', 'in', [groupId, 'global']))
+        : query(collection(db, 'ai_agents'), where('isCrossGroup', '==', true));
+
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        const agentsData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as AiAgent[];
+        setAgents(agentsData);
+        setLoading(false);
+      }, (error) => {
+        if (error.code !== 'permission-denied') {
+          handleFirestoreError(error, OperationType.GET, 'ai_agents');
+        }
+        setLoading(false);
+      });
+    };
+
+    const authUnsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        startListener();
+      } else {
+        setAgents([]);
+        setLoading(false);
+        unsubscribe();
+      }
     });
 
-    return () => unsubscribe();
+    return () => {
+      authUnsubscribe();
+      unsubscribe();
+    };
   }, [groupId]);
 
   const recordInteraction = async (agentId: string, userId: string, prompt: string, response: string, tokens: number) => {

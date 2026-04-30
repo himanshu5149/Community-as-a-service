@@ -83,8 +83,14 @@ export default function Footer() {
         </div>
 
         <div className="pt-10 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-700">
-            © {currentYear} Community as a Service. All Rights Reserved. Protocol v1.0.4-L
+          <div className="flex flex-col md:flex-row items-center gap-6">
+            <div className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-700">
+              © {currentYear} Community as a Service. All Rights Reserved.
+            </div>
+            <div className="h-4 w-px bg-white/5 hidden md:block"></div>
+            <div className="text-[10px] font-black uppercase tracking-[0.3em]">
+              Developed by <span className="text-white hover:text-primary transition-colors cursor-default">Himanshu Sharma</span>
+            </div>
           </div>
           <div className="flex gap-8">
             <Link to="/about" className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-700 hover:text-white transition-colors">Privacy Policy</Link>

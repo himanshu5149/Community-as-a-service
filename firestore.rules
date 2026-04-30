@@ -7,242 +7,136 @@ service cloud.firestore {
     }
 
     // --- Helpers ---
-    function isSignedIn() { return request.auth != null; }
-    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
-    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
-    function incoming() { return request.resource.data; }
-    function existing() { return resource.data; }
-    function isVerified() { return request.auth.token.email_verified == true; }
+    function isSignedIn() {
+      return request.auth != null;
+    }
     
-    function isMember(groupId) {
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function incoming() {
+      return request.resource.data;
+    }
+    
+    function existing() {
+      return resource.data;
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'royalisdevil@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'admin')
+      );
+    }
+
+    function isGroupMember(groupId) {
       return isSignedIn() && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
     }
 
+    function isGroupMod(groupId) {
+      return isGroupMember(groupId) && 
+             get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.get('role', 'member') in ['admin', 'moderator'];
+    }
+
     function isGroupAdmin(groupId) {
-      return isSignedIn() && (
-        isMember(groupId) &&
-        get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role == 'admin'
-      );
+      return isGroupMember(groupId) && 
+             get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.get('role', 'member') == 'admin';
     }
 
-    // --- Entities Validation ---
-    
-    function isValidGroup(data) {
-      return data.keys().hasAll(['name', 'description', 'accentColor']) &&
-             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
-             data.description is string && data.description.size() <= 500 &&
-             data.accentColor is string && data.accentColor.matches('^#[A-Fa-f0-9]{6}$');
-    }
+    // --- Core Collections ---
 
-    function isValidMembership(data, userId) {
-      return data.keys().hasAll(['userId', 'role', 'joinedAt']) &&
-             data.userId == userId &&
-             data.role in ['admin', 'moderator', 'member'] &&
-             data.joinedAt == request.time;
+    match /users/{userId} {
+      allow get, list: if true; 
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isSuperAdmin();
+      
+      match /notifications/{notifId} {
+        allow read, update, delete: if isOwner(userId);
+        allow create: if isSignedIn();
+      }
+      
+      match /points/{docId} {
+        allow read, write: if isOwner(userId);
+      }
     }
-
-    function isValidMessage(data) {
-      return data.keys().hasAll(['userId', 'text', 'type', 'createdAt']) &&
-             (data.userId == request.auth.uid || (data.get('isAI', false) == true && data.userId == 'system_ai')) &&
-             data.text is string && data.text.size() <= 10000 &&
-             data.type in ['text', 'image', 'video', 'audio', 'ai'];
-    }
-
-    function isValidMessageCreate(data) {
-      return isValidMessage(data) && data.createdAt == request.time;
-    }
-
-    function isValidEvent(data) {
-      return data.keys().hasAll(['title', 'description', 'hostId', 'startTime', 'endTime', 'eventType']) &&
-             data.hostId == request.auth.uid &&
-             data.title is string && data.title.size() <= 200 &&
-             data.description is string && data.description.size() <= 2000 &&
-             data.eventType in ['online', 'in-person'];
-    }
-
-    // --- Collection Routes ---
 
     match /groups/{groupId} {
-      allow get: if isValidId(groupId);
-      allow list: if isSignedIn() && resource.data.name >= ''; 
-      allow create: if isSignedIn() && isValidId(groupId) && isValidGroup(incoming());
-      allow update: if isSignedIn() && isValidId(groupId) && (
-        isGroupAdmin(groupId) || (
-           isSignedIn() && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)) && 
-           incoming().diff(existing()).affectedKeys().hasOnly(['memberCount'])
-        )
-      ) && isValidGroup(incoming()) && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'accentColor', 'icon', 'category', 'slug', 'memberCount'])
-      );
-      allow delete: if isGroupAdmin(groupId);
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isGroupAdmin(groupId) || isSuperAdmin();
 
       match /members/{memberId} {
-        allow get: if isSignedIn() && isValidId(memberId);
-        allow list: if isMember(groupId) && resource.data.groupId == groupId;
-        allow create: if isSignedIn() && isValidId(memberId) && isValidMembership(incoming(), request.auth.uid) && memberId == request.auth.uid;
-        allow update: if isGroupAdmin(groupId) || (isOwner(memberId) && incoming().diff(existing()).affectedKeys().hasOnly(['userName', 'userAvatar']));
-        allow delete: if isGroupAdmin(groupId) || isOwner(memberId);
+        allow read: if isGroupMember(groupId) || (isSignedIn() && memberId == request.auth.uid);
+        allow write: if isGroupMod(groupId) || (isSignedIn() && memberId == request.auth.uid);
       }
 
       match /channels/{channelId} {
-        allow get: if isSignedIn() && isValidId(channelId);
-        allow list: if isMember(groupId) && resource.data.groupId == groupId;
-        allow create: if isGroupAdmin(groupId) && isValidId(channelId);
-        allow update: if isGroupAdmin(groupId);
-        allow delete: if isGroupAdmin(groupId);
+        allow read: if isGroupMember(groupId);
+        allow write: if isGroupMod(groupId);
 
         match /messages/{messageId} {
-          allow get: if isMember(groupId) && isValidId(messageId);
-          allow list: if isMember(groupId) && resource.data.groupId == groupId; 
-          allow create: if isMember(groupId) && isValidId(messageId) && isValidMessageCreate(incoming());
-          allow update: if isMember(groupId) && (
-             (isOwner(existing().userId) && incoming().userId == existing().userId && incoming().diff(existing()).affectedKeys().hasOnly(['text', 'isEdited', 'reactions', 'updatedAt', 'replyTo'])) ||
-             (isGroupAdmin(groupId) && incoming().diff(existing()).affectedKeys().hasOnly(['isPinned', 'reactions'])) ||
-             (isSignedIn() && incoming().diff(existing()).affectedKeys().hasOnly(['reactions']))
-          );
-          allow delete: if isOwner(existing().userId) || isGroupAdmin(groupId);
+          allow read: if isGroupMember(groupId);
+          allow create: if isGroupMember(groupId);
+          allow update, delete: if isGroupMember(groupId) && (existing().userId == request.auth.uid || isGroupMod(groupId));
         }
       }
 
       match /messages/{messageId} {
-        // Fallback or general group messages (not in a specific channel)
-        allow get: if isMember(groupId) && isValidId(messageId);
-        allow list: if isMember(groupId) && resource.data.groupId == groupId; 
-        allow create: if isMember(groupId) && isValidId(messageId) && isValidMessageCreate(incoming());
-        allow update: if isMember(groupId) && (
-           (isOwner(existing().userId) && incoming().userId == existing().userId && incoming().diff(existing()).affectedKeys().hasOnly(['text', 'isEdited', 'reactions', 'updatedAt', 'replyTo'])) ||
-           (isGroupAdmin(groupId) && incoming().diff(existing()).affectedKeys().hasOnly(['isPinned', 'reactions'])) ||
-           (isSignedIn() && incoming().diff(existing()).affectedKeys().hasOnly(['reactions']))
-        );
-        allow delete: if isOwner(existing().userId) || isGroupAdmin(groupId);
+        allow read: if isGroupMember(groupId);
+        allow create: if isGroupMember(groupId);
+        allow update, delete: if isGroupMember(groupId) && (existing().userId == request.auth.uid || isGroupMod(groupId));
       }
 
       match /events/{eventId} {
-        allow get: if isValidId(eventId);
-        allow list: if isMember(groupId) && resource.data.groupId == groupId; 
-        allow create: if isSignedIn() && isValidId(eventId) && isValidEvent(incoming());
-        allow update: if isSignedIn() && (
-          (isOwner(existing().hostId) && isValidEvent(incoming())) ||
-          (isSignedIn() && incoming().diff(existing()).affectedKeys().hasOnly(['rsvps']))
-        );
-        allow delete: if isOwner(existing().hostId) || isGroupAdmin(groupId);
-      }
-
-      match /polls/{pollId} {
-        allow get: if isSignedIn() && isValidId(pollId);
-        allow list: if isSignedIn();
-        allow create: if isGroupAdmin(groupId);
-        allow update: if isSignedIn() && (
-          isGroupAdmin(groupId) || (
-            incoming().diff(existing()).affectedKeys().hasOnly(['votes', 'userVotes'])
-          )
-        );
-        allow delete: if isGroupAdmin(groupId);
+        allow read: if isGroupMember(groupId);
+        allow create, update, delete: if isGroupMod(groupId);
       }
     }
 
-    match /spaces/{spaceId} {
-      allow get: if isSignedIn() && isValidId(spaceId);
-      allow list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['members', 'lastActivity', 'connectedGroups'])
-      );
-      allow delete: if false;
-    }
-
-    match /blogPosts/{postId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
-      allow write: if false; // CMS managed
-    }
-
-    match /bridge_suggestions/{id} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isVerified(); // AI or moderator
-    }
-
-    match /profiles/{userId} {
-      allow get: if isSignedIn() && isValidId(userId);
-      allow list: if isSignedIn();
-      allow write: if isOwner(userId);
-      
-      match /points/stats {
-        allow read: if isOwner(userId);
-        allow write: if isOwner(userId); 
-      }
-    }
-
-    match /users/{userId} {
-      allow get: if isSignedIn() && isValidId(userId);
-      allow list: if isSignedIn();
-      allow write: if isOwner(userId);
-      
-      match /points/stats {
-        allow read: if isOwner(userId);
-        allow write: if isOwner(userId); 
-      }
-    }
-
-    match /profiles/{userId}/notifications/{notifId} {
-      allow get, update, delete: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isSignedIn();
-    }
-
-    match /friend_requests/{id} {
-      allow get: if isSignedIn() && (resource.data.fromId == request.auth.uid || resource.data.toId == request.auth.uid);
-      allow list: if isSignedIn() && (resource.data.fromId == request.auth.uid || resource.data.toId == request.auth.uid);
-      allow create: if isSignedIn() && incoming().fromId == request.auth.uid;
-      allow update, delete: if isSignedIn() && (resource.data.fromId == request.auth.uid || resource.data.toId == request.auth.uid);
-    }
-
-    match /friendships/{id} {
-      allow get: if isSignedIn() && request.auth.uid in resource.data.users;
-      allow list: if isSignedIn() && request.auth.uid in resource.data.users;
-      allow create: if isSignedIn() && request.auth.uid in incoming().users;
-      allow delete: if isSignedIn() && request.auth.uid in resource.data.users;
-    }
-
+    // --- Global Messaging & Social ---
+    
     match /conversations/{convId} {
-      allow get: if isSignedIn() && isValidId(convId) && request.auth.uid in existing().participants;
-      allow list: if isSignedIn() && request.auth.uid in resource.data.participants;
-      allow create: if isSignedIn() && isValidId(convId) && request.auth.uid in incoming().participants;
-      allow update: if isSignedIn() && isValidId(convId) && request.auth.uid in existing().participants;
+      allow create: if isSignedIn();
+      allow read: if isSignedIn() && request.auth.uid in existing().participants;
+      allow update: if isSignedIn() && request.auth.uid in existing().participants;
 
-      match /messages/{messageId} {
-        allow get: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.participants;
-        allow list: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.participants;
-        allow create: if isSignedIn() && isValidId(messageId) && request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.participants && isValidMessageCreate(incoming());
+      match /messages/{msgId} {
+        // We use get() here to check parent conversation participants
+        allow read: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.participants;
+        allow create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.participants;
       }
+    }
+
+    match /friend_requests/{reqId} {
+      allow create: if isSignedIn() && incoming().fromId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && (resource.data.fromId == request.auth.uid || resource.data.toId == request.auth.uid);
+    }
+
+    match /friendships/{fId} {
+      allow read, delete: if isSignedIn() && request.auth.uid in resource.data.users;
+      allow create: if isSignedIn();
+    }
+
+    // --- Admin & Meta ---
+
+    match /reports/{reportId} {
+      allow create: if isSignedIn();
+      allow read, update: if isSuperAdmin();
     }
 
     match /ai_agents/{agentId} {
-      allow read: if true;
-      allow write: if isSignedIn(); 
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin();
     }
 
-    match /events_global/{eventId} {
-      allow get: if isValidId(eventId);
-      allow list: if isSignedIn() && resource.data.eventType != '';
-      allow create: if isSignedIn() && isValidId(eventId) && isValidEvent(incoming());
-      allow update: if isSignedIn() && isValidId(eventId) && (
-        (isOwner(existing().hostId) && isValidEvent(incoming())) ||
-        (isSignedIn() && incoming().diff(existing()).affectedKeys().hasOnly(['rsvps']))
-      );
-    }
-    
-    match /reports/{reportId} {
-      allow create: if isSignedIn();
-      allow read: if isSignedIn() && (resource == null || resource.data.reporterId == request.auth.uid);
-      allow update, delete: if false; 
+    match /ai_interactions/{intId} {
+      allow read, write: if isSignedIn() && (resource.data.userId == request.auth.uid || isSuperAdmin());
     }
 
-    match /ai_interactions/{id} {
-      allow create: if isSignedIn();
-      allow read, update, delete: if false; // System only
+    match /spaces/{spaceId} {
+      allow read, write: if isSignedIn();
     }
   }
 }

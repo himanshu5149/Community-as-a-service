@@ -7,12 +7,12 @@ export default function About() {
         <div className="grid md:grid-cols-2 gap-24 items-center">
           <div>
             <div className="text-primary font-bold text-sm tracking-[0.4em] uppercase mb-6">Our DNA</div>
-            <h1 className="text-6xl md:text-[100px] font-bold tracking-tighter mb-10 leading-[0.85]">Humanity <br/><span className="text-primary italic">Encoded.</span></h1>
+            <h1 className="text-6xl md:text-[100px] font-bold tracking-tighter mb-10 leading-[0.85]">Communities <br/><span className="text-primary italic">Simplified.</span></h1>
             <p className="text-2xl text-gray-400 leading-tight mb-10 font-medium">
-              CaaS was born from a simple realization: human connection is the ultimate utility, yet its infrastructure is often fragmented and primitive. 
+              We believe every online community deserves infrastructure that keeps pace with its people, not software that forces them into someone else's mold.
             </p>
             <p className="text-lg text-gray-400 leading-relaxed mb-12 max-w-xl">
-              We apply the principles of Distributed Systems to social impact. By treating Community as a Service, we enable leaders to focus on the "human" layer while we handle the "infrastructure" layer—security, networking, data sync, and platform delivery.
+              CaaS was developed by <strong>Himanshu Sharma</strong> to remove the technical friction of bringing people together. We handle the security, moderation, and plumbing so you can focus on the heart of your community: the people.
             </p>
             <div className="grid grid-cols-2 gap-10">
                <div className="p-8 card-gloss">

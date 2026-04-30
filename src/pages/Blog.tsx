@@ -1,25 +1,16 @@
 import { useBlogPosts } from '../hooks/useBlogPosts';
 import { motion } from 'motion/react';
-import { db, auth, signInWithGoogle } from '../lib/firebase';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { db, signInWithGoogle } from '../lib/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Calendar, User, ArrowRight, Loader2, Lock, LogIn, Share2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useBridgeSuggestions } from '../hooks/useBridgeSuggestions';
+import { useAuth } from '../hooks/useAuth';
 
 export default function Blog() {
   const { posts, loading } = useBlogPosts();
   const { suggestBridge } = useBridgeSuggestions();
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setAuthLoading(false);
-    });
-    return unsubscribe;
-  }, []);
+  const { user, loading: authLoading } = useAuth();
 
   const seedBlog = async () => {
     const samplePosts = [
