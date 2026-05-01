@@ -9,55 +9,34 @@ export function useGroupMembers(groupId: string) {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!groupId) {
+    if (!groupId) return;
+
+    setLoading(true);
+    const path = `groups/${groupId}/members`;
+    const q = query(
+      collection(db, path),
+      orderBy('joinedAt', 'desc')
+    );
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as any[];
+      setMembers(data as GroupMember[]);
       setLoading(false);
-      return;
-    }
-
-    let unsubscribe = () => {};
-
-    const startListener = () => {
-      const path = `groups/${groupId}/members`;
-      const q = query(
-        collection(db, path),
-        where('groupId', '==', groupId),
-        orderBy('joinedAt', 'desc')
-      );
-      
-      unsubscribe = onSnapshot(q, (snapshot) => {
-        const data = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as any[];
-        setMembers(data as GroupMember[]);
-        setLoading(false);
-      }, (err) => {
-        setLoading(false);
-        // Suppress permission-denied for non-members during initial load
-        if (err.code !== 'permission-denied') {
-          try {
-            handleFirestoreError(err, OperationType.LIST, path);
-          } catch (e: any) {
-            setError(e);
-          }
+    }, (err) => {
+      setLoading(false);
+      if (err.code !== 'permission-denied') {
+        try {
+          handleFirestoreError(err, OperationType.LIST, path);
+        } catch (e: any) {
+          setError(e);
         }
-      });
-    };
-
-    const authUnsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        startListener();
-      } else {
-        setMembers([]);
-        setLoading(false);
-        unsubscribe();
       }
     });
 
-    return () => {
-      authUnsubscribe();
-      unsubscribe();
-    };
+    return unsubscribe;
   }, [groupId]);
 
   return { members, loading, error };

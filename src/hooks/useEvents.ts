@@ -26,15 +26,8 @@ export function useEvents(groupId?: string) {
     
     const startListener = () => {
       const path = groupId ? `groups/${groupId}/events` : 'events_global';
-      const q = groupId 
-        ? query(
-            collection(db, path), 
-            where('groupId', '==', groupId),
-            orderBy('startTime', 'asc')
-          )
-        : query(
+      const q = query(
             collection(db, path),
-            where('eventType', '>=', ''),
             orderBy('startTime', 'asc')
           );
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import { Menu, X, Users, LogIn, LogOut, User, Bell, MessageSquare, ShieldCheck, Sun, Moon, Eye, Bot, CreditCard } from 'lucide-react';
+import { Menu, X, Users, LogIn, LogOut, User, Bell, MessageSquare, ShieldCheck, Sun, Moon, Eye, Bot, CreditCard, ShoppingBag, Terminal, Settings as SettingsIcon } from 'lucide-react';
 import { signInWithGoogle } from '../lib/firebase';
 import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../hooks/useAuth';
@@ -29,6 +29,8 @@ export default function Navbar() {
     { name: 'Nexus', href: '/', icon: Sun },
     { name: 'Explore', href: '/explore', icon: Users },
     { name: 'Groups', href: '/groups', icon: Users },
+    { name: 'Market', href: '/marketplace', icon: ShoppingBag },
+    { name: 'Dev', href: '/developer', icon: Terminal },
     { name: 'Direct', href: '/messages', icon: MessageSquare },
     { name: 'Events', href: '/events', icon: Bell },
     { name: 'Intelligence', href: '/ai', icon: Bot },
@@ -169,6 +171,10 @@ export default function Navbar() {
 
               <Link to="/billing" className="text-gray-400 hover:text-white transition-colors p-2">
                 <CreditCard className="w-5 h-5" />
+              </Link>
+              
+              <Link to="/settings" className="text-gray-400 hover:text-white transition-colors p-2">
+                <SettingsIcon className="w-5 h-5" />
               </Link>
               
               <Link to={`/profile/${user.uid}`}>

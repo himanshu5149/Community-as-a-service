@@ -193,6 +193,43 @@ async function startServer() {
     }
   });
 
+  // Developer API v1 (Programmatic Extension Layer)
+  app.get("/api/v1/system/status", (req, res) => {
+    res.json({
+      os_version: "2.4.2-alpha",
+      kernel: "CaaS-Core-Node-64",
+      status: "nominal",
+      neural_load: 0.12,
+      uptime: process.uptime(),
+      api_tier: "public_access"
+    });
+  });
+
+  app.get("/api/v1/clusters/active", (req, res) => {
+    // Demonstration of a programmatic cluster list
+    res.json({
+      timestamp: new Date().toISOString(),
+      clusters: [
+        { id: "node-01", name: "Tech Forge", status: "online", load: "low" },
+        { id: "node-02", name: "Fitness Nexus", status: "online", load: "medium" }
+      ],
+      total_nodes: 2
+    });
+  });
+
+  app.post("/api/v1/notifications/broadcast", (req, res) => {
+    const apiKey = req.headers['x-api-key'];
+    if (!apiKey) return res.status(401).json({ error: "Unauthorized: Missing X-API-KEY header." });
+    
+    const { message, level } = req.body;
+    res.json({
+      status: "queued",
+      broadcast_id: Math.random().toString(36).substring(7),
+      recipients_count: 1422,
+      priority: level || "normal"
+    });
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

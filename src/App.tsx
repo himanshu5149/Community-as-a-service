@@ -17,6 +17,9 @@ import Groups from './pages/Groups';
 import HowItWorks from './pages/HowItWorks';
 import Blog from './pages/Blog';
 import Pricing from './pages/Pricing';
+import Marketplace from './pages/Marketplace';
+import Developer from './pages/Developer';
+import Settings from './pages/Settings';
 import About from './pages/About';
 import Contact from './pages/Contact';
 import GroupChat from './pages/GroupChat';
@@ -71,6 +74,9 @@ function AnimatedRoutes() {
         <Route path="/how-it-works" element={<PageLayout><HowItWorks /></PageLayout>} />
         <Route path="/blog" element={<PageLayout><Blog /></PageLayout>} />
         <Route path="/pricing" element={<PageLayout><Pricing /></PageLayout>} />
+        <Route path="/marketplace" element={<PageLayout><Marketplace /></PageLayout>} />
+        <Route path="/developer" element={<PageLayout><Developer /></PageLayout>} />
+        <Route path="/settings" element={<ProtectedRoute><PageLayout><Settings /></PageLayout></ProtectedRoute>} />
         <Route path="/about" element={<PageLayout><About /></PageLayout>} />
         <Route path="/contact" element={<PageLayout><Contact /></PageLayout>} />
         <Route path="/groups" element={<PageLayout><Groups /></PageLayout>} />

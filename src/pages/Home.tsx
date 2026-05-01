@@ -114,13 +114,12 @@ export default function Home() {
             </div>
             
             <h1 className="text-7xl md:text-[112px] font-bold leading-[0.88] tracking-tighter mb-10 max-w-5xl mx-auto drop-shadow-2xl">
-              Your community.
-              <br/><span className="text-gradient italic">Protected.</span>
+              The Community
+              <br/><span className="text-gradient italic">Operating System.</span>
             </h1>
 
             <p className="text-xl md:text-3xl text-gray-300 max-w-3xl mx-auto mb-16 leading-tight font-medium opacity-90">
-              Stop losing hours to manual moderation.
-              CaaS watches your community 24/7 — so you can focus on building it.
+              CaaS — Community as a Service OS. High-performance infrastructure featuring neural agents, programmatic clusters, and developer protocols.
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-6">

@@ -1,6 +1,6 @@
 {
-  "name": "CaaS — Community as a Service",
-  "description": "Infrastructure for your community. We handle the tech and moderation so you can focus on building connections.",
+  "name": "CaaS — Community as a Service OS",
+  "description": "High-performance community infrastructure featuring neural AI agents, programmatic clusters, and developer protocols.",
   "requestFramePermissions": [
     "camera",
     "microphone",
