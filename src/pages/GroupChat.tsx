@@ -61,7 +61,16 @@ export default function GroupChat() {
   const { channels, loading: channelsLoading, createChannel } = useChannels(groupId || '');
   const activeChannel = channels.find(c => c.id === channelId) || channels[0];
   
-  const { messages, loading, sendMessage, reactToMessage, deleteMessage, editMessage, togglePinMessage } = useChat(groupId || '', activeChannel?.id);
+  const { 
+    messages, 
+    loading, 
+    sendMessage, 
+    reactToMessage, 
+    deleteMessage, 
+    editMessage, 
+    togglePinMessage,
+    isSending 
+  } = useChat(groupId || '', activeChannel?.id);
   const { member, loading: rolesLoading, joinGroup, isAdmin, isMember, permissions, updateRole } = useGroupRoles(groupId || '');
   const { members } = useGroupMembers(groupId || '');
   const { agents } = useAiAgents(groupId || '');
@@ -779,10 +788,10 @@ export default function GroupChat() {
                 </div>
                    <button 
                       onClick={() => handleSendMessage()}
-                      disabled={!inputText.trim()}
+                      disabled={!inputText.trim() || isSending}
                       className={cn(
                         "p-2.5 rounded-lg text-white shadow-xl transition-all active:scale-90",
-                        inputText.trim() ? "bg-primary shadow-primary/20" : "bg-white/5 opacity-50"
+                        inputText.trim() && !isSending ? "bg-primary shadow-primary/20" : "bg-white/5 opacity-50"
                       )}
                    >
                      <Send className="w-4 h-4" />
@@ -844,12 +853,12 @@ export default function GroupChat() {
                <div>
                  <div className="px-3 mb-3 flex items-center gap-2">
                     <div className="w-1 h-1 bg-green-500 rounded-full"></div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Synchronized — {members.filter(m => statuses[m.userId] === 'online').length}</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Synchronized — {members.filter(m => statuses[m.id || m.userId] === 'online').length}</span>
                  </div>
                  <div className="space-y-1">
-                   {members.filter(m => statuses[m.userId] === 'online').map(m => (
+                   {members.filter(m => statuses[m.id || m.userId] === 'online').map(m => (
                      <MemberItem 
-                       key={m.userId} 
+                       key={m.id} 
                        member={m} 
                        status="online" 
                        onClick={() => setSelectedMember(m)}
@@ -865,9 +874,9 @@ export default function GroupChat() {
                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-600">Dormant</span>
                  </div>
                  <div className="space-y-1">
-                   {members.filter(m => !statuses[m.userId] || statuses[m.userId] === 'offline').map(m => (
+                   {members.filter(m => !statuses[m.id || m.userId] || statuses[m.id || m.userId] === 'offline').map(m => (
                      <MemberItem 
-                       key={m.userId} 
+                       key={m.id} 
                        member={m} 
                        status="offline" 
                        onClick={() => setSelectedMember(m)}

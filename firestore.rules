@@ -95,7 +95,11 @@ service cloud.firestore {
     // --- Community & Global ---
     match /blogPosts/{postId} { allow read, list: if true; allow write: if isGlobalAdmin(); }
     match /events_global/{eventId} { allow read, list, create: if isSignedIn(); allow update, delete: if isSignedIn(); }
-    match /reports/{reportId} { allow create: if isSignedIn(); allow read, list, update: if isGlobalAdmin(); }
+    match /reports/{reportId} { 
+      allow create: if isSignedIn(); 
+      allow read, list: if isGlobalAdmin() || (isSignedIn() && resource.data.reporterId == request.auth.uid);
+      allow update: if isGlobalAdmin() || (isSignedIn() && resource.data.reporterId == request.auth.uid); 
+    }
     match /ai_agents/{agentId} { allow read, list: if isSignedIn(); allow write: if isGlobalAdmin(); }
     match /ai_interactions/{interactionId} { allow create: if isSignedIn(); allow read, list: if isSignedIn(); }
     match /bridge_suggestions/{sugId} { allow read, list, create: if isSignedIn(); allow update, delete: if isGlobalAdmin(); }
