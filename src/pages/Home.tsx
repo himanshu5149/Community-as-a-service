@@ -110,17 +110,17 @@ export default function Home() {
           >
             <div className="mb-10 inline-flex items-center gap-3 px-6 py-2 rounded-full border border-white/5 bg-white/5 text-[10px] font-bold uppercase tracking-[0.3em] backdrop-blur-md">
               <span className="w-2 h-2 rounded-full bg-primary shadow-[0_0_10px_var(--color-primary)]"></span>
-              Mainframe Version 2.0 Stable
+              AI Moderation · Live Now
             </div>
             
             <h1 className="text-7xl md:text-[112px] font-bold leading-[0.88] tracking-tighter mb-10 max-w-5xl mx-auto drop-shadow-2xl">
-              Communities <br/>
-              <span className="text-gradient italic">Reimagined.</span>
+              Your community.
+              <br/><span className="text-gradient italic">Protected.</span>
             </h1>
 
             <p className="text-xl md:text-3xl text-gray-300 max-w-3xl mx-auto mb-16 leading-tight font-medium opacity-90">
-              The first Community OS that puts AI inside your groups. <br />
-              Vertical networking, neural moderation, and intelligent personas.
+              Stop losing hours to manual moderation.
+              CaaS watches your community 24/7 — so you can focus on building it.
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-6">
@@ -128,7 +128,7 @@ export default function Home() {
                 to="/groups"
                 className="px-12 py-6 bg-primary rounded-2xl text-lg font-bold shadow-[0_20px_50px_rgba(83,74,183,0.4)] hover:scale-105 hover:-translate-y-1 transition-all duration-300"
               >
-                Join the Network
+                Protect My Community Free
               </Link>
               <Link
                 to="/how-it-works"
@@ -137,7 +137,7 @@ export default function Home() {
                 <span className="w-8 h-8 rounded-full bg-white text-bg-dark flex items-center justify-center p-1 group-hover:bg-primary group-hover:text-white transition-colors">
                    <ArrowRight className="w-5 h-5" />
                 </span>
-                See it in Action
+                Watch How It Works
               </Link>
             </div>
           </motion.div>
@@ -147,7 +147,7 @@ export default function Home() {
         <div className="w-full bg-white/5 backdrop-blur-3xl border-t border-white/5 h-32 md:h-44 z-20 flex items-center px-12 gap-12 overflow-hidden relative">
             <div className="w-1/4 hidden lg:block border-r border-white/5 pr-8">
               <h3 className="text-white font-bold text-2xl mb-1 tracking-tighter italic">Network Pulse</h3>
-              <p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">12,402 Active Connections</p>
+              <p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Real-time AI Protection</p>
             </div>
           
           <div className="flex-1 flex gap-8 items-center overflow-x-auto no-scrollbar py-4">
@@ -189,9 +189,10 @@ export default function Home() {
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="flex flex-col md:flex-row justify-between items-end gap-10 mb-24">
             <div className="max-w-3xl">
-              <div className="text-primary font-bold text-sm tracking-[0.4em] uppercase mb-4">Vertical Deployment</div>
-              <h2 className="text-6xl md:text-8xl font-bold tracking-tighter mb-8 leading-[0.85]">Strategic <span className="text-primary italic">Intelligence.</span></h2>
-              <p className="text-xl md:text-2xl text-gray-300 font-medium leading-relaxed max-w-xl">Infrastructure tailored for high-performance communities, deployed with institutional precision.</p>
+              <div className="text-primary font-bold text-sm tracking-[0.4em] uppercase mb-4">Works For Every Community</div>
+              <h2 className="text-6xl md:text-8xl font-bold tracking-tighter mb-8 leading-[0.85]">Built for
+              <span className="text-primary italic"> Every Vertical.</span></h2>
+              <p className="text-xl md:text-2xl text-gray-300 font-medium leading-relaxed max-w-xl">One platform. Any niche. AI moderation that understands your community's context — not just keywords.</p>
             </div>
             <div className="flex gap-3 mb-4">
                <div className="w-16 h-1 w-24 bg-primary rounded-full"></div>
@@ -216,7 +217,7 @@ export default function Home() {
                   {cat.icon}
                 </div>
                 <h3 className="text-4xl font-bold mb-6 tracking-tighter">{cat.name}</h3>
-                <p className="text-gray-300 font-medium text-lg leading-snug opacity-80 group-hover:opacity-100 transition-opacity">Specialized mesh network for {cat.name.toLowerCase()} operation nodes.</p>
+                <p className="text-gray-300 font-medium text-lg leading-snug opacity-80 group-hover:opacity-100 transition-opacity">AI-moderated space for {cat.name.toLowerCase()} communities. Safe, focused, yours.</p>
                 
                 <div className="mt-10 pt-6 border-t border-white/5 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-all transform translate-y-4 group-hover:translate-y-0 duration-500">
                   <span className="text-xs font-bold uppercase tracking-widest text-primary">Provision Node</span>
@@ -255,9 +256,9 @@ export default function Home() {
           </div>
           <div className="flex-1">
             <p className="text-2xl font-medium tracking-tight text-gray-300 italic">
-              "We migrated our 5,000 member developer community to CaaS in 48 hours. The AI moderation has cut our manual work by 70%."
+              "We used to spend 3 hours a day deleting toxic posts. CaaS AI moderation handles it automatically. Our team finally focuses on actual community building."
             </p>
-            <div className="mt-4 text-sm font-bold uppercase tracking-widest text-primary">— Sarah Chen, CTO @ DevMesh</div>
+            <div className="mt-4 text-sm font-bold uppercase tracking-widest text-primary">— Community Manager, 5,000+ member Tech Community</div>
           </div>
         </div>
       </section>
@@ -272,13 +273,13 @@ export default function Home() {
               </div>
               <h2 className="text-6xl md:text-8xl font-black tracking-tighter mb-10 leading-[0.85] italic">Neural <br/> <span className="text-primary not-italic">Spaces.</span></h2>
               <p className="text-2xl text-gray-300 font-medium leading-tight mb-12">
-                Cross-disciplinary collaboration hubs where specialized group clusters intersect. Link protocols, share assets, and solve complex objectives in shared neural environments.
+                Connect your communities across topics. A fitness member becomes your tech member. Bridge removes the walls between your groups so knowledge flows freely.
               </p>
               <Link 
                 to="/spaces"
                 className="px-12 py-6 bg-white text-bg-dark rounded-[2.5rem] font-black uppercase tracking-widest text-sm hover:bg-primary hover:text-white transition-all shadow-2xl inline-block"
               >
-                Initialize Workspace
+                Create Your First Space
               </Link>
            </div>
            <div className="md:w-1/2 relative bg-white/5 border border-white/10 rounded-[4rem] p-12 backdrop-blur-3xl">
@@ -314,18 +315,18 @@ export default function Home() {
             viewport={{ once: true }}
           >
             <h2 className="text-5xl md:text-8xl font-bold tracking-tighter mb-10 leading-[0.9]">
-              The Community <span className="text-gradient italic">Bridge.</span>
+              One Profile.
+              <span className="text-gradient italic">Every Group.</span>
             </h2>
             <p className="text-xl text-gray-300 mb-10 leading-relaxed font-medium">
-              We've solved the isolation problem. Our proprietary Bridge architecture enables 
-              limitless cross-pollination between independent vertical groups.
+              Your members shouldn't have to re-introduce themselves in every group. One identity, one reputation, one profile — across every community you run on CaaS.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-12">
               {[
-                { title: 'Unified Identity', desc: 'One profile, many worlds.' },
-                { title: 'Cross-Sync', desc: 'Real-time data parity.' },
-                { title: 'Shared Assets', desc: 'Pooling local resources.' },
-                { title: 'Hybrid Flows', desc: 'Modular collaboration.' }
+                { title: 'One Profile', desc: 'Members carry their reputation across all your groups.' } ,
+                { title: 'Cross-Post', desc: 'Share content between communities instantly.' },
+                { title: 'Shared Members', desc: 'Grow all groups together, not separately.' },
+                { title: 'Unified Moderation', desc: 'Ban once. Protected everywhere.' }
               ].map((item) => (
                 <div key={item.title} className="p-6 bg-white/5 border border-white/10 rounded-3xl">
                   <h4 className="text-lg font-bold mb-1">{item.title}</h4>
@@ -337,7 +338,7 @@ export default function Home() {
               to="/about"
               className="inline-flex items-center gap-3 text-white font-bold text-xl hover:gap-5 transition-all group"
             >
-              Explore the Architecture <ArrowRight className="w-6 h-6 text-primary group-hover:translate-x-1 transition-transform" />
+              See How Bridge Works <ArrowRight className="w-6 h-6 text-primary group-hover:translate-x-1 transition-transform" />
             </Link>
           </motion.div>
           
