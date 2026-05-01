@@ -1,82 +1,66 @@
 {
   "entities": {
     "User": {
-      "title": "User",
-      "description": "User profile document",
+      "title": "User Profile",
+      "description": "Public and private information about a user.",
       "type": "object",
       "properties": {
         "displayName": { "type": "string" },
         "photoURL": { "type": "string" },
-        "points": { "type": "number" },
-        "level": { "type": "number" },
-        "groups": { "type": "array", "items": { "type": "string" } },
-        "bio": { "type": "string" },
         "role": { "type": "string", "enum": ["user", "admin"] },
-        "status": { "type": "string", "enum": ["online", "offline"] },
-        "updatedAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["displayName", "photoURL"]
-    },
-    "Notification": {
-      "title": "Notification",
-      "description": "User specific notification",
-      "type": "object",
-      "properties": {
-        "type": { "type": "string" },
-        "title": { "type": "string" },
-        "message": { "type": "string" },
-        "link": { "type": "string" },
-        "isRead": { "type": "boolean" },
+        "onboardingCompleted": { "type": "boolean" },
+        "plan": { "type": "string", "enum": ["free", "pro", "elite", "founder"] },
+        "subscriptionId": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["type", "title", "message", "isRead", "createdAt"]
+      "required": ["displayName", "photoURL", "role"]
     },
     "Group": {
-      "title": "Group",
-      "description": "Community group/server",
+      "title": "Community Node",
+      "description": "A group/server in the platform.",
       "type": "object",
       "properties": {
         "name": { "type": "string" },
-        "description": { "type": "string" },
         "category": { "type": "string" },
-        "accentColor": { "type": "string" },
-        "icon": { "type": "string" },
+        "type": { "type": "string", "enum": ["open", "invite"] },
+        "description": { "type": "string" },
+        "ownerId": { "type": "string" },
         "memberCount": { "type": "number" },
-        "slug": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
-        "createdBy": { "type": "string" }
+        "isPublic": { "type": "boolean" }
       },
-      "required": ["name", "slug", "createdAt", "createdBy"]
+      "required": ["name", "ownerId", "type"]
     },
     "Member": {
-      "title": "Member",
-      "description": "User membership in a group",
+      "title": "Group Member",
+      "description": "A user's membership details in a group.",
       "type": "object",
       "properties": {
-        "userId": { "type": "string" },
-        "groupId": { "type": "string" },
-        "userName": { "type": "string" },
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
         "role": { "type": "string", "enum": ["member", "moderator", "admin"] },
         "joinedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["userId", "groupId", "role", "joinedAt"]
+      "required": ["uid", "role"]
     },
     "Channel": {
-      "title": "Channel",
-      "description": "Chat channel within a group",
+      "title": "Communication Channel",
+      "description": "A text or voice channel within a group.",
       "type": "object",
       "properties": {
         "name": { "type": "string" },
         "description": { "type": "string" },
-        "type": { "type": "string" },
+        "type": { "type": "string", "enum": ["text", "voice"] },
         "createdAt": { "type": "string", "format": "date-time" },
         "createdBy": { "type": "string" }
       },
-      "required": ["name", "type", "createdAt", "createdBy"]
+      "required": ["name", "type", "createdAt"]
     },
     "Message": {
-      "title": "Message",
-      "description": "Chat message",
+      "title": "Message Signal",
+      "description": "A message sent in a channel or direct chat.",
       "type": "object",
       "properties": {
         "userId": { "type": "string" },
@@ -87,128 +71,36 @@
         "fileUrl": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "isAI": { "type": "boolean" },
+        "aiRole": { "type": "string" },
+        "aiColor": { "type": "string" },
         "reactions": { "type": "object" },
-        "replyTo": { "type": "object" },
         "isEdited": { "type": "boolean" },
         "isPinned": { "type": "boolean" },
-        "moderationStatus": { "type": "string", "enum": ["flagged", "safe", "pending"] },
-        "moderationReason": { "type": "string" },
-        "moderationType": { "type": "string" },
-        "moderationConfidence": { "type": "number" }
+        "moderationStatus": { "type": "string" }
       },
-      "required": ["userId", "userName", "text", "type", "createdAt"]
-    },
-    "Conversation": {
-      "title": "Conversation",
-      "description": "Direct message thread",
-      "type": "object",
-      "properties": {
-        "participants": { "type": "array", "items": { "type": "string" } },
-        "lastMessage": { "type": "string" },
-        "lastMessageAt": { "type": "string", "format": "date-time" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["participants", "createdAt"]
-    },
-    "AiAgent": {
-      "title": "AiAgent",
-      "description": "AI Personality Configuration",
-      "type": "object",
-      "properties": {
-        "name": { "type": "string" },
-        "persona": { "type": "string" },
-        "avatar": { "type": "string" },
-        "role": { "type": "string" },
-        "groupId": { "type": "string" },
-        "isCrossGroup": { "type": "boolean" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      }
-    },
-    "AiInteraction": {
-      "title": "AiInteraction",
-      "description": "Log of AI interactions",
-      "type": "object",
-      "properties": {
-        "agentId": { "type": "string" },
-        "userId": { "type": "string" },
-        "prompt": { "type": "string" },
-        "response": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      }
+      "required": ["userId", "text", "type", "createdAt"]
     }
   },
   "firestore": {
-    "/users/{userId}": {
+    "/users": {
       "schema": "User",
-      "description": "User profiles"
+      "description": "Collection of all user profiles."
     },
-    "/users/{userId}/notifications/{notifId}": {
-      "schema": "Notification",
-      "description": "User notifications"
-    },
-    "/groups/{groupId}": {
+    "/groups": {
       "schema": "Group",
-      "description": "Community groups"
+      "description": "Collection of all community nodes."
     },
-    "/groups/{groupId}/members/{memberId}": {
+    "/groups/{groupId}/members": {
       "schema": "Member",
-      "description": "Group members"
+      "description": "Members of a specific group."
     },
-    "/groups/{groupId}/channels/{channelId}": {
+    "/groups/{groupId}/channels": {
       "schema": "Channel",
-      "description": "Group channels"
+      "description": "Channels within a group."
     },
-    "/groups/{groupId}/messages/{messageId}": {
+    "/groups/{groupId}/channels/{channelId}/messages": {
       "schema": "Message",
-      "description": "Group-wide messages"
-    },
-    "/groups/{groupId}/channels/{channelId}/messages/{messageId}": {
-      "schema": "Message",
-      "description": "Channel-specific messages"
-    },
-    "/conversations/{convId}": {
-      "schema": "Conversation",
-      "description": "Direct message threads"
-    },
-    "/conversations/{convId}/messages/{messageId}": {
-      "schema": "Message",
-      "description": "Direct messages"
-    },
-    "/ai_agents/{agentId}": {
-      "schema": "AiAgent",
-      "description": "Configured AI agents"
-    },
-    "/ai_interactions/{intId}": {
-      "schema": "AiInteraction",
-      "description": "AI usage logs"
-    },
-    "/friend_requests/{reqId}": {
-      "schema": "object",
-      "description": "Friend requests"
-    },
-    "/friendships/{fId}": {
-      "schema": "object",
-      "description": "Friendships"
-    },
-    "/blogPosts/{postId}": {
-      "schema": "object",
-      "description": "Blog posts"
-    },
-    "/reports/{reportId}": {
-      "schema": "object",
-      "description": "Moderation reports"
-    },
-    "/bridge_suggestions/{sId}": {
-      "schema": "object",
-      "description": "AI suggested bridge messages"
-    },
-    "/groups/{groupId}/events/{eventId}": {
-      "schema": "object",
-      "description": "Group events"
-    },
-    "/spaces/{spaceId}": {
-      "schema": "object",
-      "description": "Collaborative spaces"
+      "description": "Messages in a specific channel."
     }
   }
 }

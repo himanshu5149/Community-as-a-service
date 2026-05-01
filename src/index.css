@@ -33,7 +33,8 @@
   }
 
   body {
-    @apply font-sans bg-bg-dark text-text-main transition-colors duration-300;
+    @apply font-sans text-text-main transition-colors duration-300;
+    background: transparent;
   }
 
   input, textarea, select {

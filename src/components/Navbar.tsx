@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import { Menu, X, Users, LogIn, LogOut, User, Bell, MessageSquare, ShieldCheck, Sun, Moon, Eye, Bot } from 'lucide-react';
+import { Menu, X, Users, LogIn, LogOut, User, Bell, MessageSquare, ShieldCheck, Sun, Moon, Eye, Bot, CreditCard } from 'lucide-react';
 import { signInWithGoogle } from '../lib/firebase';
 import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../hooks/useAuth';
@@ -27,6 +27,7 @@ export default function Navbar() {
 
   const links = [
     { name: 'Nexus', href: '/', icon: Sun },
+    { name: 'Explore', href: '/explore', icon: Users },
     { name: 'Groups', href: '/groups', icon: Users },
     { name: 'Direct', href: '/messages', icon: MessageSquare },
     { name: 'Events', href: '/events', icon: Bell },
@@ -165,6 +166,10 @@ export default function Navbar() {
                   <ShieldCheck className="w-5 h-5" />
                 </Link>
               )}
+
+              <Link to="/billing" className="text-gray-400 hover:text-white transition-colors p-2">
+                <CreditCard className="w-5 h-5" />
+              </Link>
               
               <Link to={`/profile/${user.uid}`}>
                 {user.photoURL ? (
@@ -270,6 +275,14 @@ export default function Navbar() {
                         {unreadCount} NEW
                       </span>
                     )}
+                  </Link>
+                  <Link 
+                    to="/billing" 
+                    onClick={() => setIsOpen(false)}
+                    className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl text-gray-300 font-bold"
+                  >
+                    <CreditCard className="w-5 h-5" />
+                    Infrastructure Billing
                   </Link>
                   <button
                     onClick={() => { handleLogout(); setIsOpen(false); }}

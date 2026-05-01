@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'motion/react';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -6,6 +6,7 @@ import ScrollToTop from './components/ScrollToTop';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 import PageLayout from './components/PageLayout';
+import { ParticleBackground } from './components/ParticleBackground';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ThemeProvider } from './hooks/useTheme';
 
@@ -27,6 +28,8 @@ import Admin from './pages/Admin';
 import Search from './pages/Search';
 import Spaces from './pages/Spaces';
 import SpaceRoom from './pages/SpaceRoom';
+import Explore from './pages/Explore';
+import Billing from './pages/Billing';
 import NotFound from './pages/NotFound';
 
 // New Pages
@@ -41,14 +44,20 @@ import Onboarding from './pages/Onboarding';
 
 function AnimatedRoutes() {
   const location = useLocation();
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   
   if (loading) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-bg-dark">
+      <div className="h-screen w-full flex items-center justify-center bg-[#0a0a0a]">
          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
+  }
+
+  // Redirect to onboarding if authenticated but not finished
+  const isOnboarding = location.pathname === '/onboarding';
+  if (user && profile && !profile.onboardingCompleted && !isOnboarding) {
+     return <Navigate to="/onboarding" replace />;
   }
 
   return (
@@ -67,9 +76,12 @@ function AnimatedRoutes() {
         <Route path="/groups" element={<PageLayout><Groups /></PageLayout>} />
         <Route path="/members" element={<PageLayout><Members /></PageLayout>} />
         <Route path="/spaces" element={<PageLayout><Spaces /></PageLayout>} />
+        <Route path="/explore" element={<PageLayout><Explore /></PageLayout>} />
+        <Route path="/billing" element={<ProtectedRoute><PageLayout><Billing /></PageLayout></ProtectedRoute>} />
         <Route path="/ai" element={<PageLayout><AIGroup /></PageLayout>} />
         
         {/* Auth Protected Routes */}
+        <Route path="/dashboard" element={<ProtectedRoute><PageLayout><Dashboard /></PageLayout></ProtectedRoute>} />
         <Route path="/groups/:groupId" element={<ProtectedRoute><PageLayout><GroupChat /></PageLayout></ProtectedRoute>} />
         <Route path="/groups/:groupId/channels/:channelId" element={<ProtectedRoute><PageLayout><GroupChat /></PageLayout></ProtectedRoute>} />
         <Route path="/messages" element={<ProtectedRoute><PageLayout><DirectMessages /></PageLayout></ProtectedRoute>} />
@@ -101,7 +113,8 @@ export default function App() {
         <AuthProvider>
           <Router>
             <ScrollToTop />
-            <div className="min-h-screen flex flex-col bg-bg-dark font-sans selection:bg-primary/30 selection:text-text-main">
+            <ParticleBackground />
+            <div className="relative min-h-screen flex flex-col font-sans selection:bg-primary/30 selection:text-text-main">
               <Navbar />
               <main className="flex-grow">
                 <AnimatedRoutes />

@@ -214,7 +214,7 @@ export default function Pricing() {
                         "Your community infrastructure for the <span className="text-white font-bold">{successPlan.name}</span> tier has been successfully provisioned. Welcome to the future of social compute."
                     </p>
                     <div className="space-y-4">
-                        <button onClick={() => setSuccessPlan(null)} className="w-full bg-primary py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl shadow-primary/30">Continue to Dashboard</button>
+                        <button onClick={() => navigate('/groups')} className="w-full bg-primary py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl shadow-primary/30">Continue to Dashboard</button>
                         <button onClick={() => setSuccessPlan(null)} className="w-full py-4 text-[10px] font-black uppercase text-gray-500 hover:text-white transition-colors">Download System Logs</button>
                     </div>
                 </motion.div>

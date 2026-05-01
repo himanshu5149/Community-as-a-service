@@ -3,17 +3,16 @@ import { GroupSkeleton } from '../components/ui/Skeleton';
 import { useGroups, Group } from '../hooks/useGroups';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { db, auth, signInWithGoogle } from '../lib/firebase';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { db, signInWithGoogle } from '../lib/firebase';
 import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
 import { Users, Loader2, ArrowRight, Lock, LogIn, Plus, X, LayoutGrid, Type, AlignLeft, Sparkles, Zap, List } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Toast, useToast } from '../components/Toast';
+import { useAuth } from '../hooks/useAuth';
 
 export default function Groups() {
   const { groups, loading, createGroup } = useGroups();
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const { user, loading: authLoading } = useAuth();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchParams] = useSearchParams();
@@ -25,14 +24,6 @@ export default function Groups() {
   const { toast, showToast, hideToast } = useToast();
 
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setAuthLoading(false);
-    });
-    return unsubscribe;
-  }, []);
 
   useEffect(() => {
     if (searchParams.get('create') === 'true') {
@@ -72,8 +63,9 @@ export default function Groups() {
       for (const group of sampleGroups) {
         const docRef = await addDoc(collection(db, 'groups'), group);
         await setDoc(doc(db, `groups/${docRef.id}/members/${user.uid}`), {
-          userId: user.uid,
-          userName: user.displayName || 'Seed Agent',
+          uid: user.uid,
+          displayName: user.displayName || 'Seed Agent',
+          photoURL: user.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.uid}`,
           role: 'admin',
           joinedAt: serverTimestamp()
         });

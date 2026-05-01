@@ -9,8 +9,20 @@ import {
 import { auth, db } from '../lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
+interface UserProfile {
+  uid: string;
+  email: string | null;
+  displayName: string;
+  photoURL: string;
+  role: 'user' | 'admin';
+  onboardingCompleted?: boolean;
+  plan?: 'free' | 'pro' | 'elite' | 'founder';
+  subscriptionId?: string;
+}
+
 interface AuthContextType {
   user: User | null;
+  profile: UserProfile | null;
   isAdmin: boolean;
   loading: boolean;
   logout: () => Promise<void>;
@@ -20,6 +32,7 @@ const AuthContext = createContext<AuthContextType>(null!);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -30,34 +43,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(user);
       
       if (user) {
-        // sync profile and check admin state
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
         const isSuperAdmin = user.email === 'royalisdevil@gmail.com';
         
         if (!userDoc.exists()) {
-          await setDoc(doc(db, 'users', user.uid), {
+          const newProfile: UserProfile = {
             uid: user.uid,
             email: user.email,
             displayName: user.displayName || 'Operator',
             photoURL: user.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.uid}`,
             role: isSuperAdmin ? 'admin' : 'user',
+            onboardingCompleted: false,
+            plan: 'free'
+          };
+          await setDoc(userDocRef, {
+            ...newProfile,
             createdAt: serverTimestamp(),
             lastLogin: serverTimestamp(),
             points: 0,
             level: 1,
             groups: []
           });
+          setProfile(newProfile);
         } else {
-          await setDoc(doc(db, 'users', user.uid), { 
+          const profileData = userDoc.data() as UserProfile;
+          setProfile(profileData);
+          await setDoc(userDocRef, { 
             lastLogin: serverTimestamp(),
-            // Sync admin role if email matches
             ...(isSuperAdmin ? { role: 'admin' } : {})
           }, { merge: true });
         }
 
-        // admin check
         setIsAdmin(isSuperAdmin);
       } else {
+        setProfile(null);
         setIsAdmin(false);
       }
       
@@ -72,7 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAdmin, loading, logout }}>
+    <AuthContext.Provider value={{ user, profile, isAdmin, loading, logout }}>
       {children}
     </AuthContext.Provider>
   );

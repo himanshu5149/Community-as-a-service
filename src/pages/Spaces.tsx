@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useAuth } from '../hooks/useAuth';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { useSpaces, Space } from '../hooks/useSpaces';
 import { useGroups } from '../hooks/useGroups';
-import { db, auth, signInWithGoogle } from '../lib/firebase';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { signInWithGoogle } from '../lib/firebase';
+
 import { 
   Box, 
   Users, 
@@ -25,7 +26,7 @@ export default function Spaces() {
   const { spaces, loading, createSpace, joinSpace } = useSpaces();
   const { groups } = useGroups();
   const navigate = useNavigate();
-  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const { user } = useAuth();
   const [showCreator, setShowCreator] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -33,13 +34,6 @@ export default function Spaces() {
     icon: '🚀',
     connectedGroups: [] as string[]
   });
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-    });
-    return unsubscribe;
-  }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

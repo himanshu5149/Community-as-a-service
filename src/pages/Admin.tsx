@@ -33,11 +33,11 @@ import { useAdminModeration, FlaggedMessage } from '../hooks/useAdminModeration'
 
 export default function Admin() {
   const isAdminUser = auth.currentUser?.email === 'royalisdevil@gmail.com';
-  const [activeTab, setActiveTab] = React.useState<'dashboard'|'nodes'|'moderation'>('dashboard');
+  const [activeTab, setActiveTab] = React.useState<'dashboard'|'nodes'|'moderation'|'members'>('dashboard');
 
   if (!isAdminUser) {
     return (
-      <div className="h-screen bg-bg-dark flex items-center justify-center text-white px-10">
+      <div className="h-screen bg-[#0a0a0a] flex items-center justify-center text-white px-10">
          <div className="text-center">
             <Lock className="w-16 h-16 text-primary mx-auto mb-8 animate-pulse" />
             <h2 className="text-4xl font-bold tracking-tighter mb-4 italic">Protocol <span className="text-primary not-italic">Restricted.</span></h2>
@@ -48,7 +48,7 @@ export default function Admin() {
   }
 
   return (
-    <div className="pt-32 min-h-screen bg-bg-dark text-white px-6 md:px-10 pb-40">
+    <div className="pt-32 min-h-screen bg-[#0a0a0a] text-white px-6 md:px-10 pb-40">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-10 mb-16">
           <div>
@@ -56,42 +56,28 @@ export default function Admin() {
               <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
               Central Intelligence Hub
             </div>
-            <h1 className="text-6xl md:text-9xl font-bold tracking-tighter leading-[0.8] italic">System <br/><span className="text-primary not-italic">Control.</span></h1>
+            <h1 className="text-6xl md:text-9xl font-bold tracking-tighter leading-[0.8] italic uppercase">System <br/><span className="text-primary not-italic">Control.</span></h1>
           </div>
           
-          <div className="flex items-center gap-2 p-1 bg-white/5 border border-white/5 rounded-2xl backdrop-blur-xl">
-             <button 
-              onClick={() => setActiveTab('dashboard')}
-              className={cn(
-                "px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                activeTab === 'dashboard' ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-gray-500 hover:text-white"
-              )}
-             >
-               Metrics
-             </button>
-             <button 
-              onClick={() => setActiveTab('nodes')}
-              className={cn(
-                "px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                activeTab === 'nodes' ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-gray-500 hover:text-white"
-              )}
-             >
-               Nodes
-             </button>
-             <button 
-              onClick={() => setActiveTab('moderation')}
-              className={cn(
-                "px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                activeTab === 'moderation' ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-gray-500 hover:text-white"
-              )}
-             >
-               Enforcement
-             </button>
+          <div className="flex items-center gap-2 p-1 bg-white/5 border border-white/5 rounded-2xl backdrop-blur-xl shrink-0">
+             {(['dashboard', 'nodes', 'members', 'moderation'] as const).map(tab => (
+               <button 
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={cn(
+                  "px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                  activeTab === tab ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-gray-500 hover:text-white"
+                )}
+               >
+                 {tab === 'moderation' ? 'Enforcement' : tab === 'nodes' ? 'Clusters' : tab}
+               </button>
+             ))}
           </div>
         </div>
 
         {activeTab === 'dashboard' && <AdminMetrics />}
         {activeTab === 'nodes' && <AdminNodes />}
+        {activeTab === 'members' && <AdminMembers />}
         {activeTab === 'moderation' && <ModerationDashboard />}
       </div>
     </div>
@@ -245,11 +231,15 @@ function AdminNodes() {
   const [isDeploying, setIsDeploying] = React.useState(false);
   const [isSeeding, setIsSeeding] = React.useState(false);
   const [suggestions, setSuggestions] = React.useState<any[]>([]);
+  const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const q = query(collection(db, 'ai_agents'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setAgents(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => {
+      setError("Failed to link with AI Node Registry.");
+      handleFirestoreError(err, OperationType.LIST, 'ai_agents');
     });
     return () => unsubscribe();
   }, []);
@@ -258,12 +248,15 @@ function AdminNodes() {
     const q = query(collection(db, 'bridge_suggestions'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setSuggestions(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'bridge_suggestions');
     });
     return () => unsubscribe();
   }, []);
 
   const seedAgents = async () => {
     setIsSeeding(true);
+    setError(null);
     try {
       const defaultAgents = [
         {
@@ -279,8 +272,8 @@ function AdminNodes() {
       for (const agent of defaultAgents) {
         await addDoc(collection(db, 'ai_agents'), agent);
       }
-      alert("AI Nodes seeded.");
-    } catch (err) {
+    } catch (err: any) {
+      setError("Neural seed sequence failed.");
       handleFirestoreError(err, OperationType.CREATE, 'ai_agents');
     } finally {
       setIsSeeding(false);
@@ -290,6 +283,7 @@ function AdminNodes() {
   const deployAgent = async () => {
     if (!newAgent.name || !newAgent.personality) return;
     setIsDeploying(true);
+    setError(null);
     try {
       await addDoc(collection(db, 'ai_agents'), {
         ...newAgent,
@@ -305,7 +299,8 @@ function AdminNodes() {
         isCrossGroup: false,
         model: 'gemini-1.5-flash'
       });
-    } catch (err) {
+    } catch (err: any) {
+      setError("Deployment failed: Signal rejected.");
       handleFirestoreError(err, OperationType.CREATE, 'ai_agents');
     } finally {
       setIsDeploying(false);
@@ -317,12 +312,19 @@ function AdminNodes() {
     try {
       await deleteDoc(doc(db, 'ai_agents', id));
     } catch (err) {
+      setError("Decommissioning failed.");
       handleFirestoreError(err, OperationType.DELETE, 'ai_agents');
     }
   };
 
   return (
     <div className="space-y-20">
+      {error && (
+        <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-3xl flex items-center gap-4 text-red-500 font-bold italic">
+          <ShieldAlert className="w-6 h-6" />
+          {error}
+        </div>
+      )}
       <div>
         <div className="flex items-center justify-between mb-10">
           <div className="flex items-center gap-6">
@@ -416,8 +418,74 @@ function AdminNodes() {
   );
 }
 
+function AdminMembers() {
+  const [users, setUsers] = React.useState<any[]>([]);
+  const [search, setSearch] = React.useState('');
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const q = query(collection(db, 'users'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setUsers(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => {
+      setError("Synchronization failed. Check signal priority.");
+      handleFirestoreError(err, OperationType.LIST, 'users');
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const filteredUsers = users.filter(u => 
+    (u.displayName?.toLowerCase().includes(search.toLowerCase())) || 
+    (u.email?.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  return (
+    <div className="space-y-12">
+       {error && (
+        <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-3xl flex items-center gap-4 text-red-500 font-bold italic">
+          <ShieldAlert className="w-6 h-6" />
+          {error}
+        </div>
+      )}
+       <div className="flex flex-col md:flex-row gap-6 items-center justify-between">
+          <input 
+            type="text" 
+            placeholder="Search Member Registry..."
+            className="w-full md:w-96 bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:ring-2 ring-primary/40"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">{users.length} Active Profiles</div>
+       </div>
+
+       <div className="grid grid-cols-1 gap-4">
+          {filteredUsers.map(user => (
+            <div key={user.id} className="card-gloss p-6 flex items-center justify-between group">
+               <div className="flex items-center gap-6">
+                  <img src={user.photoURL} alt="" className="w-12 h-12 rounded-xl border border-white/10 shadow-xl" />
+                  <div>
+                     <h4 className="font-bold text-lg leading-none mb-1">{user.displayName}</h4>
+                     <p className="text-xs text-gray-500 font-medium">{user.email}</p>
+                  </div>
+               </div>
+               <div className="flex items-center gap-4">
+                  <div className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest">
+                     {user.role}
+                  </div>
+                  <button className="p-3 bg-red-500/10 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity">
+                     <ShieldAlert className="w-5 h-5" />
+                  </button>
+               </div>
+            </div>
+          ))}
+       </div>
+    </div>
+  );
+}
+
 function ModerationDashboard() {
   const { allReports, flaggedMessages, loading, resolveReport, updateMessageStatus, banUser } = useAdminModeration(true);
+  const [localError, setLocalError] = React.useState<string | null>(null);
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-40 gap-6">
@@ -426,12 +494,26 @@ function ModerationDashboard() {
     </div>
   );
 
+  const handleAction = async (fn: Function, ...args: any[]) => {
+    try {
+      setLocalError(null);
+      await fn(...args);
+    } catch (err: any) {
+      setLocalError("Enforcement protocol failure.");
+    }
+  };
+
   return (
     <div className="space-y-20">
-      {/* Flagged Messages Section */}
+      {localError && (
+        <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-3xl flex items-center gap-4 text-red-500 font-bold italic">
+          <ShieldAlert className="w-6 h-6" />
+          {localError}
+        </div>
+      )}
       <section>
         <div className="flex items-center justify-between mb-10">
-          <h2 className="text-3xl font-bold tracking-tight italic">Anomalous <span className="text-primary not-italic">Signals.</span></h2>
+          <h2 className="text-3xl font-bold tracking-tight italic uppercase">Anomalous <span className="text-primary not-italic uppercase">Signals.</span></h2>
           <div className="h-px flex-grow mx-8 bg-white/5"></div>
           <div className="px-4 py-1 rounded-full border border-red-500/20 bg-red-500/5 text-red-500 text-[10px] font-black uppercase tracking-widest">
             {flaggedMessages.length} Pending Intervention
@@ -444,101 +526,46 @@ function ModerationDashboard() {
               <div className="flex-grow">
                 <div className="flex items-center gap-4 mb-4">
                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-primary font-bold">
-                      {msg.userName[0]}
+                      {msg.userName?.[0] || '?'}
                    </div>
                    <div>
                       <h4 className="font-bold text-lg">{msg.userName}</h4>
                       <p className="text-[10px] font-black uppercase tracking-widest text-gray-600">ID: {msg.userId}</p>
                    </div>
-                   <div className="h-8 w-px bg-white/5 mx-2"></div>
-                   <div className="px-3 py-1 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-[10px] font-bold uppercase">
-                      {msg.moderationReason || 'Auto-Flagged'}
-                   </div>
                 </div>
-                <div className="p-6 bg-black/40 rounded-2xl border border-white/5 text-gray-300 font-medium tracking-tight">
+                <div className="p-6 bg-black/40 rounded-2xl border border-white/5 text-gray-300">
                    {msg.text}
                 </div>
               </div>
 
               <div className="flex flex-col gap-3 w-full md:w-48">
-                 <button 
-                  onClick={() => updateMessageStatus(msg, 'deleted')}
-                  className="w-full py-4 bg-red-500 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-red-600 transition-all shadow-lg shadow-red-500/20"
-                 >
-                   Purge Message
-                 </button>
-                 <button 
-                  onClick={() => updateMessageStatus(msg, 'safe')}
-                  className="w-full py-4 bg-white/5 text-[10px] font-black uppercase tracking-widest border border-white/5 rounded-xl hover:bg-primary/20 hover:text-primary transition-all"
-                 >
-                   Dismiss False
-                 </button>
-                 <button 
-                  onClick={() => banUser(msg.userId)}
-                  className="w-full py-4 bg-white/5 text-[10px] font-black uppercase tracking-widest border border-red-500/50 rounded-xl text-red-500 hover:bg-red-500 hover:text-white transition-all"
-                 >
-                   Decommission User
-                 </button>
+                 <button onClick={() => handleAction(updateMessageStatus, msg.id, 'deleted')} className="w-full py-4 bg-red-500 text-[10px] font-black uppercase tracking-widest rounded-xl">Purge Message</button>
+                 <button onClick={() => handleAction(updateMessageStatus, msg.id, 'safe')} className="w-full py-4 bg-white/5 text-[10px] font-black uppercase tracking-widest border border-white/5 rounded-xl">Dismiss</button>
+                 <button onClick={() => handleAction(banUser, msg.userId)} className="w-full py-4 bg-white/5 text-[10px] font-black uppercase tracking-widest border border-red-500/50 rounded-xl text-red-500">Ban User</button>
               </div>
             </div>
           ))}
-          {flaggedMessages.length === 0 && (
-            <div className="py-20 text-center opacity-40 italic">
-               <ShieldAlert className="w-12 h-12 mx-auto mb-4 opacity-10" />
-               <p className="text-[10px] font-black uppercase tracking-[0.4em]">Zero anomalies detected in signal path.</p>
-            </div>
-          )}
         </div>
       </section>
 
-      {/* User Reports Section */}
       <section>
         <div className="flex items-center justify-between mb-10">
-          <h2 className="text-3xl font-bold tracking-tight italic">Manual <span className="text-primary not-italic">Reports.</span></h2>
+          <h2 className="text-3xl font-bold tracking-tight italic uppercase">Manual <span className="text-primary not-italic">Reports.</span></h2>
           <div className="h-px flex-grow mx-8 bg-white/5"></div>
-          <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-            {allReports.length} Received
-          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {allReports.map((report) => (
-            <div key={report.id} className={cn(
-              "card-gloss p-6 border-white/5 transition-all",
-              report.status === 'pending' ? "bg-primary/5 border-primary/20" : "opacity-50 grayscale"
-            )}>
+            <div key={report.id} className="card-gloss p-6 border-white/5">
               <div className="flex justify-between items-start mb-6">
-                 <div>
-                    <span className="text-[8px] font-black uppercase tracking-[0.3em] text-gray-500 block mb-1">Target Type</span>
-                    <span className="text-xs font-bold uppercase text-primary">{report.targetType}</span>
-                 </div>
-                 <div className={cn(
-                    "px-2 py-1 rounded text-[8px] font-black uppercase tracking-widest",
-                    report.status === 'pending' ? "bg-yellow-500/10 text-yellow-500" : "bg-green-500/10 text-green-500"
-                 )}>
-                    {report.status}
-                 </div>
+                 <span className="text-[10px] font-black uppercase text-primary">{report.targetType}</span>
+                 <span className="px-2 py-1 rounded text-[8px] font-black uppercase bg-yellow-500/10 text-yellow-500">{report.status}</span>
               </div>
-
-              <div className="mb-8">
-                 <span className="text-[8px] font-black uppercase tracking-[0.3em] text-gray-500 block mb-1">Incident Report</span>
-                 <p className="text-sm font-medium italic text-gray-300">"{report.reason}"</p>
-              </div>
-
+              <p className="text-sm italic text-gray-300 mb-8">"{report.reason}"</p>
               {report.status === 'pending' && (
                 <div className="grid grid-cols-2 gap-3">
-                   <button 
-                    onClick={() => resolveReport(report.id, 'resolved')}
-                    className="py-3 bg-primary text-[10px] font-black uppercase rounded-lg"
-                   >
-                     Resolved
-                   </button>
-                   <button 
-                    onClick={() => resolveReport(report.id, 'dismissed')}
-                    className="py-3 bg-white/5 text-[10px] font-black uppercase rounded-lg border border-white/5"
-                   >
-                     Dismiss
-                   </button>
+                   <button onClick={() => handleAction(resolveReport, report.id, 'resolved')} className="py-3 bg-primary text-[10px] font-black uppercase rounded-lg">Resolve</button>
+                   <button onClick={() => handleAction(resolveReport, report.id, 'dismissed')} className="py-3 bg-white/5 text-[10px] font-black uppercase rounded-lg border border-white/5">Dismiss</button>
                 </div>
               )}
             </div>
@@ -548,4 +575,3 @@ function ModerationDashboard() {
     </div>
   );
 }
-

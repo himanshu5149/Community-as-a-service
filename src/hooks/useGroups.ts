@@ -29,6 +29,7 @@ export function useGroups() {
       const allPath = 'groups';
       const allQ = query(
         collection(db, allPath),
+        where('isPublic', '==', true),
         orderBy('name', 'asc'),
         limit(20)
       );
@@ -105,16 +106,17 @@ export function useGroups() {
         memberCount: 1,
         slug: name.toLowerCase().replace(/ /g, '-'),
         createdAt: serverTimestamp(),
-        createdBy: auth.currentUser.uid
+        ownerId: auth.currentUser.uid
       };
       
       const docRef = await addDoc(collection(db, path), groupData);
       
       // 1. Add the user as admin member
       await setDoc(doc(db, `groups/${docRef.id}/members/${auth.currentUser.uid}`), {
-        userId: auth.currentUser.uid,
+        uid: auth.currentUser.uid,
         groupId: docRef.id,
-        userName: auth.currentUser.displayName || 'Anonymous Agent',
+        displayName: auth.currentUser.displayName || 'Anonymous Agent',
+        photoURL: auth.currentUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${auth.currentUser.uid}`,
         role: 'admin',
         joinedAt: serverTimestamp()
       });
@@ -144,9 +146,10 @@ export function useGroups() {
     try {
       // Add to group members
       await setDoc(doc(db, `groups/${groupId}/members/${auth.currentUser.uid}`), {
-        userId: auth.currentUser.uid,
+        uid: auth.currentUser.uid,
         groupId: groupId,
-        userName: auth.currentUser.displayName || 'Anonymous Agent',
+        displayName: auth.currentUser.displayName || 'Anonymous Agent',
+        photoURL: auth.currentUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${auth.currentUser.uid}`,
         role: 'member',
         joinedAt: serverTimestamp()
       });
@@ -167,6 +170,16 @@ export function useGroups() {
       return true;
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, `groups/${groupId}/members`);
+    }
+  };
+
+  const deleteGroup = async (groupId: string) => {
+    if (!auth.currentUser) return;
+    try {
+      await deleteDoc(doc(db, 'groups', groupId));
+      return true;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `groups/${groupId}`);
     }
   };
 

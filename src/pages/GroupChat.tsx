@@ -48,7 +48,8 @@ import {
   Star,
   Calendar,
   Filter,
-  History
+  History,
+  Lock
 } from 'lucide-react';
 
 export default function GroupChat() {
@@ -878,8 +879,6 @@ export default function GroupChat() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
-
       {/* Modals */}
       <AnimatePresence>
         {selectedMember && (
@@ -1101,6 +1100,7 @@ export default function GroupChat() {
       <AnimatePresence>
         {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
       </AnimatePresence>
+    </div>
   );
 }
 

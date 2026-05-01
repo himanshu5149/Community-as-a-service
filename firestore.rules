@@ -1,142 +1,105 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 0. Default Deny
+    // 0. Global Default Deny
     match /{document=**} {
       allow read, write: if false;
     }
 
     // --- Helpers ---
-    function isSignedIn() {
-      return request.auth != null;
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { 
+      return isSignedIn() && (
+        request.auth.token.email_verified == true || 
+        request.auth.token.firebase.sign_in_provider == 'google.com'
+      ); 
     }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
     
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-    
-    function incoming() {
-      return request.resource.data;
-    }
-    
-    function existing() {
-      return resource.data;
+    function isGlobalAdmin() {
+      return isSignedIn() && request.auth.token.email == 'royalisdevil@gmail.com';
     }
 
-    function isSuperAdmin() {
+    function isMemberOfGroup(groupId) {
       return isSignedIn() && (
-        request.auth.token.email == 'royalisdevil@gmail.com' ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'admin')
+        exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)) ||
+        isGlobalAdmin()
       );
     }
 
-    function isGroupMember(groupId) {
-      return isSignedIn() && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
-    }
-
-    function isGroupMod(groupId) {
-      return isGroupMember(groupId) && 
-             get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.get('role', 'member') in ['admin', 'moderator'];
-    }
-
     function isGroupAdmin(groupId) {
-      return isGroupMember(groupId) && 
-             get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.get('role', 'member') == 'admin';
+      let memberPath = /databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid);
+      return isGlobalAdmin() || (
+        isSignedIn() && 
+        exists(memberPath) &&
+        get(memberPath).data.role == 'admin'
+      );
     }
 
-    // --- Core Collections ---
-
+    // --- Users ---
     match /users/{userId} {
-      allow get, list: if true; 
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId) || isSuperAdmin();
+      allow get, list, create, update: if isSignedIn();
+      
+      match /{allSubcollections=**} {
+        allow read, write: if isOwner(userId) || isGlobalAdmin();
+      }
       
       match /notifications/{notifId} {
-        allow read, update, delete: if isOwner(userId);
         allow create: if isSignedIn();
       }
-      
-      match /points/{docId} {
-        allow read, write: if isOwner(userId);
-      }
     }
 
+    // --- Groups ---
     match /groups/{groupId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isGroupAdmin(groupId) || isSuperAdmin();
+      allow get, list, create: if isSignedIn(); 
+      allow update, delete: if isGroupAdmin(groupId) || isGlobalAdmin();
 
+      match /{allSubcollections=**} {
+        allow read, list, create: if isSignedIn();
+        allow update, delete: if isMemberOfGroup(groupId) || isGlobalAdmin();
+      }
+      
       match /members/{memberId} {
-        allow read: if isGroupMember(groupId) || (isSignedIn() && memberId == request.auth.uid);
-        allow write: if isGroupMod(groupId) || (isSignedIn() && memberId == request.auth.uid);
+        allow update, delete: if isGroupAdmin(groupId) || isOwner(memberId) || isGlobalAdmin();
       }
-
+      
       match /channels/{channelId} {
-        allow read: if isGroupMember(groupId);
-        allow write: if isGroupMod(groupId);
-
-        match /messages/{messageId} {
-          allow read: if isGroupMember(groupId);
-          allow create: if isGroupMember(groupId);
-          allow update, delete: if isGroupMember(groupId) && (existing().userId == request.auth.uid || isGroupMod(groupId));
-        }
-      }
-
-      match /messages/{messageId} {
-        allow read: if isGroupMember(groupId);
-        allow create: if isGroupMember(groupId);
-        allow update, delete: if isGroupMember(groupId) && (existing().userId == request.auth.uid || isGroupMod(groupId));
-      }
-
-      match /events/{eventId} {
-        allow read: if isGroupMember(groupId);
-        allow create, update, delete: if isGroupMod(groupId);
+        allow write: if isGroupAdmin(groupId) || isGlobalAdmin();
       }
     }
 
-    // --- Global Messaging & Social ---
-    
+    // --- Conversations & Direct Messages ---
     match /conversations/{convId} {
-      allow create: if isSignedIn();
-      allow read: if isSignedIn() && request.auth.uid in existing().participants;
-      allow update: if isSignedIn() && request.auth.uid in existing().participants;
-
-      match /messages/{msgId} {
-        // We use get() here to check parent conversation participants
-        allow read: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.participants;
-        allow create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.participants;
+      allow get, list, create, update, delete: if isSignedIn();
+      match /{allSub=**} {
+         allow read, list, write: if isSignedIn();
       }
     }
 
-    match /friend_requests/{reqId} {
-      allow create: if isSignedIn() && incoming().fromId == request.auth.uid;
-      allow read, update, delete: if isSignedIn() && (resource.data.fromId == request.auth.uid || resource.data.toId == request.auth.uid);
+    // --- Social ---
+    match /friend_requests/{requestId} {
+      allow read, list, create, update, delete: if isSignedIn();
+    }
+    match /friendships/{friendshipId} {
+      allow read, list, create, delete: if isSignedIn();
     }
 
-    match /friendships/{fId} {
-      allow read, delete: if isSignedIn() && request.auth.uid in resource.data.users;
-      allow create: if isSignedIn();
+    // --- Messages (Universal Access for Logged In) ---
+    match /{path=**}/messages/{messageId} {
+       allow read, list, create: if isSignedIn(); 
+       allow update, delete: if isOwner(existing().userId) || isGlobalAdmin();
     }
 
-    // --- Admin & Meta ---
-
-    match /reports/{reportId} {
-      allow create: if isSignedIn();
-      allow read, update: if isSuperAdmin();
-    }
-
-    match /ai_agents/{agentId} {
-      allow read: if isSignedIn();
-      allow write: if isSuperAdmin();
-    }
-
-    match /ai_interactions/{intId} {
-      allow read, write: if isSignedIn() && (resource.data.userId == request.auth.uid || isSuperAdmin());
-    }
-
-    match /spaces/{spaceId} {
-      allow read, write: if isSignedIn();
-    }
+    // --- Community & Global ---
+    match /blogPosts/{postId} { allow read, list: if true; allow write: if isGlobalAdmin(); }
+    match /events_global/{eventId} { allow read, list, create: if isSignedIn(); allow update, delete: if isSignedIn(); }
+    match /reports/{reportId} { allow create: if isSignedIn(); allow read, list, update: if isGlobalAdmin(); }
+    match /ai_agents/{agentId} { allow read, list: if isSignedIn(); allow write: if isGlobalAdmin(); }
+    match /ai_interactions/{interactionId} { allow create: if isSignedIn(); allow read, list: if isSignedIn(); }
+    match /bridge_suggestions/{sugId} { allow read, list, create: if isSignedIn(); allow update, delete: if isGlobalAdmin(); }
+    match /spaces/{spaceId} { allow read, list, create, update, delete: if isSignedIn(); }
+    match /polls/{pollId} { allow read, list, create, update: if isSignedIn(); allow delete: if isGlobalAdmin(); }
   }
 }

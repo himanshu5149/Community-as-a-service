@@ -10,6 +10,7 @@ import {
   doc, 
   serverTimestamp,
   getDocs,
+  getDoc,
   setDoc,
   updateDoc
 } from 'firebase/firestore';
@@ -120,14 +121,14 @@ export function useSocial() {
 
   const acceptRequest = async (requestId: string) => {
     try {
-      const requestDoc = doc(db, 'friend_requests', requestId);
-      const snap = await getDocs(query(collection(db, 'friend_requests'), where('__name__', '==', requestId)));
-      if (snap.empty) return;
+      const requestRef = doc(db, 'friend_requests', requestId);
+      const snap = await getDoc(requestRef);
+      if (!snap.exists()) return;
       
-      const data = snap.docs[0].data() as FriendRequest;
+      const data = snap.data() as FriendRequest;
       
       // Update request status
-      await updateDoc(requestDoc, { status: 'accepted' });
+      await updateDoc(requestRef, { status: 'accepted' });
 
       // Create friendship
       await addDoc(collection(db, 'friendships'), {

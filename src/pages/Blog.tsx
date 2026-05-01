@@ -47,38 +47,6 @@ export default function Blog() {
     );
   }
 
-  if (!user) {
-    return (
-      <div className="pt-24 min-h-screen bg-bg-dark text-white flex flex-col items-center justify-center px-10 relative overflow-hidden">
-        <div className="absolute inset-0 z-0">
-          <div className="absolute -top-[10%] -left-[10%] w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px]"></div>
-          <div className="absolute -bottom-[10%] -right-[10%] w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[120px]"></div>
-        </div>
-        
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="relative z-10 flex flex-col items-center text-center"
-        >
-          <div className="w-24 h-24 bg-white/5 rounded-[3rem] flex items-center justify-center mb-12 border border-white/10 shadow-2xl backdrop-blur-2xl">
-            <Lock className="w-10 h-10 text-primary animate-pulse" />
-          </div>
-          <h2 className="text-6xl md:text-[100px] font-bold tracking-tighter mb-8 leading-none italic">Archives <br/><span className="text-primary not-italic tracking-tight">Restricted.</span></h2>
-          <p className="text-xl md:text-2xl text-gray-400 mb-16 max-w-lg font-medium leading-[1.4] uppercase tracking-tight">
-            Access to the CaaS Journal technical archives requires a verified high-fidelity session.
-          </p>
-          <button 
-            onClick={signInWithGoogle}
-            className="px-14 py-7 bg-primary text-white rounded-[2rem] font-black uppercase tracking-[0.4em] text-xs flex items-center gap-5 hover:scale-[1.03] active:scale-95 transition-all shadow-[0_30px_60px_rgba(83,74,183,0.5)]"
-          >
-            <LogIn className="w-5 h-5" />
-            Authenticate Uplink
-          </button>
-        </motion.div>
-      </div>
-    );
-  }
-
   return (
     <div className="pt-24 min-h-screen bg-bg-dark text-white">
       <div className="max-w-7xl mx-auto px-10 py-24">
