@@ -53,29 +53,38 @@ async function startServer() {
   });
 
   app.post("/api/ai/agent", async (req, res) => {
-    const { query, agentId, agentName, context } = req.body;
-    if (!query || !agentName) return res.status(400).json({ error: "Missing query or agent info" });
+    // Unified agent handler — supports both AI agents and help chatbot
+    const { query, message, agentId, agentName, context, systemContext, history } = req.body;
+    const userMessage = (message || query || '').trim();
+    if (!userMessage) return res.status(400).json({ error: "Missing message" });
 
     try {
-      const result = await ai.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent({
-        contents: [{ role: 'user', parts: [{ text: `
-          System Directive: You are ${agentName}, an autonomous intelligence node in the CaaS ecosystem.
-          ${agentId === 'aria' ? 'Your expertise is in fitness, health, and metabolic optimization.' : ''}
-          ${agentId === 'nova' ? 'Your expertise is in high-tech research, code, and system architecture.' : ''}
-          ${agentId === 'muse' ? 'Your expertise is in arts, creative writing, and aesthetic philosophy.' : ''}
-          ${agentId === 'sage' ? 'Your expertise is in history, library sciences, and general education.' : ''}
-          ${agentId === 'bridge' ? 'Your expertise is in community integration, group dynamics, and conflict resolution.' : ''}
-          
-          Group context: This message was sent in the "${context?.groupName || 'Unknown'}" community, channel "${context?.channelName || 'general'}".
-          
-          Instruction: Respond as ${agentName}. Be concise, helpful, and maintain your specific protocol (persona). Max 3 sentences.
-        `}, { text: `User Query: ${query}` }]}]
-      });
-      
-      res.json({ response: result.response.text() || "Signal strength low. Query failed." });
+      let prompt = '';
+
+      if (agentId === 'caas-help' && systemContext) {
+        // Help chatbot mode
+        prompt = `${systemContext}\n\nConversation so far:\n${history || ''}\n\nUser: ${userMessage}\nAssistant:`;
+      } else {
+        // AI agent persona mode
+        const name = agentName || agentId || 'Assistant';
+        const personas: Record<string, string> = {
+          aria: 'community architecture, member experience, and growth strategy',
+          nova: 'innovation, technology, and cutting-edge research',
+          muse: 'creative writing, arts, and aesthetic philosophy',
+          sage: 'knowledge curation, education, and history',
+          bridge: 'community integration, group dynamics, and conflict resolution',
+        };
+        const expertise = personas[agentId as keyof typeof personas] || 'general community topics';
+        const groupCtx = context ? "Community: " + (context.groupName || 'Unknown') + ", Channel: " + (context.channelName || 'general') : '';
+        prompt = `You are ${name}, an AI agent in the CaaS Community OS. Your expertise: ${expertise}. ${groupCtx}\n\nUser: ${userMessage}\n\nRespond as ${name}. Be concise and helpful. Max 3 sentences.`;
+      }
+
+      const result = await ai.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent(prompt);
+      const reply = result.response.text() || "Signal strength low. Try again.";
+      res.json({ reply, response: reply });
     } catch (error) {
-      console.error("Agent execution error:", error);
-      res.status(500).json({ response: "Intelligence node offline. Maintenance required." });
+      console.error("Agent error:", error);
+      res.status(500).json({ reply: "AI node offline. Try again shortly.", response: "AI node offline." });
     }
   });
 

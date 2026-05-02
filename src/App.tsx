@@ -27,7 +27,9 @@ import Search from './pages/Search';
 import Spaces from './pages/Spaces';
 import SpaceRoom from './pages/SpaceRoom';
 import Explore from './pages/Explore';
+import Help from './pages/Help';
 import NotFound from './pages/NotFound';
+import HelpChatbot from './components/HelpChatbot';
 
 // New Pages
 import Profile from './pages/Profile';
@@ -62,6 +64,7 @@ function AnimatedRoutes() {
         <Route path="/blog" element={<PageLayout><Blog /></PageLayout>} />
         <Route path="/pricing" element={<PageLayout><Pricing /></PageLayout>} />
         <Route path="/about" element={<PageLayout><About /></PageLayout>} />
+        <Route path="/help" element={<PageLayout><Help /></PageLayout>} />
         <Route path="/contact" element={<PageLayout><Contact /></PageLayout>} />
         <Route path="/groups" element={<PageLayout><Groups /></PageLayout>} />
         <Route path="/explore" element={<PageLayout><Explore /></PageLayout>} />
@@ -107,6 +110,7 @@ export default function App() {
                 <AnimatedRoutes />
               </main>
               <Footer />
+              <HelpChatbot />
             </div>
           </Router>
         </AuthProvider>
