@@ -34,6 +34,7 @@ const endpoints = [
 const webhookEvents = [
   { event: 'message.flagged', desc: 'Fired when AI flags a message', payload: '{ messageId, groupId, content, severity, reason }' },
   { event: 'member.joined', desc: 'Fired when a new member joins', payload: '{ userId, groupId, role, joinedAt }' },
+  { event: 'order_created', desc: 'Lemon Squeezy: High-level event when a plan is purchased', payload: '{ user_id, plan_id, order_id }' },
 ];
 
 const codeExamples: Record<string, { lang: string; code: string }> = {
@@ -48,10 +49,55 @@ const codeExamples: Record<string, { lang: string; code: string }> = {
     },
     body: JSON.stringify({ text, groupId })
   });
-  const { safe, reason } = await response.json();
+  
+  const { safe, reason, severity } = await response.json();
+  
+  if (!safe) {
+    console.log(\`Flagged (\${severity}): \${reason}\`);
+  }
+  
   return safe;
 };`
   },
+  'Lemon Squeezy Webhook': {
+    lang: 'javascript',
+    code: `// Your webhook endpoint (Express example)
+app.post('/api/webhook/lemonsqueezy', express.raw({ type: "application/json" }), async (req, res) => {
+  // Signature verification recommended here...
+  const payload = JSON.parse(req.body.toString());
+  const { meta, data } = payload;
+  const eventName = meta.event_name;
+  
+  if (eventName === 'order_created') {
+    const userId = meta.custom_data.user_id;
+    const planId = meta.custom_data.plan_id;
+    
+    // Update user profile in Firestore
+    await db.doc(\`users/\${userId}\`).update({
+      plan: planId,
+      planStatus: 'active',
+      planActivatedAt: Date.now()
+    });
+    
+    console.log(\`Provisioned \${planId} for \${userId}\`);
+  }
+  
+  res.sendStatus(200);
+});`
+  },
+  'AI Agent Query': {
+    lang: 'javascript',
+    code: `const askAgent = async (agentId, message) => {
+  const response = await fetch('/api/ai/agent', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ agentId, query: message })
+  });
+  
+  const { reply } = await response.json();
+  return reply;
+};`
+  }
 };
 
 export default function Developer() {
@@ -108,21 +154,32 @@ export default function Developer() {
 
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-white/5 border border-white/10 rounded-[2rem] p-8">
-              <h2 className="text-sm font-black uppercase tracking-widest mb-6">API Endpoints</h2>
+              <h2 className="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-2">
+                <Zap className="w-4 h-4 text-primary" /> API Endpoints
+              </h2>
               <div className="space-y-3">
                 {endpoints.map(ep => (
-                  <div key={ep.path} className="border border-white/10 rounded-2xl overflow-hidden">
-                    <button onClick={() => setOpenEndpoint(openEndpoint === ep.path ? null : ep.path)} className="w-full flex items-center justify-between p-4 text-left">
+                  <div key={ep.path} className="border border-white/10 rounded-2xl overflow-hidden group">
+                    <button onClick={() => setOpenEndpoint(openEndpoint === ep.path ? null : ep.path)} className="w-full flex items-center justify-between p-4 text-left hover:bg-white/5 transition-all">
                       <div className="flex items-center gap-3">
                         <span className="px-2 py-1 rounded-lg text-[10px] font-black border text-blue-400 bg-blue-400/10 border-blue-400/20">{ep.method}</span>
                         <code className="text-sm text-gray-200 font-mono">{ep.path}</code>
                       </div>
-                      <ChevronDown className={cn("w-4 h-4 text-gray-500", openEndpoint === ep.path && "rotate-180")} />
+                      <ChevronDown className={cn("w-4 h-4 text-gray-500 transition-transform", openEndpoint === ep.path && "rotate-180")} />
                     </button>
                     {openEndpoint === ep.path && (
-                      <div className="p-4 border-t border-white/10 space-y-4">
-                        <p className="text-sm text-gray-400">{ep.desc}</p>
-                        <pre className="bg-black/60 border border-white/10 rounded-xl p-4 text-xs font-mono text-green-300 overflow-x-auto">{ep.response}</pre>
+                      <div className="p-4 border-t border-white/10 space-y-4 bg-black/20">
+                        <p className="text-sm text-gray-400 font-medium">{ep.desc}</p>
+                        {ep.request && (
+                          <div>
+                            <div className="text-[10px] font-black uppercase text-gray-500 mb-2">Request Body</div>
+                            <pre className="p-4 bg-black/50 border border-white/5 rounded-xl text-xs font-mono text-blue-300 overflow-x-auto">{ep.request}</pre>
+                          </div>
+                        )}
+                        <div>
+                          <div className="text-[10px] font-black uppercase text-gray-500 mb-2">Success Response</div>
+                          <pre className="p-4 bg-black/50 border border-white/5 rounded-xl text-xs font-mono text-green-300 overflow-x-auto">{ep.response}</pre>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -131,10 +188,48 @@ export default function Developer() {
             </div>
 
             <div className="bg-white/5 border border-white/10 rounded-[2rem] p-8">
-              <h2 className="text-sm font-black uppercase tracking-widest mb-6">Webhooks</h2>
-              <div className="flex gap-3 mb-6">
-                <input value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)} placeholder="https://your-server.com/webhook" className="flex-1 bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-mono outline-none" />
-                <button className="px-6 py-4 bg-primary rounded-2xl font-black text-xs uppercase tracking-widest">Register</button>
+              <h2 className="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-2">
+                <Code className="w-4 h-4 text-primary" /> Implementation Examples
+              </h2>
+              <div className="flex flex-wrap gap-2 mb-6">
+                {Object.keys(codeExamples).map(key => (
+                  <button
+                    key={key}
+                    onClick={() => setActiveExample(key)}
+                    className={cn(
+                      "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border",
+                      activeExample === key ? "bg-primary border-primary text-white" : "bg-white/5 border-white/10 text-gray-400 hover:text-white"
+                    )}
+                  >
+                    {key}
+                  </button>
+                ))}
+              </div>
+              <div className="relative group">
+                <pre className="p-6 bg-black/60 border border-white/10 rounded-2xl text-[11px] font-mono text-gray-300 overflow-x-auto leading-relaxed">
+                  {codeExamples[activeExample].code}
+                </pre>
+                <button
+                  onClick={() => copy(codeExamples[activeExample].code, 'code')}
+                  className="absolute top-4 right-4 p-2 bg-white/10 border border-white/10 rounded-xl hover:bg-white/20 transition-all opacity-0 group-hover:opacity-100"
+                >
+                  {copied === 'code' ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-white" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-[2rem] p-8">
+              <h2 className="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-2">
+                <Webhook className="w-4 h-4 text-primary" /> Webhook Events
+              </h2>
+              <div className="space-y-4">
+                {webhookEvents.map(w => (
+                  <div key={w.event} className="p-4 bg-black/30 border border-white/5 rounded-2xl">
+                    <div className="text-xs font-mono text-primary mb-1 underline decoration-primary/30 underline-offset-4">{w.event}</div>
+                    <p className="text-[11px] text-gray-500 mb-3 font-medium">{w.desc}</p>
+                    <code className="text-[10px] font-mono text-gray-600 block bg-black/50 p-2 rounded-lg">{w.payload}</code>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

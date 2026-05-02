@@ -16,7 +16,8 @@ interface UserProfile {
   photoURL: string;
   role: 'user' | 'admin';
   onboardingCompleted?: boolean;
-  plan?: 'free' | 'pro' | 'elite' | 'founder';
+  plan?: 'free' | 'starter' | 'professional' | 'enterprise';
+  planStatus?: 'active' | 'inactive' | 'cancelled';
   subscriptionId?: string;
 }
 

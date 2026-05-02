@@ -63,6 +63,7 @@ function AnimatedRoutes() {
         <Route path="/how-it-works" element={<PageLayout><HowItWorks /></PageLayout>} />
         <Route path="/blog" element={<PageLayout><Blog /></PageLayout>} />
         <Route path="/pricing" element={<PageLayout><Pricing /></PageLayout>} />
+        <Route path="/billing" element={<PageLayout><Pricing /></PageLayout>} />
         <Route path="/about" element={<PageLayout><About /></PageLayout>} />
         <Route path="/help" element={<PageLayout><Help /></PageLayout>} />
         <Route path="/contact" element={<PageLayout><Contact /></PageLayout>} />

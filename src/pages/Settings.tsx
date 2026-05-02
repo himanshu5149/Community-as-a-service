@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../hooks/useAuth';
+import { usePlan } from '../hooks/usePlan';
 import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { useToast } from '../hooks/useToast';
 import { 
   User, Bell, Shield, Bot, Trash2, 
   Save, Moon, Sun, 
-  Lock, LogOut, AlertTriangle
+  Lock, LogOut, AlertTriangle, ExternalLink, CreditCard, Sparkles, CheckCircle2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { signOut } from 'firebase/auth';
@@ -15,6 +16,7 @@ import { useNavigate } from 'react-router-dom';
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: <User className="w-4 h-4" /> },
+  { id: 'billing', label: 'Billing', icon: <Lock className="w-4 h-4" /> },
   { id: 'notifications', label: 'Notifications', icon: <Bell className="w-4 h-4" /> },
   { id: 'ai', label: 'AI Config', icon: <Bot className="w-4 h-4" /> },
   { id: 'privacy', label: 'Privacy', icon: <Shield className="w-4 h-4" /> },
@@ -97,6 +99,76 @@ export default function Settings() {
     </button>
   );
 
+  const BillingTab = () => {
+    const { plan, planStatus, isActive, isPro, loading: planLoading } = usePlan();
+    
+    return (
+      <motion.div key="billing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-8">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-black tracking-tighter uppercase italic">Billing & Subscription</h2>
+          <div className={cn(
+            "px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border",
+            isActive ? "bg-green-500/10 text-green-400 border-green-500/20" : "bg-white/5 text-gray-500 border-white/10"
+          )}>
+            {planStatus || 'No Active Subscription'}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="p-8 bg-white/5 border border-white/10 rounded-3xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl -z-10 group-hover:bg-primary/20 transition-all"></div>
+            <div className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Current Infrastructure Tier</div>
+            <div className="text-4xl font-black uppercase italic tracking-tighter mb-4 text-primary">{plan}</div>
+            <div className="flex items-center gap-2 text-xs font-medium text-gray-400 mb-6">
+              {isActive ? <CheckCircle2 className="w-4 h-4 text-green-400" /> : <div className="w-4 h-4 rounded-full border border-gray-600" />}
+              {isActive ? 'All nodes online and synchronized' : 'Nodes running on restricted starter protocol'}
+            </div>
+            <button 
+              onClick={() => navigate('/pricing')}
+              className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+            >
+              Change Protocol
+            </button>
+          </div>
+
+          <div className="p-8 bg-white/5 border border-white/10 rounded-3xl flex flex-col justify-center items-center text-center gap-4 group">
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 group-hover:scale-110 transition-transform">
+              <Sparkles className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <div className="text-sm font-bold mb-1 uppercase tracking-tight">Upgrade Available</div>
+              <div className="text-xs text-gray-500 max-w-[200px]">Unlock autonomous AI nodes, vertical groups, and enterprise support.</div>
+            </div>
+            <button 
+              onClick={() => navigate('/pricing')}
+              className="mt-2 text-[10px] font-black uppercase tracking-widest text-primary hover:underline flex items-center gap-1"
+            >
+              View Full Specs <ExternalLink className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-amber-500/5 border border-amber-500/10 rounded-2xl p-6">
+          <div className="flex gap-4">
+            <CreditCard className="w-5 h-5 text-amber-500 shrink-0" />
+            <div>
+              <div className="text-sm font-bold text-amber-200 mb-1">Transaction History</div>
+              <div className="text-xs text-amber-500/70 mb-4">You can manage your payment methods and download invoices through our payment partner, LemonSqueezy.</div>
+              <a 
+                href="https://app.lemonsqueezy.com/my-orders" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-[10px] font-black uppercase tracking-widest text-white hover:text-amber-200 underline decoration-white/20"
+              >
+                Go to LemonSqueezy Portal
+              </a>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white pt-24 pb-20 px-4 md:px-10">
       <div className="max-w-5xl mx-auto">
@@ -158,6 +230,10 @@ export default function Settings() {
                     <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save Profile'}
                   </button>
                 </motion.div>
+              )}
+
+              {activeTab === 'billing' && (
+                <BillingTab />
               )}
 
               {activeTab === 'notifications' && (

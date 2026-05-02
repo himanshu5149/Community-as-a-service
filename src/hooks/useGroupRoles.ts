@@ -24,42 +24,34 @@ export function useGroupRoles(groupId: string) {
       return;
     }
 
-    let unsubscribeMember = () => {};
+    let unsubscribeMember: (() => void) | null = null;
 
     const startListener = (uid: string) => {
       const path = `groups/${groupId}/members/${uid}`;
       unsubscribeMember = onSnapshot(doc(db, path), (snapshot) => {
-        if (snapshot.exists()) {
-          setMember(snapshot.data() as GroupMember);
-        } else {
-          setMember(null);
-        }
+        setMember(snapshot.exists() ? snapshot.data() as GroupMember : null);
         setLoading(false);
       }, (err) => {
         setLoading(false);
         if (err.code !== 'permission-denied') {
-          try {
-            handleFirestoreError(err, OperationType.GET, path);
-          } catch (e: any) {
-            setError(e);
-          }
+          try { handleFirestoreError(err, OperationType.GET, path); } catch (e: any) { setError(e); }
         }
       });
     };
 
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+    const unsubscribeAuth = auth.onAuthStateChanged((user) => {
       if (user) {
         startListener(user.uid);
       } else {
         setMember(null);
         setLoading(false);
-        unsubscribeMember();
+        if (unsubscribeMember) unsubscribeMember();
       }
     });
 
     return () => {
       unsubscribeAuth();
-      unsubscribeMember();
+      if (unsubscribeMember) unsubscribeMember();
     };
   }, [groupId]);
 
@@ -68,7 +60,6 @@ export function useGroupRoles(groupId: string) {
     const path = `groups/${groupId}/members/${auth.currentUser.uid}`;
     
     try {
-      // Get member count to determine if this is the pioneer member
       const { collection, getCountFromServer } = await import('firebase/firestore');
       const membersRef = collection(db, `groups/${groupId}/members`);
       const snapshot = await getCountFromServer(membersRef);
@@ -77,7 +68,7 @@ export function useGroupRoles(groupId: string) {
       await setDoc(doc(db, path), {
         userId: auth.currentUser.uid,
         userName,
-        email: auth.currentUser.email,
+        groupId,
         role: isFirstMember ? 'admin' : 'member',
         joinedAt: serverTimestamp()
       });
