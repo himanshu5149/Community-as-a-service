@@ -51,13 +51,13 @@ export default function Dashboard() {
     { label: 'Active Clusters', val: stats.groups, icon: <Users className="w-5 h-5" />, color: 'text-primary', link: '/groups' },
     { label: 'Network Members', val: stats.members, icon: <Activity className="w-5 h-5" />, color: 'text-blue-400', link: '/members' },
     { label: 'Neural Spaces', val: stats.spaces, icon: <Zap className="w-5 h-5" />, color: 'text-green-400', link: '/spaces' },
-    { label: 'AI Operations', val: stats.aiOps, icon: <Bot className="w-5 h-5" />, color: 'text-amber-400', link: '/ai-nexus' },
+    { label: 'AI Operations', val: stats.aiOps, icon: <Bot className="w-5 h-5" />, color: 'text-amber-400', link: '/ai' },
   ];
 
   const shortcuts = [
     { label: 'New Community', icon: <Plus className="w-5 h-5" />, link: '/onboarding', color: 'bg-primary' },
     { label: 'Messages', icon: <MessageSquare className="w-5 h-5" />, link: '/messages', color: 'bg-blue-600' },
-    { label: 'AI Nexus', icon: <Bot className="w-5 h-5" />, link: '/ai-nexus', color: 'bg-purple-600' },
+    { label: 'AI Nexus', icon: <Bot className="w-5 h-5" />, link: '/ai', color: 'bg-purple-600' },
     { label: 'Events', icon: <Calendar className="w-5 h-5" />, link: '/events', color: 'bg-green-700' },
     { label: 'Marketplace', icon: <Package className="w-5 h-5" />, link: '/marketplace', color: 'bg-orange-700' },
     { label: 'Developer', icon: <Code className="w-5 h-5" />, link: '/developer', color: 'bg-gray-700' },

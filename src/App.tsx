@@ -26,6 +26,7 @@ import Admin from './pages/Admin';
 import Search from './pages/Search';
 import Spaces from './pages/Spaces';
 import SpaceRoom from './pages/SpaceRoom';
+import Explore from './pages/Explore';
 import NotFound from './pages/NotFound';
 
 // New Pages
@@ -63,6 +64,7 @@ function AnimatedRoutes() {
         <Route path="/about" element={<PageLayout><About /></PageLayout>} />
         <Route path="/contact" element={<PageLayout><Contact /></PageLayout>} />
         <Route path="/groups" element={<PageLayout><Groups /></PageLayout>} />
+        <Route path="/explore" element={<PageLayout><Explore /></PageLayout>} />
         <Route path="/members" element={<PageLayout><Members /></PageLayout>} />
         <Route path="/spaces" element={<PageLayout><Spaces /></PageLayout>} />
         <Route path="/ai" element={<PageLayout><AIGroup /></PageLayout>} />

@@ -1,182 +1,176 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { collection, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
-import { db } from '../lib/firebase';
-import { Link } from 'react-router-dom';
-import { Search as SearchIcon, Users, Activity, Filter, ArrowUpRight, Zap, Shield, Sparkles } from 'lucide-react';
+import { useState } from 'react';
+import { motion } from 'motion/react';
+import { useGroups } from '../hooks/useGroups';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+import { signInWithGoogle } from '../lib/firebase';
+import { Search, Users, ArrowRight, Zap, LogIn } from 'lucide-react';
+import { cn } from '../lib/utils';
 
-interface Group {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  memberCount: number;
-  type: string;
-  isPublic: boolean;
-}
+const CATEGORIES = ['All', 'Tech', 'Fitness', 'Arts', 'Education', 'Business', 'Food', 'Social Good'];
 
-const CATEGORIES = ['All', 'Tech', 'Fitness', 'Arts', 'Education', 'Business'];
+const categoryEmoji: Record<string, string> = {
+  Tech: '💻', Fitness: '🏋️', Arts: '🎨',
+  Education: '🎓', Business: '💼', Food: '🍜',
+  'Social Good': '❤️', General: '🌐'
+};
 
 export default function Explore() {
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { groups, loading } = useGroups();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
-  const [activeCategory, setActiveCategory] = useState('All');
+  const [category, setCategory] = useState('All');
 
-  useEffect(() => {
-    const fetchGroups = async () => {
-      setLoading(true);
-      try {
-        const q = query(
-          collection(db, 'groups'),
-          where('isPublic', '==', true),
-          limit(20)
-        );
-        const snapshot = await getDocs(q);
-        setGroups(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Group[]);
-      } catch (err) {
-        console.error("Explore fetch error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchGroups();
-  }, []);
-
-  const filteredGroups = groups.filter(g => {
-    const matchesSearch = g.name.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = activeCategory === 'All' || g.category === activeCategory;
+  const publicGroups = groups.filter(g => {
+    const matchesSearch = g.name.toLowerCase().includes(search.toLowerCase()) ||
+      g.description?.toLowerCase().includes(search.toLowerCase());
+    const matchesCategory = category === 'All' || g.category === category;
     return matchesSearch && matchesCategory;
   });
 
-  return (
-    <div className="min-h-screen pt-32 pb-20 px-6 max-w-7xl mx-auto text-white">
-      {/* Header Section */}
-      <div className="mb-16 text-center">
-        <motion.div
-           initial={{ opacity: 0, y: 20 }}
-           animate={{ opacity: 1, y: 0 }}
-           className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/20 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.3em] mb-6"
-        >
-          <Sparkles className="w-3 h-3" />
-          Discovery Engine Active
-        </motion.div>
-        <h1 className="text-6xl md:text-8xl font-black tracking-tighter italic mb-6">
-          Find Your <span className="text-primary not-italic">Mesh.</span>
-        </h1>
-        <p className="text-xl text-gray-400 font-medium max-w-2xl mx-auto">
-          Explore the nexus of high-performance communities deployed on the CaaS protocol.
-        </p>
-      </div>
+  const handleJoin = (groupId: string) => {
+    if (!user) { signInWithGoogle(); return; }
+    navigate(`/groups/${groupId}`);
+  };
 
-      {/* Control Bar */}
-      <div className="flex flex-col md:flex-row gap-6 mb-12 items-center">
-        <div className="relative flex-grow w-full">
-           <SearchIcon className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
-           <input 
-             type="text" 
-             placeholder="Search active nodes..."
-             className="w-full bg-white/5 border border-white/10 rounded-[2rem] py-6 pl-16 pr-8 outline-none focus:ring-2 ring-primary/40 transition-all font-bold"
-             value={search}
-             onChange={e => setSearch(e.target.value)}
-           />
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] text-white pt-24 pb-20 px-4 md:px-10">
+      <div className="max-w-7xl mx-auto">
+
+        {/* Header */}
+        <div className="mb-12 text-center">
+          <div className="mb-6 inline-flex items-center gap-3 px-6 py-2 rounded-full border border-white/5 bg-white/5 text-[10px] font-black uppercase tracking-[0.3em]">
+            <Zap className="w-3 h-3 text-primary" />
+            Community Discovery Network
+          </div>
+          <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-6 leading-[0.85]">
+            Find Your<br/>
+            <span className="text-primary italic">Community.</span>
+          </h1>
+          <p className="text-gray-400 text-xl font-medium max-w-2xl mx-auto">
+            Browse active communities across every vertical. Join in one click.
+          </p>
         </div>
-        <div className="flex gap-2 overflow-x-auto no-scrollbar w-full md:w-auto pb-2 md:pb-0">
+
+        {/* Search */}
+        <div className="max-w-2xl mx-auto mb-10">
+          <div className="relative">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+            <input
+              type="text"
+              placeholder="Search communities..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl py-5 pl-14 pr-6 text-white font-medium outline-none focus:ring-2 ring-primary/50 placeholder:text-gray-600 transition-all"
+            />
+          </div>
+        </div>
+
+        {/* Category Filter */}
+        <div className="flex flex-wrap gap-3 mb-12 justify-center">
           {CATEGORIES.map(cat => (
             <button
               key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`px-8 py-4 rounded-full font-bold transition-all whitespace-nowrap ${activeCategory === cat ? 'bg-primary text-white shadow-xl' : 'bg-white/5 text-gray-500 border border-white/5 hover:bg-white/10'}`}
+              onClick={() => setCategory(cat)}
+              className={cn(
+                "px-5 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-all",
+                category === cat
+                  ? "bg-primary text-white shadow-[0_5px_20px_rgba(83,74,183,0.4)]"
+                  : "bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10"
+              )}
             >
               {cat}
             </button>
           ))}
         </div>
+
+        {/* Not signed in banner */}
+        {!user && (
+          <div className="mb-10 p-6 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-between">
+            <p className="text-sm font-medium text-gray-300">Sign in to join communities instantly.</p>
+            <button
+              onClick={() => signInWithGoogle()}
+              className="flex items-center gap-2 px-6 py-3 bg-primary rounded-2xl font-bold text-sm hover:scale-105 transition-all"
+            >
+              <LogIn className="w-4 h-4" /> Sign In
+            </button>
+          </div>
+        )}
+
+        {/* Groups Grid */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1,2,3,4,5,6].map(i => (
+              <div key={i} className="h-64 bg-white/5 border border-white/10 rounded-[2rem] animate-pulse" />
+            ))}
+          </div>
+        ) : publicGroups.length === 0 ? (
+          <div className="text-center py-24">
+            <div className="text-6xl mb-6">🔍</div>
+            <h3 className="text-2xl font-black tracking-tighter mb-3">No communities found</h3>
+            <p className="text-gray-400 font-medium mb-8">
+              {search ? `No results for "${search}"` : 'No communities yet in this category.'}
+            </p>
+            <button
+              onClick={() => navigate('/onboarding')}
+              className="px-8 py-4 bg-primary rounded-2xl font-bold hover:scale-105 transition-all inline-flex items-center gap-2"
+            >
+              Start One <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {publicGroups.map((group, i) => (
+              <motion.div
+                key={group.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.04 }}
+                className="group bg-white/5 border border-white/10 rounded-[2rem] p-8 hover:border-white/20 hover:bg-white/8 transition-all flex flex-col"
+              >
+                {/* Icon + Category */}
+                <div className="flex items-start justify-between mb-6">
+                  <div className="text-4xl">
+                    {group.icon || categoryEmoji[group.category] || '🌐'}
+                  </div>
+                  <span className="px-3 py-1 bg-primary/10 border border-primary/20 rounded-full text-[10px] font-black uppercase tracking-widest text-primary">
+                    {group.category || 'General'}
+                  </span>
+                </div>
+
+                {/* Info */}
+                <h3 className="text-2xl font-black tracking-tighter mb-2 group-hover:text-primary transition-colors">
+                  {group.name}
+                </h3>
+                <p className="text-gray-400 text-sm font-medium leading-relaxed mb-6 flex-grow line-clamp-2">
+                  {group.description || 'A community on CaaS OS.'}
+                </p>
+
+                {/* Stats */}
+                <div className="flex items-center gap-4 mb-6 text-xs text-gray-500 font-bold">
+                  <span className="flex items-center gap-1">
+                    <Users className="w-3 h-3" />
+                    {group.memberCount || 0} members
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                    Active
+                  </span>
+                </div>
+
+                {/* Join Button */}
+                <button
+                  onClick={() => handleJoin(group.id)}
+                  className="w-full py-4 bg-primary rounded-2xl font-black uppercase tracking-[0.2em] text-xs hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(83,74,183,0.3)]"
+                >
+                  Join Community <ArrowRight className="w-4 h-4" />
+                </button>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </div>
-
-      {/* Grid */}
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-           {[1,2,3,4,5,6].map(i => (
-             <div key={i} className="h-80 bg-white/5 animate-pulse rounded-[3rem]" />
-           ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-           {filteredGroups.map((group, i) => (
-             <motion.div
-               key={group.id}
-               initial={{ opacity: 0, scale: 0.95 }}
-               animate={{ opacity: 1, scale: 1 }}
-               transition={{ delay: i * 0.05 }}
-               className="group card-gloss p-1 bg-gradient-to-br from-primary/10 to-transparent rounded-[3rem] overflow-hidden"
-             >
-                <Link to={`/groups/${group.id}`} className="block h-full bg-[#0a0a0a] rounded-[2.9rem] p-10 hover:bg-[#0f0f0f] transition-all relative">
-                   <div className="absolute top-8 right-8 w-12 h-12 rounded-full bg-white/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all transform translate-x-4 group-hover:translate-x-0">
-                      <ArrowUpRight className="w-6 h-6 text-primary" />
-                   </div>
-                   
-                   <div className="inline-block px-4 py-1.5 rounded-full bg-primary/20 text-primary text-[10px] font-black uppercase tracking-widest mb-6 border border-primary/20">
-                      {group.category}
-                   </div>
-                   
-                   <h3 className="text-4xl font-black tracking-tighter mb-4 italic group-hover:text-primary transition-colors">
-                      {group.name}
-                   </h3>
-                   
-                   <p className="text-gray-400 text-sm font-medium mb-10 line-clamp-2">
-                      {group.description || 'No node description provided. This is a high-performance community cluster established on the CaaS protocol.'}
-                   </p>
-                   
-                   <div className="flex items-center gap-6 pt-6 border-t border-white/5">
-                      <div className="flex items-center gap-2">
-                         <Users className="w-5 h-5 text-gray-500" />
-                         <span className="text-xs font-bold">{group.memberCount} Nodes</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                         <Activity className="w-5 h-5 text-green-500" />
-                         <span className="text-xs font-bold uppercase tracking-tighter">High Flow</span>
-                      </div>
-                   </div>
-                </Link>
-             </motion.div>
-           ))}
-           
-           {!loading && filteredGroups.length === 0 && (
-              <div className="col-span-full py-40 text-center">
-                 <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-8 border border-white/10">
-                    <Zap className="w-10 h-10 text-gray-600" />
-                 </div>
-                 <h3 className="text-4xl font-black tracking-tighter italic mb-4">No Nodes Found.</h3>
-                 <p className="text-gray-500 max-w-sm mx-auto font-medium">Try broadly searching or initialize your own community node today.</p>
-              </div>
-           )}
-        </div>
-      )}
-
-      {/* Featured Banner */}
-      <section className="mt-32 p-1 bg-gradient-to-r from-primary via-blue-500 to-primary rounded-[4rem] overflow-hidden">
-         <div className="bg-[#0a0a0a] rounded-[3.9rem] p-16 md:p-24 flex flex-col md:flex-row items-center justify-between gap-12 relative overflow-hidden">
-            <div className="absolute inset-0 bg-primary/5 pointer-events-none" />
-            <div className="max-w-xl relative z-10">
-               <h2 className="text-5xl md:text-7xl font-black tracking-tighter mb-6 italic uppercase">Scale Beyond <br/> <span className="text-primary not-italic">Limits.</span></h2>
-               <p className="text-xl text-gray-400 font-medium mb-10 leading-tight">
-                  Running a massive community? Reach out for institutional support, custom AI agents, and dedicated mesh instances.
-               </p>
-               <Link to="/contact" className="px-10 py-5 bg-white text-bg-dark rounded-2xl font-black uppercase tracking-widest text-sm hover:scale-105 transition-all shadow-2xl inline-block">
-                  Request High-Flow
-               </Link>
-            </div>
-            <div className="flex gap-4 relative z-10">
-               <div className="w-32 h-32 rounded-[2rem] bg-white/5 border border-white/10 flex items-center justify-center animate-bounce duration-[3000ms]">
-                  <Shield className="w-10 h-10 text-primary" />
-               </div>
-               <div className="w-32 h-32 rounded-[2rem] bg-white/5 border border-white/10 flex items-center justify-center animate-bounce duration-[4000ms]">
-                  <Activity className="w-10 h-10 text-blue-500" />
-               </div>
-            </div>
-         </div>
-      </section>
     </div>
   );
 }

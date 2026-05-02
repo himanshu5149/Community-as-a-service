@@ -7,78 +7,17 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  // CORS — allow all origins in dev, lock down in production
+  app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    if (req.method === 'OPTIONS') { res.sendStatus(200); return; }
+    next();
+  });
+  app.use(express.json({ limit: '10mb' }));
 
   const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-
-  // Lemon Squeezy API Routes
-  app.post("/api/lemonsqueezy", async (req, res) => {
-    const LEMON_SQUEEZY_API_KEY = process.env.LEMON_SQUEEZY_API_KEY;
-    const LEMON_SQUEEZY_STORE_ID = process.env.LEMON_SQUEEZY_STORE_ID;
-
-    if (!LEMON_SQUEEZY_API_KEY || !LEMON_SQUEEZY_STORE_ID) {
-      return res.status(500).json({ error: "Missing Lemon Squeezy configuration" });
-    }
-
-    try {
-      const { variantId, successUrl, checkoutData } = req.body;
-
-      const response = await fetch("https://api.lemonsqueezy.com/v1/checkouts", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LEMON_SQUEEZY_API_KEY}`,
-          "Content-Type": "application/json",
-          Accept: "application/vnd.api+json",
-        },
-        body: JSON.stringify({
-          data: {
-            type: "checkouts",
-            attributes: {
-              product_options: {
-                enabled_variants: [variantId],
-                redirect_url: successUrl,
-              },
-              checkout_options: {
-                embed: false,
-                media: false,
-                logo: true,
-                original_window_refresh_url: successUrl,
-              },
-              checkout_data: {
-                custom: checkoutData || {},
-              },
-            },
-            relationships: {
-              store: {
-                data: {
-                  type: "stores",
-                  id: LEMON_SQUEEZY_STORE_ID,
-                },
-              },
-              variant: {
-                data: {
-                  type: "variants",
-                  id: variantId,
-                },
-              },
-            },
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        console.error("Lemon Squeezy error:", errorBody);
-        return res.status(500).json({ error: "Failed to create checkout" });
-      }
-
-      const data = await response.json();
-      res.json({ checkoutUrl: data.data.attributes.url });
-    } catch (error: any) {
-      console.error("Server error in /api/lemonsqueezy:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
 
   // AI API Routes
   app.get("/api/health", (req, res) => {
@@ -91,7 +30,7 @@ async function startServer() {
     try {
       const result = await ai.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent({
         contents: [{ role: 'user', parts: [{ text: `
-          Analyze the following message for a community platform. 
+          Analyze the message provided in the next part for a community platform. 
           Detect if it contains spam, scams, toxic language, harassment, or harmful links.
           Return ONLY a JSON response in this exact format:
           {
@@ -99,9 +38,7 @@ async function startServer() {
             "reason": "string (optional, if unsafe)",
             "flaggedContent": "string (optional, snippet of the problematic part)"
           }
-          
-          Message: "${text}"
-        `}]}],
+        `}, { text: `Message: "${text}"` }]}],
         generationConfig: {
           responseMimeType: "application/json"
         }
@@ -120,20 +57,20 @@ async function startServer() {
     if (!query || !agentName) return res.status(400).json({ error: "Missing query or agent info" });
 
     try {
-      const result = await ai.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent(`
-        System Directive: You are ${agentName}, an autonomous intelligence node in the CaaS ecosystem.
-        ${agentId === 'aria' ? 'Your expertise is in fitness, health, and metabolic optimization.' : ''}
-        ${agentId === 'nova' ? 'Your expertise is in high-tech research, code, and system architecture.' : ''}
-        ${agentId === 'muse' ? 'Your expertise is in arts, creative writing, and aesthetic philosophy.' : ''}
-        ${agentId === 'sage' ? 'Your expertise is in history, library sciences, and general education.' : ''}
-        ${agentId === 'bridge' ? 'Your expertise is in community integration, group dynamics, and conflict resolution.' : ''}
-        
-        Group context: This message was sent in the "${context?.groupName || 'Unknown'}" community, channel "${context?.channelName || 'general'}".
-        
-        User Query: ${query}
-        
-        Respond as ${agentName}. Be concise, helpful, and maintain your specific protocol (persona). Max 3 sentences.
-      `);
+      const result = await ai.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent({
+        contents: [{ role: 'user', parts: [{ text: `
+          System Directive: You are ${agentName}, an autonomous intelligence node in the CaaS ecosystem.
+          ${agentId === 'aria' ? 'Your expertise is in fitness, health, and metabolic optimization.' : ''}
+          ${agentId === 'nova' ? 'Your expertise is in high-tech research, code, and system architecture.' : ''}
+          ${agentId === 'muse' ? 'Your expertise is in arts, creative writing, and aesthetic philosophy.' : ''}
+          ${agentId === 'sage' ? 'Your expertise is in history, library sciences, and general education.' : ''}
+          ${agentId === 'bridge' ? 'Your expertise is in community integration, group dynamics, and conflict resolution.' : ''}
+          
+          Group context: This message was sent in the "${context?.groupName || 'Unknown'}" community, channel "${context?.channelName || 'general'}".
+          
+          Instruction: Respond as ${agentName}. Be concise, helpful, and maintain your specific protocol (persona). Max 3 sentences.
+        `}, { text: `User Query: ${query}` }]}]
+      });
       
       res.json({ response: result.response.text() || "Signal strength low. Query failed." });
     } catch (error) {
@@ -173,19 +110,18 @@ async function startServer() {
     }).join("\n");
 
     try {
-      const result = await ai.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent(`
-        Your Identity: ${persona.name} (${persona.role})
-        Your Task: ${persona.systemInstruction}
-        Group Context: This conversation is happening in the "${context.groupName}" community.
-        
-        Recent Chat History:
-        ${history}
-        
-        New Query (mention):
-        ${query}
-        
-        Instruction: Respond as ${persona.name}. Be helpful, social, and stay in character. Keep your response concise (under 3 sentences).
-      `);
+      const result = await ai.getGenerativeModel({ model: "gemini-1.5-flash" }).generateContent({
+        contents: [{ role: 'user', parts: [{ text: `
+          Your Identity: ${persona.name} (${persona.role})
+          Your Task: ${persona.systemInstruction}
+          Group Context: This conversation is happening in the "${context.groupName}" community.
+          
+          Recent Chat History:
+          ${history}
+          
+          Instruction: Respond as ${persona.name}. Be helpful, social, and stay in character. Keep your response concise (under 3 sentences).
+        `}, { text: `New User Query: ${query}` }]}]
+      });
       res.json({ response: result.response.text() || "I'm processing that right now..." });
     } catch (error) {
       console.error("Persona error:", error);
@@ -193,50 +129,10 @@ async function startServer() {
     }
   });
 
-  // Developer API v1 (Programmatic Extension Layer)
-  app.get("/api/v1/system/status", (req, res) => {
-    res.json({
-      os_version: "2.4.2-alpha",
-      kernel: "CaaS-Core-Node-64",
-      status: "nominal",
-      neural_load: 0.12,
-      uptime: process.uptime(),
-      api_tier: "public_access"
-    });
-  });
-
-  app.get("/api/v1/clusters/active", (req, res) => {
-    // Demonstration of a programmatic cluster list
-    res.json({
-      timestamp: new Date().toISOString(),
-      clusters: [
-        { id: "node-01", name: "Tech Forge", status: "online", load: "low" },
-        { id: "node-02", name: "Fitness Nexus", status: "online", load: "medium" }
-      ],
-      total_nodes: 2
-    });
-  });
-
-  app.post("/api/v1/notifications/broadcast", (req, res) => {
-    const apiKey = req.headers['x-api-key'];
-    if (!apiKey) return res.status(401).json({ error: "Unauthorized: Missing X-API-KEY header." });
-    
-    const { message, level } = req.body;
-    res.json({
-      status: "queued",
-      broadcast_id: Math.random().toString(36).substring(7),
-      recipients_count: 1422,
-      priority: level || "normal"
-    });
-  });
-
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { 
-        middlewareMode: true,
-        hmr: false 
-      },
+      server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);

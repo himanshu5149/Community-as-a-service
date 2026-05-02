@@ -52,7 +52,7 @@ export default function Onboarding() {
       });
 
       // 2. Add as Admin Member
-      await addDoc(collection(db, `groups/${groupRef.id}/members`), {
+      await setDoc(doc(db, `groups/${groupRef.id}/members`, user.uid), {
         uid: user.uid,
         displayName: user.displayName || 'Founder',
         photoURL: user.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.uid}`,
