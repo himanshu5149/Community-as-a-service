@@ -1,109 +1,214 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 0. Global Default Deny
+    // 0. Default Deny
     match /{document=**} {
       allow read, write: if false;
     }
 
     // --- Helpers ---
     function isSignedIn() { return request.auth != null; }
-    function isVerified() { 
-      return isSignedIn() && (
-        request.auth.token.email_verified == true || 
-        request.auth.token.firebase.sign_in_provider == 'google.com'
-      ); 
-    }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
+    function isVerified() { return request.auth.token.email_verified == true; }
     
-    function isGlobalAdmin() {
-      return isSignedIn() && request.auth.token.email == 'royalisdevil@gmail.com';
-    }
-
-    function isMemberOfGroup(groupId) {
-      return isSignedIn() && (
-        exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)) ||
-        isGlobalAdmin()
-      );
+    function isMember(groupId) {
+      return isSignedIn() && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
     }
 
     function isGroupAdmin(groupId) {
-      let memberPath = /databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid);
-      return isGlobalAdmin() || (
-        isSignedIn() && 
-        exists(memberPath) &&
-        get(memberPath).data.role == 'admin'
+      return isSignedIn() && (
+        isMember(groupId) &&
+        get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role == 'admin'
       );
     }
 
-    // --- Users ---
-    match /users/{userId} {
-      allow get, list, create, update: if isSignedIn();
-      
-      match /{allSubcollections=**} {
-        allow read, write: if isOwner(userId) || isGlobalAdmin();
+    function isValidGroup(data) {
+      return data.keys().hasAll(['name', 'description', 'accentColor']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.description is string && data.description.size() <= 500 &&
+             data.accentColor is string && data.accentColor.matches('^#[A-Fa-f0-9]{6}$');
+    }
+
+    function isValidMembership(data, userId) {
+      return data.keys().hasAll(['userId', 'role', 'joinedAt']) &&
+             data.userId == userId &&
+             data.role in ['admin', 'moderator', 'member'] &&
+             data.joinedAt == request.time;
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['userId', 'text', 'type', 'createdAt']) &&
+             (data.userId == request.auth.uid || (data.get('isAI', false) == true && data.userId == 'system_ai')) &&
+             data.text is string && data.text.size() <= 10000 &&
+             data.type in ['text', 'image', 'video', 'audio', 'ai'];
+    }
+
+    function isValidMessageCreate(data) {
+      return isValidMessage(data) && data.createdAt == request.time;
+    }
+
+    function isValidEvent(data) {
+      return data.keys().hasAll(['title', 'description', 'hostId', 'startTime', 'endTime', 'eventType']) &&
+             data.hostId == request.auth.uid &&
+             data.title is string && data.title.size() <= 200 &&
+             data.description is string && data.description.size() <= 2000 &&
+             data.eventType in ['online', 'in-person'];
+    }
+
+    match /groups/{groupId} {
+      allow get: if isValidId(groupId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(groupId);
+      allow update: if isGroupAdmin(groupId);
+      allow delete: if isGroupAdmin(groupId);
+
+      match /members/{memberId} {
+        allow get: if isSignedIn();
+        allow list: if isMember(groupId);
+        allow create: if isSignedIn() && memberId == request.auth.uid;
+        allow update: if isGroupAdmin(groupId) || isOwner(memberId);
+        allow delete: if isGroupAdmin(groupId) || isOwner(memberId);
       }
-      
-      match /notifications/{notifId} {
+
+      match /channels/{channelId} {
+        allow get: if isSignedIn();
+        allow list: if isMember(groupId);
+        allow create: if isSignedIn();
+        allow update: if isGroupAdmin(groupId);
+        allow delete: if isGroupAdmin(groupId);
+
+        match /messages/{messageId} {
+          allow get: if isMember(groupId);
+          allow list: if isMember(groupId);
+          allow create: if isMember(groupId);
+          allow update: if isOwner(existing().userId) || isGroupAdmin(groupId) || isSignedIn();
+          allow delete: if isOwner(existing().userId) || isGroupAdmin(groupId);
+        }
+      }
+
+      match /messages/{messageId} {
+        allow get: if isMember(groupId);
+        allow list: if isMember(groupId);
+        allow create: if isMember(groupId);
+        allow update: if isOwner(existing().userId) || isGroupAdmin(groupId) || isSignedIn();
+        allow delete: if isOwner(existing().userId) || isGroupAdmin(groupId);
+      }
+
+      match /events/{eventId} {
+        allow get: if isSignedIn();
+        allow list: if isMember(groupId);
+        allow create: if isSignedIn();
+        allow update: if isOwner(existing().hostId) || isGroupAdmin(groupId) || isSignedIn();
+        allow delete: if isOwner(existing().hostId) || isGroupAdmin(groupId);
+      }
+
+      match /polls/{pollId} {
+        allow get: if isSignedIn();
+        allow list: if isSignedIn();
+        allow create: if isGroupAdmin(groupId);
+        allow update: if isGroupAdmin(groupId) || isSignedIn();
+        allow delete: if isGroupAdmin(groupId);
+      }
+    }
+
+    match /spaces/{spaceId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if false;
+    }
+
+    match /blogPosts/{postId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /bridge_suggestions/{id} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+    }
+
+    match /profiles/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow write: if isOwner(userId);
+
+      match /points/stats {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId);
+      }
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow write: if isOwner(userId);
+
+      match /points/stats {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId);
+      }
+    }
+
+    match /profiles/{userId}/notifications/{notifId} {
+      allow get, update, delete: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isSignedIn();
+    }
+
+    match /friend_requests/{id} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && incoming().fromId == request.auth.uid;
+      allow update, delete: if isSignedIn();
+    }
+
+    match /friendships/{id} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    match /conversations/{convId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid in incoming().participants;
+      allow update: if isSignedIn();
+
+      match /messages/{messageId} {
+        allow get: if isSignedIn();
+        allow list: if isSignedIn();
         allow create: if isSignedIn();
       }
     }
 
-    // --- Groups ---
-    match /groups/{groupId} {
-      allow get, list, create: if isSignedIn(); 
-      allow update, delete: if isGroupAdmin(groupId) || isGlobalAdmin();
-
-      match /{allSubcollections=**} {
-        allow read, list, create: if isSignedIn();
-        allow update, delete: if isMemberOfGroup(groupId) || isGlobalAdmin();
-      }
-      
-      match /members/{memberId} {
-        allow update, delete: if isGroupAdmin(groupId) || isOwner(memberId) || isGlobalAdmin();
-      }
-      
-      match /channels/{channelId} {
-        allow write: if isGroupAdmin(groupId) || isGlobalAdmin();
-      }
+    match /ai_agents/{agentId} {
+      allow read: if true;
+      allow write: if isSignedIn();
     }
 
-    // --- Conversations & Direct Messages ---
-    match /conversations/{convId} {
-      allow get, list, create, update, delete: if isSignedIn();
-      match /{allSub=**} {
-         allow read, list, write: if isSignedIn();
-      }
+    match /events_global/{eventId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
     }
 
-    // --- Social ---
-    match /friend_requests/{requestId} {
-      allow read, list, create, update, delete: if isSignedIn();
-    }
-    match /friendships/{friendshipId} {
-      allow read, list, create, delete: if isSignedIn();
+    match /reports/{reportId} {
+      allow create: if isSignedIn();
+      allow read: if isSignedIn();
+      allow update, delete: if false;
     }
 
-    // --- Messages (Universal Access for Logged In) ---
-    match /{path=**}/messages/{messageId} {
-       allow read, list, create: if isSignedIn(); 
-       allow update, delete: if isOwner(existing().userId) || isGlobalAdmin();
+    match /ai_interactions/{id} {
+      allow create: if isSignedIn();
+      allow read, update, delete: if false;
     }
-
-    // --- Community & Global ---
-    match /blogPosts/{postId} { allow read, list: if true; allow write: if isGlobalAdmin(); }
-    match /events_global/{eventId} { allow read, list, create: if isSignedIn(); allow update, delete: if isSignedIn(); }
-    match /reports/{reportId} { 
-      allow create: if isSignedIn(); 
-      allow read, list: if isGlobalAdmin() || (isSignedIn() && resource.data.reporterId == request.auth.uid);
-      allow update: if isGlobalAdmin() || (isSignedIn() && resource.data.reporterId == request.auth.uid); 
-    }
-    match /ai_agents/{agentId} { allow read, list: if isSignedIn(); allow write: if isGlobalAdmin(); }
-    match /ai_interactions/{interactionId} { allow create: if isSignedIn(); allow read, list: if isSignedIn(); }
-    match /bridge_suggestions/{sugId} { allow read, list, create: if isSignedIn(); allow update, delete: if isGlobalAdmin(); }
-    match /spaces/{spaceId} { allow read, list, create, update, delete: if isSignedIn(); }
-    match /polls/{pollId} { allow read, list, create, update: if isSignedIn(); allow delete: if isGlobalAdmin(); }
   }
 }

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, arrayUnion, arrayRemove, where } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
 
 export interface Event {
   id: string;
@@ -26,7 +25,12 @@ export function useEvents(groupId?: string) {
     
     const startListener = () => {
       const path = groupId ? `groups/${groupId}/events` : 'events_global';
-      const q = query(
+      const q = groupId 
+        ? query(
+            collection(db, path),
+            orderBy('startTime', 'asc')
+          )
+        : query(
             collection(db, path),
             orderBy('startTime', 'asc')
           );
@@ -42,18 +46,9 @@ export function useEvents(groupId?: string) {
       });
     };
 
-    const authUnsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        startListener();
-      } else {
-        setEvents([]);
-        setLoading(false);
-        unsubscribe();
-      }
-    });
+    startListener();
 
     return () => {
-      authUnsubscribe();
       unsubscribe();
     };
   }, [groupId]);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, orderBy, where } from 'firebase/firestore';
-import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { GroupMember } from './useGroupRoles';
 
 export function useGroupMembers(groupId: string) {
@@ -27,12 +27,10 @@ export function useGroupMembers(groupId: string) {
       setLoading(false);
     }, (err) => {
       setLoading(false);
-      if (err.code !== 'permission-denied') {
-        try {
-          handleFirestoreError(err, OperationType.LIST, path);
-        } catch (e: any) {
-          setError(e);
-        }
+      try {
+        handleFirestoreError(err, OperationType.LIST, path);
+      } catch (e: any) {
+        setError(e);
       }
     });
 
