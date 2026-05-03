@@ -118,17 +118,22 @@ async function startServer() {
           Analyze the following message for a community platform. 
           Detect if it contains spam, scams, toxic language, harassment, or harmful links.
           Return ONLY a JSON response in this exact format:
-          { "isSafe": boolean, "reason": "string (optional)", "flaggedContent": "string (optional)" }
+          {
+            "isSafe": boolean,
+            "reason": "string (brief explanation if unsafe, empty string if safe)",
+            "riskLevel": "none | low | medium | high",
+            "flaggedContent": "string (optional, snippet of the problematic part)"
+          }
           Message: "${text}"
         `}]}],
         generationConfig: { responseMimeType: "application/json" },
       });
       const responseText = result.response.text();
       await saveCache("moderate", cacheKey, responseText);
-      res.json(JSON.parse(responseText || '{"isSafe": true}'));
+      res.json(JSON.parse(responseText || '{"isSafe": true, "reason": "", "riskLevel": "none"}'));
     } catch (error) {
       console.error("Moderation error:", error);
-      res.status(500).json({ isSafe: true, error: "Internal AI Error" });
+      res.status(500).json({ isSafe: true, reason: "", riskLevel: "none" });
     }
   });
 
@@ -147,6 +152,9 @@ async function startServer() {
 
       if (agentId === 'caas-help' && systemContext) {
         prompt = `${systemContext}\n\nConversation so far:\n${history || ''}\n\nUser: ${userMessage}\nAssistant:`;
+      } else if (agentId === 'atlas') {
+        const groupCtx = context ? "Community: " + (context.groupName || 'Unknown') + ", Channel: " + (context.channelName || 'general') : '';
+        prompt = `You are Atlas, the Community Architect. Your mission is to build a thriving community, encourage user engagement, welcome new members, and provide essential onboarding tips. ${groupCtx}\n\nUser: ${userMessage}\n\nRespond as Atlas. Be warm, encouraging, and strategic. Max 3 sentences.`;
       } else {
         const name = agentName || agentId || 'Assistant';
         const personas: Record<string, string> = {
@@ -155,6 +163,7 @@ async function startServer() {
           muse: 'creative writing, arts, and aesthetic philosophy',
           sage: 'knowledge curation, education, and history',
           bridge: 'community integration, group dynamics, and conflict resolution',
+          atlas: 'community building, growth strategy, and empowering members with onboarding tips',
         };
         const expertise = personas[agentId as keyof typeof personas] || 'general community topics';
         const groupCtx = context ? "Community: " + (context.groupName || 'Unknown') + ", Channel: " + (context.channelName || 'general') : '';

@@ -58,7 +58,7 @@ export default function Home() {
         {/* Particle Dots */}
         {[...Array(40)].map((_, i) => (
           <motion.div
-            key={i}
+            key={`particle-${i}`}
             className="absolute w-[2px] h-[2px] bg-white/40 rounded-full"
             initial={{ 
               x: Math.random() * 2000, 
@@ -156,8 +156,8 @@ export default function Home() {
               { icon: '🏋️', count: '1.8k', name: 'Fitness Elite', color: 'text-green-400' },
               { icon: '🎨', count: '900', name: 'Makers Studio', color: 'text-pink-400' },
               { icon: '⚡', count: '5.2k', name: 'Speed Network', color: 'text-amber-400' }
-            ].map((item, i) => (
-              <div key={i} className="flex-shrink-0 w-56 h-28 bg-white/5 border border-white/5 rounded-[2rem] p-6 flex flex-col justify-between hover:bg-white/10 transition-colors cursor-pointer group">
+            ].map((item) => (
+              <div key={item.name} className="flex-shrink-0 w-56 h-28 bg-white/5 border border-white/5 rounded-[2rem] p-6 flex flex-col justify-between hover:bg-white/10 transition-colors cursor-pointer group">
                 <div className="flex justify-between items-start">
                   <span className={`text-xl ${item.color} group-hover:scale-110 transition-transform`}>{item.icon}</span>
                   <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{item.count} Members</span>
@@ -233,8 +233,8 @@ export default function Home() {
               { val: stats.members, label: 'Network Members' },
               { val: stats.latency, label: 'Avg Latency' },
               { val: stats.uptime, label: 'Uptime Protocol' }
-            ].map((stat, i) => (
-              <div key={i} className="text-center">
+            ].map((stat) => (
+              <div key={stat.label} className="text-center">
                 <div className="text-5xl md:text-7xl font-black tracking-tighter mb-2">{stat.val}</div>
                 <div className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">{stat.label}</div>
               </div>
@@ -248,7 +248,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-12">
           <div className="flex -space-x-4">
             {[1,2,3,4,5].map(i => (
-              <div key={i} className="w-16 h-16 rounded-full border-4 border-bg-dark bg-gray-800 overflow-hidden shadow-xl">
+              <div key={`hero-avatar-skele-${i}`} className="w-16 h-16 rounded-full border-4 border-bg-dark bg-gray-800 overflow-hidden shadow-xl">
                  <img src={`https://i.pravatar.cc/150?u=${i}`} alt="Avatar" referrerPolicy="no-referrer" />
               </div>
             ))}
@@ -351,7 +351,7 @@ export default function Home() {
                 >
                   {[...Array(6)].map((_, i) => (
                     <div 
-                      key={i}
+                      key={`bridge-dot-${i}`}
                       className="absolute w-2 h-2 bg-primary/40 rounded-full"
                       style={{ 
                         transform: `rotate(${i * 60}deg) translateY(-128px)`

@@ -54,8 +54,8 @@ export default function GroupChat() {
   const { channels, loading: channelsLoading, createChannel } = useChannels(groupId || '');
   const activeChannel = channels.find(c => c.id === channelId) || channels[0];
   
-  const { messages, loading, sendMessage, reactToMessage, deleteMessage, editMessage, togglePinMessage } = useChat(groupId || '', activeChannel?.id);
-  const { member, joinGroup, isMember, permissions } = useGroupRoles(groupId || '');
+  const { messages, loading: chatLoading, sendMessage, reactToMessage, deleteMessage, editMessage, togglePinMessage } = useChat(groupId || '', activeChannel?.id);
+  const { member, joinGroup, isMember, permissions, loading: rolesLoading } = useGroupRoles(groupId || '');
   const { members } = useGroupMembers(groupId || '');
   const { agents } = useAiAgents(groupId || '');
   const { addPoints } = useGamification();
@@ -237,8 +237,43 @@ export default function GroupChat() {
       await sendMessage(textToChat, 'text', undefined, false, sendOptions);
       setReplyTo(null);
       if (user) addPoints(10);
+
+      // AI Mention Detection Logic
+      if (permissions.canUseAI) {
+        const mentions = agents.filter(agent => textToChat.toLowerCase().includes(`@${agent.name.toLowerCase()}`));
+        if (mentions.length > 0) {
+          // Trigger responses from all mentioned agents (usually just one)
+          for (const agent of mentions) {
+            try {
+              const res = await fetch('/api/ai/agent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                  query: textToChat, 
+                  agentId: agent.name.toLowerCase(), 
+                  agentName: agent.name,
+                  context: { 
+                    groupName: group?.name || 'Unknown', 
+                    channelName: activeChannel?.name || 'general' 
+                  } 
+                })
+              });
+              const data = await res.json();
+              const reply = data.reply || data.response;
+              if (reply) {
+                await sendMessage(reply, 'ai', undefined, true, { 
+                  aiName: agent.name, 
+                  aiAvatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${agent.name.toLowerCase()}` 
+                });
+              }
+            } catch (err) {
+              console.error("AI mention failed:", err);
+            }
+          }
+        }
+      }
     } catch (err: any) {
-      showToast("Signal failed to transmit.", 'error');
+      showToast("Message failed to send. Please try again.", 'error');
     }
   };
 
@@ -335,7 +370,7 @@ export default function GroupChat() {
                 </div>
                 <div className="space-y-0.5">
                   {channelsLoading ? (
-                    [1,2,3].map(i => <div key={i} className="h-10 bg-white/5 animate-pulse rounded-lg mx-2"></div>)
+                    [1,2,3].map(i => <div key={`chan-skele-${i}`} className="h-10 bg-white/5 animate-pulse rounded-lg mx-2"></div>)
                   ) : channels.map(ch => (
                     <Link 
                       key={ch.id}
@@ -357,7 +392,7 @@ export default function GroupChat() {
 
             <div className="p-3 bg-[#0d0d0d] border-t border-white/5 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <img src={user?.photoURL || ''} className="w-8 h-8 rounded-full" />
+                <img src={user?.photoURL || undefined} className="w-8 h-8 rounded-full" />
                 <div className="flex flex-col">
                   <span className="text-[10px] font-black tracking-tight truncate max-w-[100px]">{user?.displayName}</span>
                 </div>
@@ -394,7 +429,7 @@ export default function GroupChat() {
           onScroll={handleScroll}
           className="flex-grow overflow-y-auto no-scrollbar px-6 py-4 space-y-1 relative"
         >
-           {loading ? (
+           {chatLoading ? (
              <div className="h-full flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
            ) : messages.map((msg) => (
                <MessageNode 
@@ -411,7 +446,7 @@ export default function GroupChat() {
            ))}
            <div ref={messagesEndRef} />
 
-           {!isMember && (
+           {!rolesLoading && !isMember && (
                <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                  <div className="bg-[#121212] border border-white/10 p-10 rounded-[3rem] text-center max-w-sm">
                    <Lock className="w-12 h-12 text-primary mx-auto mb-6" />
@@ -430,6 +465,28 @@ export default function GroupChat() {
         </div>
 
         <div className="px-4 pb-6 pt-2">
+            {moderationWarning && (
+              <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl mb-2 flex items-start gap-3">
+                <ShieldAlert className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                <div className="flex-grow">
+                  <p className="text-xs text-red-200 font-bold mb-1 uppercase tracking-wider">Security Flag: {moderationWarning.reason}</p>
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={() => setModerationWarning(null)}
+                      className="text-[10px] text-gray-500 hover:text-white underline font-bold"
+                    >
+                      ABORT SIGNAL
+                    </button>
+                    <button 
+                      onClick={() => handleSendMessage(undefined, true)}
+                      className="text-[10px] text-red-500 hover:text-red-400 underline font-black"
+                    >
+                      OVERRIDE (RISKY)
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             {replyTo && (
               <div className="bg-white/5 p-2 rounded-t-xl flex justify-between items-center text-xs text-gray-500">
                 <span>Replying to {replyTo.userName}</span>
@@ -471,9 +528,9 @@ export default function GroupChat() {
                   <span className="text-[10px] font-black uppercase tracking-widest text-gray-600 block mb-4 px-2">Synchronized</span>
                   <div className="space-y-1">
                     {members.map(m => (
-                      <div key={m.userId} className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-all">
+                      <div key={m.id || m.userId} className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-all">
                         <div className="relative">
-                          <img src={m.userAvatar || ''} className="w-8 h-8 rounded-full" />
+                          <img src={m.userAvatar || undefined} className="w-8 h-8 rounded-full" />
                           <div className={cn("absolute bottom-0 right-0 w-2 h-2 rounded-full border border-black", statuses[m.userId] === 'online' ? 'bg-green-500' : 'bg-gray-600')}></div>
                         </div>
                         <span className="text-xs font-bold truncate">{m.userName}</span>
@@ -493,21 +550,58 @@ export default function GroupChat() {
   );
 }
 
-function MessageNode({ message, isMe, permissions, onReact, onDelete, onPin, onReply, status }: any) {
+function MessageNode({ 
+  message, 
+  isMe, 
+  permissions, 
+  onReact, 
+  onDelete, 
+  onPin, 
+  onReply, 
+  onProfileClick, 
+  status 
+}: any) {
+  const timeString = message.createdAt?.toDate 
+    ? message.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+    : '...';
+
   return (
     <div className="group/msg hover:bg-white/[0.02] -mx-6 px-6 py-2 transition-all relative flex gap-4">
-      <img src={message.userAvatar || ''} className="w-10 h-10 rounded-full shrink-0" />
+      <div 
+        className="w-10 h-10 rounded-full shrink-0 overflow-hidden bg-white/5 cursor-pointer relative"
+        onClick={() => onProfileClick?.(message.userId)}
+      >
+        {message.userAvatar ? (
+          <img src={message.userAvatar} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-gray-600">
+            {message.userName?.[0] || '?'}
+          </div>
+        )}
+        <div className={cn(
+          "absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-[#161616]",
+          status === 'online' ? "bg-green-500" : "bg-gray-600"
+        )}></div>
+      </div>
       <div className="flex-grow min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
-          <span className={cn("text-xs font-black tracking-tight", message.isAI ? "text-primary" : "text-white")}>{message.userName}</span>
-          <span className="text-[8px] text-gray-700 font-bold uppercase">{message.createdAt?.toDate ? message.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+          <span 
+            className={cn("text-xs font-black tracking-tight cursor-pointer hover:underline", message.isAI ? "text-primary" : "text-white")}
+            onClick={() => onProfileClick?.(message.userId)}
+          >
+            {message.userName || 'Anonymous'}
+          </span>
+          <span className="text-[8px] text-gray-700 font-bold uppercase">{timeString}</span>
+          {message.isPinned && <Pin className="w-2.5 h-2.5 text-primary" />}
         </div>
-        <p className="text-sm text-gray-400 font-medium leading-relaxed">{message.text}</p>
+        <p className="text-sm text-gray-400 font-medium leading-relaxed break-words">
+          {message.text || <span className="italic text-gray-600 font-normal">Signal lost or empty...</span>}
+        </p>
       </div>
-      <div className="hidden group-hover/msg:flex items-center gap-1 absolute right-6 top-2 bg-[#1a1a1a] border border-white/10 rounded-lg p-0.5 shadow-xl">
-        <button onClick={() => onReply(message)} className="p-1.5 text-gray-500 hover:text-white"><Reply className="w-4 h-4" /></button>
+      <div className="hidden group-hover/msg:flex items-center gap-1 absolute right-6 top-2 bg-[#1a1a1a] border border-white/10 rounded-lg p-0.5 shadow-xl z-10 font-sans">
+        <button onClick={() => onReply(message)} className="p-1.5 text-gray-500 hover:text-white" title="Reply"><Reply className="w-4 h-4" /></button>
         {(isMe || permissions?.canDeleteMessage) && (
-          <button onClick={() => onDelete(message.id)} className="p-1.5 text-gray-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+          <button onClick={() => onDelete(message.id)} className="p-1.5 text-gray-500 hover:text-red-500" title="Delete"><Trash2 className="w-4 h-4" /></button>
         )}
       </div>
     </div>

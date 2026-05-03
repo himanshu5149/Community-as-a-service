@@ -219,7 +219,7 @@ export default function SpaceRoom() {
                            <div className="flex items-center gap-6 opacity-0 group-hover:opacity-100 transition-opacity">
                               <div className="flex -space-x-2">
                                 {[1, 2].map(i => (
-                                  <div key={i} className="w-8 h-8 rounded-full border-2 border-bg-dark bg-white/10"></div>
+                                  <div key={`task-avatar-skele-${i}`} className="w-8 h-8 rounded-full border-2 border-bg-dark bg-white/10"></div>
                                 ))}
                               </div>
                               <button className="text-gray-600 hover:text-white transition-colors">

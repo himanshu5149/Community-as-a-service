@@ -267,6 +267,17 @@ function AdminNodes() {
           model: 'gemini-1.5-flash',
           totalResponses: 0,
           createdAt: serverTimestamp()
+        },
+        {
+          name: 'Atlas',
+          role: 'Community Architect',
+          personality: 'A dedicated growth strategist and community architect. Encourages user engagement, welcomes new members, and provides essential onboarding tips to ensure a thriving ecosystem.',
+          expertise: ['Community Building', 'Growth Strategy'],
+          isCrossGroup: true,
+          groupId: 'global',
+          model: 'gemini-1.5-flash',
+          totalResponses: 0,
+          createdAt: serverTimestamp()
         }
       ];
       for (const agent of defaultAgents) {

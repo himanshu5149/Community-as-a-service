@@ -163,7 +163,7 @@ export function useChat(groupId: string, channelId?: string) {
   ) => {
     if (!auth.currentUser || (!text && !fileUrl)) return;
 
-    const tempId = `temp-${Date.now()}`;
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const path = channelId 
       ? `groups/${groupId}/channels/${channelId}/messages` 
       : `groups/${groupId}/messages`;
@@ -193,8 +193,17 @@ export function useChat(groupId: string, channelId?: string) {
       
     try {
       const { id: _id, status: _status, ...dataToUpload } = newMessage;
+      
+      // Sanitizing undefined values which are not supported by Firestore
+      const sanitizedData = Object.entries(dataToUpload).reduce((acc, [key, value]) => {
+        if (value !== undefined) {
+          acc[key] = value;
+        }
+        return acc;
+      }, {} as any);
+
       await addDoc(collection(db, path), {
-        ...dataToUpload,
+        ...sanitizedData,
         groupId, // Scoping field for rules
         createdAt: serverTimestamp()
       });

@@ -9,7 +9,7 @@ export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
 }, (firebaseConfig as any).firestoreDatabaseId); /* CRITICAL: The app will break without this line */
 export const auth = getAuth(app);
-export const rtdb = getDatabase(app);
+export const rtdb = getDatabase(app, (firebaseConfig as any).databaseURL);
 
 // Initialize persistence
 setPersistence(auth, browserLocalPersistence).catch((error) => {

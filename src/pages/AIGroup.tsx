@@ -231,7 +231,7 @@ export default function AIGroup() {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
             {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} className="h-80 bg-white/5 rounded-[2.5rem] animate-pulse border border-white/5" />
+              <div key={`agent-skele-${i}`} className="h-80 bg-white/5 rounded-[2.5rem] animate-pulse border border-white/5" />
             ))}
           </div>
         ) : agents.length === 0 ? (

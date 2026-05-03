@@ -5,14 +5,13 @@ import './index.css';
 
 // Suppress benign Vite WebSocket errors and HMR-related rejections that occur 
 // because HMR is disabled in this environment.
-window.addEventListener('unhandledrejection', (event) => {
-  if (event.reason && (
-    event.reason.message?.includes('WebSocket') || 
-    event.reason === 'WebSocket closed without opened'
-  )) {
-    event.preventDefault();
-  }
-});
+if (import.meta.env.DEV) {
+  window.addEventListener('unhandledrejection', (event) => {
+    if (event.reason?.message?.includes('WebSocket closed without opened')) {
+      event.preventDefault();
+    }
+  });
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

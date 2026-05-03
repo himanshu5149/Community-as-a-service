@@ -102,7 +102,7 @@ export default function Explore() {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1,2,3,4,5,6].map(i => (
-              <div key={i} className="h-64 bg-white/5 border border-white/10 rounded-[2rem] animate-pulse" />
+              <div key={`explore-skele-${i}`} className="h-64 bg-white/5 border border-white/10 rounded-[2rem] animate-pulse" />
             ))}
           </div>
         ) : publicGroups.length === 0 ? (

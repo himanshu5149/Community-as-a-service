@@ -148,7 +148,7 @@ export default function Dashboard() {
               </div>
               {groupsLoading ? (
                 <div className="space-y-3">
-                  {[1,2,3].map(i => <div key={i} className="h-16 bg-white/5 rounded-2xl animate-pulse" />)}
+                  {[1,2,3].map(i => <div key={`skeleton-${i}`} className="h-16 bg-white/5 rounded-2xl animate-pulse" />)}
                 </div>
               ) : groups.length === 0 ? (
                 <div className="text-center py-12">

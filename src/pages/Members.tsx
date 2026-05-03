@@ -166,7 +166,7 @@ export default function Members() {
               <div className="absolute right-20 top-1/2 -translate-y-1/2 hidden lg:flex gap-6 items-center">
                  {[1, 2, 3].map(i => (
                     <motion.div 
-                      key={i}
+                      key={`member-node-skele-${i}`}
                       animate={{ y: [0, -20, 0] }}
                       transition={{ duration: 4, repeat: Infinity, delay: i * 0.5 }}
                       className="w-32 h-32 rounded-[3.5rem] border-4 border-primary/20 p-2 bg-bg-dark shadow-full"

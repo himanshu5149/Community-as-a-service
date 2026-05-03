@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { collection, addDoc, query, onSnapshot, serverTimestamp, updateDoc, doc, orderBy, where } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
-import { ai } from '../lib/gemini';
-import { Type } from "@google/genai";
 
 export interface Report {
   id: string;
@@ -109,37 +107,20 @@ export function useModeration() {
     }
 
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
-        contents: `Analyze the following message for community policy violations (harassment, hate speech, explicit content, spam, or high-risk behavior). 
-        Message: "${trimmed}"
-        
-        Return a JSON object with:
-        - isSafe: boolean
-        - reason: string (brief explanation if not safe, otherwise empty)
-        - riskLevel: "none" | "low" | "medium" | "high"
-        - violationType: string | null`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              isSafe: { type: Type.BOOLEAN },
-              reason: { type: Type.STRING },
-              riskLevel: { type: Type.STRING },
-              violationType: { type: Type.STRING, nullable: true }
-            },
-            required: ["isSafe", "reason", "riskLevel"]
-          }
-        }
+      const response = await fetch('/api/ai/moderate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: trimmed })
       });
 
-      const result = JSON.parse(response.text || "{}");
+      if (!response.ok) throw new Error("Moderation fetch failed");
+
+      const result = await response.json();
       const finalResult = {
         isSafe: result.isSafe ?? true,
         reason: result.reason || "",
         riskLevel: result.riskLevel || "none",
-        violationType: result.violationType || null,
+        flaggedContent: result.flaggedContent || null,
         confidence: 0.9
       };
 
@@ -149,7 +130,7 @@ export function useModeration() {
       return finalResult;
     } catch (error) {
       console.error("AI Moderation Error:", error);
-      return { isSafe: true, reason: "", riskLevel: "none", violationType: null, confidence: 0 };
+      return { isSafe: true, reason: "", riskLevel: "none", flaggedContent: null, confidence: 0 };
     }
   };
 
