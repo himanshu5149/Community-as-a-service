@@ -2,7 +2,7 @@ import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAiAgents } from '../hooks/useAiAgents';
 import { motion } from 'motion/react';
-import { Bot, ArrowLeft, MessageSquare, Tag, Globe, Activity, Loader2 } from 'lucide-react';
+import { Bot, ArrowLeft, MessageSquare, Tag, Globe, Activity, Loader2, Sparkles } from 'lucide-react';
 
 export default function AIAgent() {
   const { agentId } = useParams();
@@ -59,8 +59,16 @@ export default function AIAgent() {
                 </div>
 
                 <Link 
-                  to={agent.groupId === 'global' ? '/groups' : `/groups/${agent.groupId}`}
+                  to={`/ai/${agent.id}/chat`}
                   className="w-full bg-primary text-white py-4 rounded-xl font-bold flex items-center justify-center gap-3 hover:scale-105 active:scale-95 transition-all shadow-xl shadow-primary/20"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Neural Link
+                </Link>
+
+                <Link 
+                  to={agent.groupId === 'global' ? '/groups' : `/groups/${agent.groupId}`}
+                  className="w-full bg-white/5 text-gray-400 py-4 rounded-xl font-bold flex items-center justify-center gap-3 hover:bg-white/10 transition-all border border-white/5"
                 >
                   <MessageSquare className="w-4 h-4" />
                   Connect to Group

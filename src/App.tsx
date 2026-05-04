@@ -36,6 +36,7 @@ import Profile from './pages/Profile';
 import Notifications from './pages/Notifications';
 import AIGroup from './pages/AIGroup';
 import AIAgent from './pages/AIAgent';
+import AIAgentChat from './pages/AIAgentChat';
 import AiManagement from './pages/AiManagement';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -86,6 +87,7 @@ function AnimatedRoutes() {
         
         {/* AI Protected Routes */}
         <Route path="/ai/:agentId" element={<ProtectedRoute><PageLayout><AIAgent /></PageLayout></ProtectedRoute>} />
+        <Route path="/ai/:agentId/chat" element={<ProtectedRoute><PageLayout><AIAgentChat /></PageLayout></ProtectedRoute>} />
         <Route path="/ai-nexus" element={<ProtectedRoute><PageLayout><AiManagement /></PageLayout></ProtectedRoute>} />
         
         {/* Admin Routes */}

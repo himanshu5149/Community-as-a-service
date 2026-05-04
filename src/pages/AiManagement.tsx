@@ -11,6 +11,7 @@ export default function AiManagement() {
   const { groups } = useGroups();
   const { showToast, toast, hideToast } = useToast();
   const [showCreator, setShowCreator] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     role: '',
@@ -85,6 +86,23 @@ export default function AiManagement() {
           </button>
         </div>
 
+        <div className="mb-12">
+          <div className="relative group max-w-2xl">
+            <div className="absolute inset-0 bg-primary/20 blur-3xl opacity-0 group-focus-within:opacity-100 transition-opacity" />
+            <input 
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by Designation, Role or Expertise Area..."
+              className="w-full bg-white/5 border border-white/5 p-8 rounded-[2.5rem] outline-none focus:border-primary/50 transition-all font-bold text-xl placeholder:text-gray-700 relative z-10"
+            />
+            <div className="absolute right-8 top-1/2 -translate-y-1/2 flex items-center gap-3 z-20">
+               <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500">Neural Search Active</span>
+            </div>
+          </div>
+        </div>
+
         {loading ? (
           <div className="flex flex-col items-center justify-center py-40 gap-6">
             <Loader2 className="w-12 h-12 text-primary animate-spin" />
@@ -92,14 +110,34 @@ export default function AiManagement() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {agents.length === 0 ? (
+            {agents
+              .filter(agent => {
+                const searchLower = searchQuery.toLowerCase();
+                return (
+                  agent.name.toLowerCase().includes(searchLower) ||
+                  agent.role.toLowerCase().includes(searchLower) ||
+                  agent.personality.toLowerCase().includes(searchLower) ||
+                  agent.expertise.some(e => e.toLowerCase().includes(searchLower))
+                );
+              })
+              .length === 0 ? (
               <div className="col-span-full py-40 bg-white/5 border border-dashed border-white/10 rounded-[4rem] text-center">
                  <Bot className="w-16 h-16 text-gray-800 mx-auto mb-8" />
-                 <h3 className="text-3xl font-bold mb-4 italic">Nexus Empty</h3>
-                 <p className="text-gray-500 max-w-sm mx-auto text-sm font-medium">No autonomous agents are currently synchronized with the community cluster.</p>
+                 <h3 className="text-3xl font-bold mb-4 italic">No Matches Found</h3>
+                 <p className="text-gray-500 max-w-sm mx-auto text-sm font-medium">Clear search parameters to re-synchronize with the Nexus.</p>
               </div>
             ) : (
-              agents.map((agent, i) => (
+              agents
+                .filter(agent => {
+                  const searchLower = searchQuery.toLowerCase();
+                  return (
+                    agent.name.toLowerCase().includes(searchLower) ||
+                    agent.role.toLowerCase().includes(searchLower) ||
+                    agent.personality.toLowerCase().includes(searchLower) ||
+                    agent.expertise.some(e => e.toLowerCase().includes(searchLower))
+                  );
+                })
+                .map((agent, i) => (
                 <motion.div 
                   key={agent.id}
                   initial={{ opacity: 0, y: 30 }}

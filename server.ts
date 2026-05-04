@@ -124,16 +124,27 @@ async function startServer() {
             "riskLevel": "none | low | medium | high",
             "flaggedContent": "string (optional, snippet of the problematic part)"
           }
-          Message: "${text}"
+          Message: ${JSON.stringify(text)}
         `}]}],
         generationConfig: { responseMimeType: "application/json" },
       });
+
       const responseText = result.response.text();
-      await saveCache("moderate", cacheKey, responseText);
-      res.json(JSON.parse(responseText || '{"isSafe": true, "reason": "", "riskLevel": "none"}'));
+      // Clean up markdown code blocks if present
+      const cleanJson = responseText.replace(/```json\s?|```/g, "").trim();
+      
+      try {
+        const parsed = JSON.parse(cleanJson);
+        await saveCache("moderate", cacheKey, JSON.stringify(parsed));
+        res.json(parsed);
+      } catch (parseError) {
+        console.error("Moderation JSON parse error:", parseError, "Raw:", responseText);
+        res.json({ isSafe: true, reason: "", riskLevel: "none" });
+      }
     } catch (error) {
       console.error("Moderation error:", error);
-      res.status(500).json({ isSafe: true, reason: "", riskLevel: "none" });
+      // Fallback to safe so the UI doesn't break
+      res.json({ isSafe: true, reason: "", riskLevel: "none" });
     }
   });
 
@@ -176,7 +187,7 @@ async function startServer() {
       res.json({ reply: response, response });
     } catch (error) {
       console.error("Agent execution error:", error);
-      res.status(500).json({ reply: "Intelligence node offline.", response: "Intelligence node offline. Maintenance required." });
+      res.json({ reply: "Intelligence node offline. Please try again later.", response: "Intelligence node offline." });
     }
   });
 
@@ -202,7 +213,7 @@ async function startServer() {
       res.json({ summary });
     } catch (error) {
       console.error("Summarization error:", error);
-      res.status(500).json({ summary: "Failed to sync summary from mainframe." });
+      res.json({ summary: "Failed to generate summary at this time. Please try again later." });
     }
   });
 
@@ -302,7 +313,7 @@ async function startServer() {
       res.json({ response });
     } catch (error) {
       console.error("Persona error:", error);
-      res.status(500).json({ response: "Connection to neural link unstable. Please retry." });
+      res.json({ response: "I'm having a bit of trouble synchronizing my systems right now. Try again in a moment!" });
     }
   });
 

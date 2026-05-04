@@ -26,6 +26,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ response, reply: response });
   } catch (err) {
     console.error('Persona error:', err);
-    return res.status(500).json({ response: 'Neural link unstable. Retry.' });
+    return res.status(200).json({ 
+      response: 'Neural link unstable. Please try to contact me again in a moment!',
+      reply: 'Neural link unstable.'
+    });
   }
 }

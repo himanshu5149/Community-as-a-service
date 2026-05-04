@@ -46,6 +46,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ reply, response: reply });
   } catch (err) {
     console.error('Agent error:', err);
-    return res.status(500).json({ reply: 'AI node offline. Try again.', response: 'AI node offline.' });
+    return res.status(200).json({ 
+      reply: 'Intelligence node offline. Please try again in a moment.', 
+      response: 'AI node offline.' 
+    });
   }
 }

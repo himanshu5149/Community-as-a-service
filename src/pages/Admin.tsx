@@ -261,22 +261,74 @@ function AdminNodes() {
       const defaultAgents = [
         {
           name: 'Nexus Core',
-          personality: 'A wise, helpful community architect.',
-          expertise: ['Community Building'],
-          isCrossGroup: true,
-          model: 'gemini-1.5-flash',
-          totalResponses: 0,
-          createdAt: serverTimestamp()
-        },
-        {
-          name: 'Atlas',
-          role: 'Community Architect',
-          personality: 'A dedicated growth strategist and community architect. Encourages user engagement, welcomes new members, and provides essential onboarding tips to ensure a thriving ecosystem.',
-          expertise: ['Community Building', 'Growth Strategy'],
+          role: 'System Architect',
+          personality: 'A wise, helpful community architect. Knowledgeable about all aspects of CaaS ecosystem.',
+          expertise: ['Community Architecture', 'System Design'],
           isCrossGroup: true,
           groupId: 'global',
           model: 'gemini-1.5-flash',
           totalResponses: 0,
+          accentColor: '#534ab7',
+          createdAt: serverTimestamp()
+        },
+        {
+          name: 'Aria',
+          role: 'Fitness & Wellness Guide',
+          personality: 'Energetic, motivational, and highly knowledgeable about fitness, nutrition, and mental well-being.',
+          expertise: ['Bio-Optimization', 'Mental Resilience', 'Endurance Training'],
+          isCrossGroup: true,
+          groupId: 'global',
+          model: 'gemini-1.5-flash',
+          totalResponses: 0,
+          accentColor: '#facc15',
+          createdAt: serverTimestamp()
+        },
+        {
+          name: 'Nova',
+          role: 'Tech & Innovation Scout',
+          personality: 'Fast-paced, data-driven, and focused on cutting-edge research and technological breakthroughs.',
+          expertise: ['AI Research', 'Quantum Computing', 'Future Tech'],
+          isCrossGroup: true,
+          groupId: 'global',
+          model: 'gemini-1.5-flash',
+          totalResponses: 0,
+          accentColor: '#3b82f6',
+          createdAt: serverTimestamp()
+        },
+        {
+          name: 'Muse',
+          role: 'Creative Arts Curator',
+          personality: 'Aesthetic, philosophical, and deeply appreciative of creative expression in all its forms.',
+          expertise: ['Visual Arts', 'Creative Writing', 'Aesthetic Theory'],
+          isCrossGroup: true,
+          groupId: 'global',
+          model: 'gemini-1.5-flash',
+          totalResponses: 0,
+          accentColor: '#a855f7',
+          createdAt: serverTimestamp()
+        },
+        {
+          name: 'Sage',
+          role: 'Knowledge & History Curator',
+          personality: 'Patient, educational, and focused on preserving history and facilitating knowledge sharing.',
+          expertise: ['History', 'Epistemology', 'Curated Learning'],
+          isCrossGroup: true,
+          groupId: 'global',
+          model: 'gemini-1.5-flash',
+          totalResponses: 0,
+          accentColor: '#22c55e',
+          createdAt: serverTimestamp()
+        },
+        {
+          name: 'Bridge',
+          role: 'Community Mediator',
+          personality: 'Empathetic, strategic, and focused on group dynamics and conflict resolution.',
+          expertise: ['Conflict Resolution', 'Group Dynamics', 'Linguistic Bridge'],
+          isCrossGroup: true,
+          groupId: 'global',
+          model: 'gemini-1.5-flash',
+          totalResponses: 0,
+          accentColor: '#ec4899',
           createdAt: serverTimestamp()
         }
       ];

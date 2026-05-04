@@ -20,12 +20,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         Analyze this message for a community platform. Detect spam, toxic language, harassment, or harmful content.
         Return ONLY valid JSON:
         { "isSafe": boolean, "reason": "string", "riskLevel": "none|low|medium|high" }
-        Message: "${text.slice(0, 500)}"
+        Message: ${JSON.stringify(text.slice(0, 500))}
       `}]}],
       generationConfig: { responseMimeType: 'application/json' },
     });
-    const parsed = JSON.parse(result.response.text() || '{}');
-    return res.status(200).json({ isSafe: true, reason: '', riskLevel: 'none', ...parsed });
+    
+    const responseText = result.response.text();
+    const cleanJson = responseText.replace(/```json\s?|```/g, "").trim();
+    
+    try {
+      const parsed = JSON.parse(cleanJson);
+      return res.status(200).json({ isSafe: true, reason: '', riskLevel: 'none', ...parsed });
+    } catch (parseError) {
+      console.error("Moderation JSON parse error:", parseError);
+      return res.status(200).json({ isSafe: true, reason: '', riskLevel: 'none' });
+    }
   } catch (err) {
     console.error('Moderate error:', err);
     return res.status(200).json({ isSafe: true, reason: '', riskLevel: 'none' });

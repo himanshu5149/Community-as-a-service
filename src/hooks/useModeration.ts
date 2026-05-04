@@ -107,30 +107,42 @@ export function useModeration() {
     }
 
     try {
+      // Use AbortController for timeout — prevents hanging requests
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+
       const response = await fetch('/api/ai/moderate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: trimmed })
+        body: JSON.stringify({ text: trimmed }),
+        signal: controller.signal
       });
 
-      if (!response.ok) throw new Error("Moderation fetch failed");
+      clearTimeout(timeout);
+
+      // If API not available (404 on Vercel) — fail open silently
+      if (!response.ok) {
+        console.warn(`Moderation API returned ${response.status} — skipping moderation`);
+        return { isSafe: true, reason: '', riskLevel: 'none', flaggedContent: null, confidence: 0 };
+      }
 
       const result = await response.json();
       const finalResult = {
         isSafe: result.isSafe ?? true,
-        reason: result.reason || "",
-        riskLevel: result.riskLevel || "none",
+        reason: result.reason || '',
+        riskLevel: result.riskLevel || 'none',
         flaggedContent: result.flaggedContent || null,
         confidence: 0.9
       };
 
-      // Save to cache so same message never calls Gemini again
       moderationCache.set(trimmed, { result: finalResult, time: Date.now() });
-
       return finalResult;
-    } catch (error) {
-      console.error("AI Moderation Error:", error);
-      return { isSafe: true, reason: "", riskLevel: "none", flaggedContent: null, confidence: 0 };
+    } catch (error: any) {
+      // AbortError = timeout, TypeError = network down — both safe to ignore
+      if (error.name !== 'AbortError') {
+        console.warn('Moderation unavailable — allowing message:', error.message);
+      }
+      return { isSafe: true, reason: '', riskLevel: 'none', flaggedContent: null, confidence: 0 };
     }
   };
 
