@@ -525,7 +525,13 @@ function AdminMembers() {
           {filteredUsers.map(user => (
             <div key={user.id} className="card-gloss p-6 flex items-center justify-between group">
                <div className="flex items-center gap-6">
-                  <img src={user.photoURL} alt="" className="w-12 h-12 rounded-xl border border-white/10 shadow-xl" />
+                  {user.photoURL ? (
+                    <img src={user.photoURL} alt="" className="w-12 h-12 rounded-xl border border-white/10 shadow-xl" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-xl border border-white/10 shadow-xl bg-white/5 flex items-center justify-center">
+                      <Users className="w-6 h-6 text-gray-600" />
+                    </div>
+                  )}
                   <div>
                      <h4 className="font-bold text-lg leading-none mb-1">{user.displayName}</h4>
                      <p className="text-xs text-gray-500 font-medium">{user.email}</p>

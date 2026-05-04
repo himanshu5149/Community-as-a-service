@@ -150,7 +150,7 @@ export default function Explore() {
                           style={{ borderColor: `${agent.accentColor}33` }}
                         >
                            {agent.avatarUrl ? (
-                             <img src={agent.avatarUrl} className="w-full h-full object-cover rounded-xl" />
+                             <img src={agent.avatarUrl} className="w-full h-full object-cover rounded-xl" referrerPolicy="no-referrer" />
                            ) : (
                              <Bot className="w-8 h-8" style={{ color: agent.accentColor }} />
                            )}

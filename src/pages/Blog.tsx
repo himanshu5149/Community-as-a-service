@@ -75,12 +75,18 @@ export default function Blog() {
                 className="group cursor-pointer"
               >
                 <div className="relative aspect-[16/10] overflow-hidden rounded-[3rem] mb-10 bg-white/5 border border-white/10">
-                  <img 
-                    src={post.imageUrl} 
-                    alt={post.title}
-                    className="w-full h-full object-cover grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700 scale-105 group-hover:scale-100"
-                    referrerPolicy="no-referrer"
-                  />
+                  {post.imageUrl ? (
+                    <img 
+                      src={post.imageUrl} 
+                      alt={post.title}
+                      className="w-full h-full object-cover grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700 scale-105 group-hover:scale-100"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-white/5">
+                      <div className="text-4xl">📄</div>
+                    </div>
+                  )}
                   <div className="absolute top-8 left-8 px-5 py-2 bg-primary rounded-full text-xs font-bold text-white uppercase tracking-widest shadow-xl shadow-primary/20">
                     {post.category}
                   </div>

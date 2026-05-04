@@ -211,7 +211,13 @@ export default function Settings() {
                 <motion.div key="profile" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
                   <h2 className="text-2xl font-black tracking-tighter">Profile Identity</h2>
                   <div className="flex items-center gap-6 p-6 bg-white/5 rounded-2xl">
-                    <img src={user?.photoURL || ''} className="w-20 h-20 rounded-2xl border-2 border-primary/30" referrerPolicy="no-referrer" alt="avatar" />
+                    {user?.photoURL ? (
+                      <img src={user.photoURL} className="w-20 h-20 rounded-2xl border-2 border-primary/30" referrerPolicy="no-referrer" alt="avatar" />
+                    ) : (
+                      <div className="w-20 h-20 rounded-2xl border-2 border-primary/30 flex items-center justify-center bg-white/5">
+                        <User className="w-8 h-8 text-gray-500" />
+                      </div>
+                    )}
                     <div>
                       <div className="font-bold text-lg">{user?.displayName}</div>
                       <div className="text-gray-400 text-sm">{user?.email}</div>

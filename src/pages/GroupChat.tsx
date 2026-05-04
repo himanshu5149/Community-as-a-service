@@ -19,6 +19,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firebase';
 import { cn } from '../lib/utils';
 import { 
+  User, 
   Send, 
   Bot, 
   Users, 
@@ -392,7 +393,13 @@ export default function GroupChat() {
 
             <div className="p-3 bg-[#0d0d0d] border-t border-white/5 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <img src={user?.photoURL || undefined} className="w-8 h-8 rounded-full" />
+                {user?.photoURL ? (
+                  <img src={user.photoURL} className="w-8 h-8 rounded-full" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
+                    <User className="w-4 h-4 text-gray-500" />
+                  </div>
+                )}
                 <div className="flex flex-col">
                   <span className="text-[10px] font-black tracking-tight truncate max-w-[100px]">{user?.displayName}</span>
                 </div>
@@ -530,7 +537,13 @@ export default function GroupChat() {
                     {members.map(m => (
                       <div key={m.id || m.userId} className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-all">
                         <div className="relative">
-                          <img src={m.userAvatar || undefined} className="w-8 h-8 rounded-full" />
+                          {m.userAvatar ? (
+                            <img src={m.userAvatar} className="w-8 h-8 rounded-full" />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
+                              <User className="w-4 h-4 text-gray-500" />
+                            </div>
+                          )}
                           <div className={cn("absolute bottom-0 right-0 w-2 h-2 rounded-full border border-black", statuses[m.userId] === 'online' ? 'bg-green-500' : 'bg-gray-600')}></div>
                         </div>
                         <span className="text-xs font-bold truncate">{m.userName}</span>
