@@ -23,5 +23,15 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       host: '0.0.0.0',
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+            'vendor': ['react', 'react-dom', 'react-router-dom'],
+          }
+        }
+      }
+    }
   };
 });
