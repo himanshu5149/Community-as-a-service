@@ -15,6 +15,7 @@ import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 
 export interface AiAgent {
   id: string;
+  creatorId: string;
   name: string;
   role: string;
   description: string;

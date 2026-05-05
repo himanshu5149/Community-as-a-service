@@ -5,6 +5,7 @@ import { useGroups } from '../hooks/useGroups';
 import { Bot, Plus, X, Globe, Activity, Loader2, Trash2, Sparkles } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useToast } from '../hooks/useToast';
+import { auth } from '../lib/firebase';
 
 export default function AiManagement() {
   const { agents, loading, createAiAgent, deleteAiAgent } = useAiAgents();
@@ -20,7 +21,9 @@ export default function AiManagement() {
     expertise: '',
     groupId: '',
     isCrossGroup: false,
-    model: 'gemini-1.5-flash'
+    model: 'gemini-1.5-flash',
+    avatarUrl: '',
+    accentColor: '#534AB7'
   });
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -36,8 +39,11 @@ export default function AiManagement() {
         expertise: expertiseArray,
         groupId: formData.groupId || 'global',
         isCrossGroup: formData.isCrossGroup,
-        model: formData.model
-      });
+        model: formData.model,
+        avatarUrl: formData.avatarUrl,
+        accentColor: formData.accentColor,
+        creatorId: auth.currentUser?.uid || ''
+      } as any);
       setShowCreator(false);
       setFormData({
         name: '',
@@ -47,7 +53,9 @@ export default function AiManagement() {
         expertise: '',
         groupId: '',
         isCrossGroup: false,
-        model: 'gemini-1.5-flash'
+        model: 'gemini-1.5-flash',
+        avatarUrl: '',
+        accentColor: '#534AB7'
       });
       showToast("AI Agent deployed to the Nexus.");
     } catch (err) {
@@ -146,9 +154,19 @@ export default function AiManagement() {
                   className="group relative bg-[#121212] border border-white/5 p-8 rounded-[2.5rem] hover:bg-[#1a1a1a] transition-all hover:border-primary/30"
                 >
                   <div className="flex justify-between items-start mb-8">
-                    <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/10 group-hover:bg-primary/20 transition-all">
-                      <Bot className="w-8 h-8 text-primary" />
-                    </div>
+                    {agent.avatarUrl ? (
+                      <div 
+                        className="w-16 h-16 rounded-2xl bg-cover bg-center border border-white/10" 
+                        style={{ backgroundImage: `url(${agent.avatarUrl})`, borderColor: agent.accentColor || '#534AB7' }} 
+                      />
+                    ) : (
+                      <div 
+                        className="w-16 h-16 rounded-2xl flex items-center justify-center border transition-all"
+                        style={{ backgroundColor: `${agent.accentColor || '#534AB7'}20`, borderColor: `${agent.accentColor || '#534AB7'}40` }}
+                      >
+                        <Bot className="w-8 h-8" style={{ color: agent.accentColor || '#534AB7' }} />
+                      </div>
+                    )}
                     <button 
                       onClick={() => handleDelete(agent.id)}
                       className="p-3 text-gray-600 hover:text-red-500 transition-colors"
@@ -158,7 +176,7 @@ export default function AiManagement() {
                   </div>
 
                   <div className="mb-8">
-                    <h3 className="text-2xl font-bold tracking-tight mb-2 italic">{agent.name}</h3>
+                    <h3 className="text-2xl font-bold tracking-tight mb-2 italic" style={{ color: agent.accentColor }}>{agent.name}</h3>
                     <p className="text-xs text-gray-400 font-medium line-clamp-2 leading-relaxed">
                       {agent.personality}
                     </p>
@@ -166,7 +184,11 @@ export default function AiManagement() {
 
                   <div className="flex flex-wrap gap-2 mb-8">
                     {agent.expertise.slice(0, 3).map(skill => (
-                      <span key={skill} className="px-3 py-1 bg-white/5 rounded-lg text-[8px] font-black uppercase tracking-widest text-gray-500 border border-white/5">
+                      <span 
+                        key={skill} 
+                        className="px-3 py-1 bg-white/5 rounded-lg text-[8px] font-black uppercase tracking-widest text-gray-500 border border-white/5"
+                        style={{ borderColor: `${agent.accentColor || '#534AB7'}20` }}
+                      >
                         {skill}
                       </span>
                     ))}
@@ -179,11 +201,11 @@ export default function AiManagement() {
 
                   <div className="pt-6 border-t border-white/5 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-600">
                     <div className="flex items-center gap-2">
-                       <Activity className="w-3 h-3 text-primary" />
-                       {agent.totalResponses} Syncs
+                       <Activity className="w-3 h-3" style={{ color: agent.accentColor }} />
+                       {agent.totalResponses || 0} Syncs
                     </div>
                     <div className="flex items-center gap-2">
-                       <Globe className="w-3 h-3 text-primary" />
+                       <Globe className="w-3 h-3" style={{ color: agent.accentColor }} />
                        {agent.isCrossGroup ? 'Global' : 'Local'}
                     </div>
                   </div>
@@ -257,6 +279,36 @@ export default function AiManagement() {
                           className="w-full bg-white/5 border border-white/5 p-6 rounded-2xl outline-none focus:border-primary transition-all font-bold"
                           placeholder="Security, Moderation, Intelligence..."
                         />
+                     </div>
+
+                      <div className="grid grid-cols-2 gap-8">
+                        <div className="space-y-3">
+                           <label className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500 ml-2">Avatar URL</label>
+                           <input 
+                             value={formData.avatarUrl}
+                             onChange={(e) => setFormData({...formData, avatarUrl: e.target.value})}
+                             className="w-full bg-white/5 border border-white/5 p-6 rounded-2xl outline-none focus:border-primary transition-all font-bold"
+                             placeholder="https://..."
+                           />
+                        </div>
+                        <div className="space-y-3">
+                           <label className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500 ml-2">Accent Color</label>
+                           <div className="flex gap-4 items-center">
+                             <input 
+                               type="color"
+                               value={formData.accentColor}
+                               onChange={(e) => setFormData({...formData, accentColor: e.target.value})}
+                               className="w-16 h-16 bg-white/5 border border-white/5 rounded-2xl cursor-pointer p-1"
+                             />
+                             <input 
+                               type="text"
+                               value={formData.accentColor}
+                               onChange={(e) => setFormData({...formData, accentColor: e.target.value})}
+                               className="flex-1 bg-white/5 border border-white/5 p-6 rounded-2xl outline-none focus:border-primary transition-all font-bold uppercase"
+                               placeholder="#534AB7"
+                             />
+                           </div>
+                        </div>
                      </div>
 
                      <div className="grid grid-cols-2 gap-8">

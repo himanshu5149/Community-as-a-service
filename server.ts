@@ -136,24 +136,38 @@ Return ONLY JSON: { "isSafe": boolean, "reason": "string", "riskLevel": "none"|"
 
   // ── AI Agent ─────────────────────────────────────────────────────────────
   app.post("/api/ai/agent", async (req, res) => {
-    const { query, agentId, agentName, context } = req.body;
+    const { query, agentId, agentName, context, persona } = req.body;
     if (!query || !agentName) return res.status(400).json({ error: "Missing query or agentName" });
 
-    const expertiseMap: Record<string, string> = {
-      aria:   "fitness, nutrition, health, and metabolic optimization",
-      nexus:  "software engineering, code, cloud architecture, and technology",
-      lumina: "creative arts, design, visual aesthetics, and artistic philosophy",
-      sage:   "education, history, academic research, and knowledge synthesis",
-      orbit:  "community management, social dynamics, introductions, and group cohesion",
-    };
-    const expertise = expertiseMap[agentId] || "general community assistance";
+    let expertise = "general community assistance";
+    let personality = "be helpful, on-topic, and concise";
+    let role = "Assistant";
+
+    if (persona) {
+      expertise = persona.expertise || expertise;
+      personality = persona.personality || personality;
+      role = persona.role || role;
+    } else {
+      const expertiseMap: Record<string, string> = {
+        aria:   "fitness, nutrition, health, and metabolic optimization",
+        nexus:  "software engineering, code, cloud architecture, and technology",
+        lumina: "creative arts, design, visual aesthetics, and artistic philosophy",
+        sage:   "education, history, academic research, and knowledge synthesis",
+        orbit:  "community management, social dynamics, introductions, and group cohesion",
+      };
+      expertise = expertiseMap[agentId] || expertise;
+    }
 
     const prompt = `You are ${agentName}, an AI member of the CaaS community platform.
-Your expertise: ${expertise}
+Your Role: ${role}
+Your Expertise: ${expertise}
+Your Personality: ${personality}
+
+Context:
 Community: "${context?.groupName || "Unknown"}" | Channel: "${context?.channelName || "general"}"
 User message: ${query}
 
-Respond as ${agentName} — be helpful, on-topic, and concise. Max 3 sentences. No markdown headers.`;
+Respond as ${agentName} — stay strictly in character. Max 3 sentences. No markdown headers.`;
 
     const result = await callGemini(prompt);
     if (!result) return res.json({ response: `${agentName} is temporarily offline. Please try again shortly.` });

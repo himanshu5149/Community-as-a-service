@@ -161,29 +161,37 @@ export default function GroupChat() {
         showToast("Specify an agent: /agent @Aria [query]", 'error');
         return true;
       }
-      const agentName = mention.substring(1);
-      const query = parts.slice(2).join(' ');
-      if (!query) {
-        showToast(`What should I transmit to ${agentName}?`, 'error');
+      const agentNameQuery = mention.substring(1).toLowerCase();
+      const queryText = parts.slice(2).join(' ');
+      if (!queryText) {
+        showToast(`What should I transmit to ${mention}?`, 'error');
         return true;
       }
 
+      const agent = agents.find(a => a.name.toLowerCase() === agentNameQuery);
+      
       try {
         const res = await fetch('/api/ai/agent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
-            query, 
-            agentId: agentName.toLowerCase(), 
-            agentName,
+            query: queryText, 
+            agentId: agent?.id || agentNameQuery, 
+            agentName: agent?.name || mention.substring(1),
+            persona: agent ? {
+              role: agent.role,
+              personality: agent.personality,
+              expertise: agent.expertise.join(', ')
+            } : undefined,
             context: { groupName: group?.name, channelName: activeChannel?.name } 
           })
         });
         const data = await res.json();
         const reply = data.reply || data.response;
         if (reply) await sendMessage(reply, 'ai', undefined, true, { 
-          aiName: agentName, 
-          aiAvatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${agentName.toLowerCase()}` 
+          aiName: agent?.name || mention.substring(1), 
+          aiAvatar: agent?.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${agentNameQuery}`,
+          aiColor: agent?.accentColor || '#534AB7'
         });
       } catch (err) {
         showToast("Node connection timeout.", 'error');
@@ -251,8 +259,13 @@ export default function GroupChat() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                   query: textToChat, 
-                  agentId: agent.name.toLowerCase(), 
+                  agentId: agent.id, 
                   agentName: agent.name,
+                  persona: {
+                    role: agent.role,
+                    personality: agent.personality,
+                    expertise: agent.expertise.join(', ')
+                  },
                   context: { 
                     groupName: group?.name || 'Unknown', 
                     channelName: activeChannel?.name || 'general' 
@@ -264,7 +277,8 @@ export default function GroupChat() {
               if (reply) {
                 await sendMessage(reply, 'ai', undefined, true, { 
                   aiName: agent.name, 
-                  aiAvatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${agent.name.toLowerCase()}` 
+                  aiAvatar: agent.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${agent.name.toLowerCase()}`,
+                  aiColor: agent.accentColor || '#534AB7'
                 });
               }
             } catch (err) {

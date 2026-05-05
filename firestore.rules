@@ -188,9 +188,21 @@ service cloud.firestore {
       }
     }
 
+    function isValidAgent(data) {
+      return data.keys().hasAll(['name', 'role', 'personality', 'expertise', 'creatorId']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 64 &&
+             data.role is string && data.role.size() <= 128 &&
+             data.personality is string && data.personality.size() <= 3000 &&
+             data.expertise is list && data.expertise.size() <= 20 &&
+             data.creatorId == request.auth.uid;
+    }
+
     match /ai_agents/{agentId} {
-      allow read: if true;
-      allow write: if isSignedIn();
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidAgent(incoming());
+      allow update: if isSignedIn() && (existing().creatorId == request.auth.uid || isAdmin() || isGroupAdmin(existing().groupId)) && isValidAgent(incoming());
+      allow delete: if isSignedIn() && (existing().creatorId == request.auth.uid || isAdmin() || isGroupAdmin(existing().groupId));
     }
 
     match /events_global/{eventId} {

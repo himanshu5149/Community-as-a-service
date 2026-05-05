@@ -79,9 +79,34 @@
         "moderationStatus": { "type": "string" }
       },
       "required": ["userId", "text", "type", "createdAt"]
+    },
+    "AIAgent": {
+      "title": "AI Persona",
+      "description": "Definition of a specialized AI agent.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "description": { "type": "string" },
+        "personality": { "type": "string" },
+        "expertise": { "type": "array", "items": { "type": "string" } },
+        "avatarUrl": { "type": "string" },
+        "accentColor": { "type": "string" },
+        "creatorId": { "type": "string" },
+        "groupId": { "type": "string" },
+        "isCrossGroup": { "type": "boolean" },
+        "model": { "type": "string" },
+        "totalResponses": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "role", "personality", "expertise"]
     }
   },
   "firestore": {
+    "/ai_agents": {
+      "schema": "AIAgent",
+      "description": "Collection of all AI personas."
+    },
     "/users": {
       "schema": "User",
       "description": "Collection of all user profiles."

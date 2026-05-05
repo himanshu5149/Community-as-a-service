@@ -104,9 +104,14 @@ export default function AIAgentChat() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: textToChat,
+          query: textToChat,
           agentId: agent?.id,
           agentName: agent?.name,
+          persona: {
+            role: agent?.role,
+            personality: agent?.personality,
+            expertise: agent?.expertise.join(', ')
+          },
           history: messages.slice(-5).map(m => `${m.isAI ? agent?.name : 'User'}: ${m.text}`).join('\n')
         })
       });

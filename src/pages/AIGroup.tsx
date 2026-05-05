@@ -4,6 +4,7 @@ import { useAiAgents, AiAgent } from '../hooks/useAiAgents';
 import { Bot, Sparkles, ArrowRight, Zap, Target, BookOpen, Share2, Plus, X, Command, Palette, Info, Terminal, Image as ImageIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useToast, Toast } from '../components/Toast';
+import { auth } from '../lib/firebase';
 
 export default function AIGroup() {
   const { agents, loading, createAiAgent } = useAiAgents();
@@ -13,6 +14,7 @@ export default function AIGroup() {
     name: '',
     role: '',
     description: '',
+    personality: '', // Added to match schema
     systemInstruction: '',
     avatarUrl: '',
     accentColor: '#3B82F6',
@@ -23,14 +25,7 @@ export default function AIGroup() {
     if (agent.avatarUrl) {
       return <img src={agent.avatarUrl} alt={agent.name} className="w-full h-full object-cover rounded-2xl" />;
     }
-    switch (agent.name) {
-      case 'Aria': return <Zap className="w-8 h-8 text-yellow-400" />;
-      case 'Nova': return <Target className="w-8 h-8 text-blue-400" />;
-      case 'Muse': return <Sparkles className="w-8 h-8 text-purple-400" />;
-      case 'Sage': return <BookOpen className="w-8 h-8 text-green-400" />;
-      case 'Bridge': return <Share2 className="w-8 h-8 text-primary" />;
-      default: return <Bot className="w-8 h-8 text-gray-400" />;
-    }
+    return <Bot className="w-8 h-8 text-gray-400" style={{ color: agent.accentColor }} />;
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -45,14 +40,15 @@ export default function AIGroup() {
         name: formData.name,
         role: formData.role,
         description: formData.description,
+        personality: formData.personality || formData.description,
         systemInstruction: formData.systemInstruction,
         avatarUrl: formData.avatarUrl,
         accentColor: formData.accentColor,
-        personality: formData.description, // Map to legacy field
         expertise: formData.expertise.split(',').map(s => s.trim()).filter(Boolean),
-        groupId: 'global', // Default to global for Nexus view
+        groupId: 'global',
         isCrossGroup: true,
-        model: 'gemini-2.0-flash',
+        model: 'gemini-1.5-flash',
+        creatorId: auth.currentUser?.uid || ''
       });
       showToast(`${formData.name} node initialized`, "success");
       setIsCreating(false);
@@ -60,6 +56,7 @@ export default function AIGroup() {
         name: '',
         role: '',
         description: '',
+        personality: '',
         systemInstruction: '',
         avatarUrl: '',
         accentColor: '#3B82F6',
@@ -145,16 +142,29 @@ export default function AIGroup() {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 flex items-center gap-2">
-                      <Info className="w-3 h-3" /> Short Description
-                    </label>
-                    <textarea 
-                      value={formData.description}
-                      onChange={(e) => setFormData({...formData, description: e.target.value})}
-                      placeholder="High-level purpose of this intelligence..."
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 h-24 focus:border-primary/50 focus:outline-none transition-colors resize-none"
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 flex items-center gap-2">
+                        <Info className="w-3 h-3" /> Short Description
+                      </label>
+                      <textarea 
+                        value={formData.description}
+                        onChange={(e) => setFormData({...formData, description: e.target.value})}
+                        placeholder="High-level purpose of this intelligence..."
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 h-24 focus:border-primary/50 focus:outline-none transition-colors resize-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 flex items-center gap-2">
+                        <Sparkles className="w-3 h-3" /> Personality
+                      </label>
+                      <textarea 
+                        value={formData.personality}
+                        onChange={(e) => setFormData({...formData, personality: e.target.value})}
+                        placeholder="Define the agent's unique character..."
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 h-24 focus:border-primary/50 focus:outline-none transition-colors resize-none"
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-2">
