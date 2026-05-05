@@ -11,10 +11,8 @@ export function useAnalytics() {
       setLoading(true);
       
       try {
-        const [usersCount, groupsCount] = await Promise.all([
-          getCountFromServer(collection(db, 'users')),
-          getCountFromServer(collection(db, 'groups'))
-        ]);
+        const response = await fetch('/api/stats');
+        const countData = await response.json();
         
         // Mocked engagement data for Recharts visualization
         const engagementData = [
@@ -28,8 +26,8 @@ export function useAnalytics() {
         ];
 
         setData({
-          totalUsers: usersCount.data().count,
-          totalGroups: groupsCount.data().count,
+          totalUsers: countData.members || 0,
+          totalGroups: countData.groups || 0,
           engagementPath: engagementData,
           lastSync: new Date()
         });

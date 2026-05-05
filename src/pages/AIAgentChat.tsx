@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Bot, ArrowLeft, Send, Sparkles, AlertTriangle, Loader2, Zap, Trash2, Smile, Paperclip } from 'lucide-react';
 import { useAiAgents } from '../hooks/useAiAgents';
+import { useGroups } from '../hooks/useGroups';
 import { useAuth } from '../hooks/useAuth';
 import { useModeration } from '../hooks/useModeration';
 import { cn } from '../lib/utils';
@@ -19,8 +20,10 @@ export default function AIAgentChat() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { agents, recordInteraction } = useAiAgents();
+  const { groups } = useGroups();
   const { moderateMessage } = useModeration();
   const agent = agents.find(a => a.id === agentId);
+  const group = groups.find(g => g.id === agent?.groupId);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
@@ -107,12 +110,16 @@ export default function AIAgentChat() {
           query: textToChat,
           agentId: agent?.id,
           agentName: agent?.name,
+          context: {
+            groupName: group?.name || (agent?.groupId === 'global' ? 'Global Cyber-Nexus' : 'Local Node'),
+            channelName: "Neural Link Integration"
+          },
           persona: {
             role: agent?.role,
             personality: agent?.personality,
             expertise: agent?.expertise.join(', ')
           },
-          history: messages.slice(-5).map(m => `${m.isAI ? agent?.name : 'User'}: ${m.text}`).join('\n')
+          history: messages.slice(-8).map(m => `${m.isAI ? agent?.name : 'User'}: ${m.text}`).join('\n')
         })
       });
 

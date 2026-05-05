@@ -19,16 +19,13 @@ function useSystemStats(userId: string | undefined) {
     if (!userId) return;
     const load = async () => {
       try {
-        const [groupsSnap, usersSnap, spacesSnap] = await Promise.all([
-          getCountFromServer(collection(db, 'groups')),
-          getCountFromServer(collection(db, 'users')),
-          getCountFromServer(collection(db, 'spaces')),
-        ]);
+        const response = await fetch('/api/stats');
+        const data = await response.json();
         setStats({
-          groups: groupsSnap.data().count,
-          members: usersSnap.data().count,
-          aiOps: Math.floor(Math.random() * 200) + 50,
-          spaces: spacesSnap.data().count,
+          groups: data.groups || 0,
+          members: data.members || 0,
+          aiOps: data.aiOps || 0,
+          spaces: data.spaces || 0,
         });
       } catch { }
     };
