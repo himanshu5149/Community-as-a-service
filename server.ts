@@ -15,24 +15,26 @@ function getAdminDb() {
     if (!getApps().length) {
       const adminKey = process.env.FIREBASE_ADMIN_KEY;
       if (!adminKey) {
-        console.warn("⚠️  FIREBASE_ADMIN_KEY not set — webhook + cache features disabled");
+        console.warn("⚠️ FIREBASE_ADMIN_KEY not set");
         return null;
       }
-      let credential;
+      
+      let credentialData;
       try {
-        const parsed = JSON.parse(adminKey);
-        if (!parsed.private_key) {
-          console.error("❌ FIREBASE_ADMIN_KEY looks like a Project ID only — paste the FULL service account JSON");
-          return null;
-        }
-        credential = cert(parsed);
-      } catch {
-        console.error("❌ FIREBASE_ADMIN_KEY is not valid JSON — check your environment variable");
+        credentialData = JSON.parse(adminKey);
+      } catch (e) {
+        console.error("❌ FIREBASE_ADMIN_KEY is not valid JSON");
         return null;
       }
-      initializeApp({ credential });
+
+      if (!credentialData.private_key || !credentialData.client_email) {
+        console.error("❌ FIREBASE_ADMIN_KEY is missing private_key or client_email");
+        return null;
+      }
+
+      initializeApp({ credential: cert(credentialData) });
     }
-    // The database ID from firebase-applet-config.json
+    // Extract DB ID from config safely or use default
     const DB_ID = "ai-studio-95661d37-8b72-4889-b551-a061c973db08";
     adminDb = getFirestore(DB_ID);
     console.log("✅ Firebase Admin connected");

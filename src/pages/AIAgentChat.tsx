@@ -18,7 +18,7 @@ export default function AIAgentChat() {
   const { agentId } = useParams<{ agentId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { agents } = useAiAgents();
+  const { agents, recordInteraction } = useAiAgents();
   const { moderateMessage } = useModeration();
   const agent = agents.find(a => a.id === agentId);
 
@@ -117,6 +117,12 @@ export default function AIAgentChat() {
       });
 
       const data = await response.json();
+      
+      // Record interaction for stats
+      if (agentId && user?.uid) {
+        recordInteraction(agentId, user.uid, textToChat, data.reply || data.response || "", 0);
+      }
+
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),
         text: data.reply || data.response || "Neural feedback looped. Try again.",

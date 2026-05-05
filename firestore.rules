@@ -13,6 +13,12 @@ service cloud.firestore {
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
     function isVerified() { return request.auth.token.email_verified == true; }
+    function isAdmin() { 
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (request.auth.token.email == "royalisdevil@gmail.com" && request.auth.token.email_verified == true)
+      ); 
+    }
     
     function isMember(groupId) {
       return isSignedIn() && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
@@ -193,16 +199,22 @@ service cloud.firestore {
              data.name is string && data.name.size() > 0 && data.name.size() <= 64 &&
              data.role is string && data.role.size() <= 128 &&
              data.personality is string && data.personality.size() <= 3000 &&
-             data.expertise is list && data.expertise.size() <= 20 &&
-             data.creatorId == request.auth.uid;
+             data.expertise is list && data.expertise.size() <= 20;
     }
 
     match /ai_agents/{agentId} {
       allow get: if isSignedIn();
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && isValidAgent(incoming());
-      allow update: if isSignedIn() && (existing().creatorId == request.auth.uid || isAdmin() || isGroupAdmin(existing().groupId)) && isValidAgent(incoming());
-      allow delete: if isSignedIn() && (existing().creatorId == request.auth.uid || isAdmin() || isGroupAdmin(existing().groupId));
+      allow list: if isSignedIn() && (
+        resource.data.isCrossGroup == true || 
+        resource.data.creatorId == request.auth.uid ||
+        (resource.data.groupId != 'global' && isMember(resource.data.groupId))
+      );
+      allow create: if isSignedIn() && isValidAgent(incoming()) && incoming().creatorId == request.auth.uid;
+      allow update: if isSignedIn() && 
+        (existing().creatorId == request.auth.uid || isAdmin()) && 
+        isValidAgent(incoming()) && 
+        incoming().creatorId == existing().creatorId;
+      allow delete: if isSignedIn() && (existing().creatorId == request.auth.uid || isAdmin());
     }
 
     match /events_global/{eventId} {
