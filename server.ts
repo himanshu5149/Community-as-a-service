@@ -96,6 +96,52 @@ async function startServer() {
   const app = express();
   const PORT = parseInt(process.env.PORT || "3000");
 
+  // ── LemonSqueezy Webhook (MUST be before express.json() for signature verification) ──
+  app.post("/api/webhook/lemonsqueezy", express.raw({ type: "application/json" }), async (req, res) => {
+    const secret = process.env.LEMONSQUEEZY_WEBHOOK_SECRET || "";
+    const signature = req.headers["x-signature"] as string;
+
+    if (secret && signature) {
+      const digest = crypto.createHmac("sha256", secret).update(req.body).digest("hex");
+      if (digest !== signature) {
+        console.warn("❌ Webhook signature mismatch");
+        return res.status(401).json({ error: "Invalid signature" });
+      }
+    }
+
+    let payload: any;
+    try { payload = JSON.parse(req.body.toString()); }
+    catch { return res.status(400).json({ error: "Invalid JSON" }); }
+
+    const eventName = payload?.meta?.event_name;
+    const userId = payload?.meta?.custom_data?.user_id;
+    const planId = payload?.meta?.custom_data?.plan_id;
+    const orderData = payload?.data?.attributes;
+
+    console.log(`📦 Webhook: ${eventName} | user: ${userId} | plan: ${planId}`);
+
+    if (!userId) return res.status(200).json({ received: true });
+
+    const db = getAdminDb();
+    if (!db) return res.status(200).json({ received: true, note: "Firebase Admin not configured" });
+
+    try {
+      const userRef = db.collection("users").doc(userId);
+      if (eventName === "order_created" || eventName === "subscription_created") {
+        await userRef.set({ plan: planId || "starter", planStatus: "active", planActivatedAt: Date.now() }, { merge: true });
+        console.log(`✅ User ${userId} upgraded to ${planId}`);
+      } else if (eventName === "subscription_updated") {
+        await userRef.set({ planStatus: orderData?.status === "active" ? "active" : "inactive" }, { merge: true });
+      } else if (eventName === "subscription_cancelled") {
+        await userRef.set({ planStatus: "cancelled", planCancelledAt: Date.now() }, { merge: true });
+      }
+      res.status(200).json({ received: true });
+    } catch (err) {
+      console.error("Firestore update failed:", err);
+      res.status(500).json({ error: "Database update failed" });
+    }
+  });
+
   app.use(express.json());
 
   // ── Health ───────────────────────────────────────────────────────────────
@@ -138,17 +184,22 @@ Return ONLY JSON: { "isSafe": boolean, "reason": "string", "riskLevel": "none"|"
 
   // ── AI Agent ─────────────────────────────────────────────────────────────
   app.post("/api/ai/agent", async (req, res) => {
-    const { query, agentId, agentName, context, persona } = req.body;
-    if (!query || !agentName) return res.status(400).json({ error: "Missing query or agentName" });
+    const { query, message, agentId, agentName: providedName, context, persona, history, systemContext } = req.body;
+    const userInput = query || message;
+    const agentName = providedName || "Assistant";
+
+    if (!userInput) return res.status(400).json({ error: "Missing query or message" });
 
     let expertise = "general community assistance";
     let personality = "be helpful, on-topic, and concise";
     let role = "Assistant";
+    let systemInstruction = systemContext || "";
 
     if (persona) {
       expertise = persona.expertise || expertise;
       personality = persona.personality || personality;
       role = persona.role || role;
+      if (persona.systemInstruction) systemInstruction = persona.systemInstruction;
     } else {
       const expertiseMap: Record<string, string> = {
         aria:   "fitness, nutrition, health, and metabolic optimization",
@@ -164,16 +215,18 @@ Return ONLY JSON: { "isSafe": boolean, "reason": "string", "riskLevel": "none"|"
 Your Role: ${role}
 Your Expertise: ${expertise}
 Your Personality: ${personality}
-
+${systemInstruction ? `\nSystem Instruction: ${systemInstruction}\n` : ""}
 Context:
 Community: "${context?.groupName || "Unknown"}" | Channel: "${context?.channelName || "general"}"
-User message: ${query}
+
+${history ? `Recent Conversation:\n${history}\n` : ""}
+User message: ${userInput}
 
 Respond as ${agentName} — stay strictly in character. Max 3 sentences. No markdown headers.`;
 
     const result = await callGemini(prompt);
-    if (!result) return res.json({ response: `${agentName} is temporarily offline. Please try again shortly.` });
-    res.json({ response: result });
+    if (!result) return res.json({ response: `${agentName} is temporarily offline. Please try again shortly.`, reply: `${agentName} is temporarily offline.` });
+    res.json({ response: result, reply: result });
   });
 
   // ── Summarize ─────────────────────────────────────────────────────────────
@@ -218,52 +271,6 @@ Respond as ${persona.name}. Stay in character. Be warm and helpful. Max 3 senten
     const response = await callGemini(prompt);
     if (!response) return res.json({ response: `${persona.name} is resyncing... try again in a moment!` });
     res.json({ response });
-  });
-
-  // ── LemonSqueezy Webhook ──────────────────────────────────────────────────
-  app.post("/api/webhook/lemonsqueezy", express.raw({ type: "application/json" }), async (req, res) => {
-    const secret = process.env.LEMONSQUEEZY_WEBHOOK_SECRET || "";
-    const signature = req.headers["x-signature"] as string;
-
-    if (secret && signature) {
-      const digest = crypto.createHmac("sha256", secret).update(req.body).digest("hex");
-      if (digest !== signature) {
-        console.warn("❌ Webhook signature mismatch");
-        return res.status(401).json({ error: "Invalid signature" });
-      }
-    }
-
-    let payload: any;
-    try { payload = JSON.parse(req.body.toString()); }
-    catch { return res.status(400).json({ error: "Invalid JSON" }); }
-
-    const eventName = payload?.meta?.event_name;
-    const userId = payload?.meta?.custom_data?.user_id;
-    const planId = payload?.meta?.custom_data?.plan_id;
-    const orderData = payload?.data?.attributes;
-
-    console.log(`📦 Webhook: ${eventName} | user: ${userId} | plan: ${planId}`);
-
-    if (!userId) return res.status(200).json({ received: true });
-
-    const db = getAdminDb();
-    if (!db) return res.status(200).json({ received: true, note: "Firebase Admin not configured" });
-
-    try {
-      const userRef = db.collection("profiles").doc(userId);
-      if (eventName === "order_created" || eventName === "subscription_created") {
-        await userRef.set({ plan: planId || "starter", planStatus: "active", planActivatedAt: Date.now() }, { merge: true });
-        console.log(`✅ User ${userId} upgraded to ${planId}`);
-      } else if (eventName === "subscription_updated") {
-        await userRef.set({ planStatus: orderData?.status === "active" ? "active" : "inactive" }, { merge: true });
-      } else if (eventName === "subscription_cancelled") {
-        await userRef.set({ planStatus: "cancelled", planCancelledAt: Date.now() }, { merge: true });
-      }
-      res.status(200).json({ received: true });
-    } catch (err) {
-      console.error("Firestore update failed:", err);
-      res.status(500).json({ error: "Database update failed" });
-    }
   });
 
   // ── Frontend ──────────────────────────────────────────────────────────────
