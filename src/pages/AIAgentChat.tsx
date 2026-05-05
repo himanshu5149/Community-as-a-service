@@ -117,7 +117,8 @@ export default function AIAgentChat() {
           persona: {
             role: agent?.role,
             personality: agent?.personality,
-            expertise: agent?.expertise.join(', ')
+            expertise: agent?.expertise.join(', '),
+            systemInstruction: agent?.systemInstruction
           },
           history: messages.slice(-8).map(m => `${m.isAI ? agent?.name : 'User'}: ${m.text}`).join('\n')
         })

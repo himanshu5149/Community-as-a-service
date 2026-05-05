@@ -181,9 +181,14 @@ export default function GroupChat() {
             persona: agent ? {
               role: agent.role,
               personality: agent.personality,
-              expertise: agent.expertise.join(', ')
+              expertise: agent.expertise.join(', '),
+              systemInstruction: agent.systemInstruction
             } : undefined,
-            context: { groupName: group?.name, channelName: activeChannel?.name } 
+            context: { 
+              groupName: group?.name || 'Local Community', 
+              channelName: activeChannel?.name || 'general' 
+            },
+            history: messages.slice(-5).map(m => `${m.isAI ? m.userName : 'User'}: ${m.text}`).join('\n')
           })
         });
         const data = await res.json();
@@ -251,9 +256,11 @@ export default function GroupChat() {
       if (permissions.canUseAI) {
         const mentions = agents.filter(agent => textToChat.toLowerCase().includes(`@${agent.name.toLowerCase()}`));
         if (mentions.length > 0) {
-          // Trigger responses from all mentioned agents (usually just one)
+          // Trigger responses from all mentioned agents (Usually just one)
           for (const agent of mentions) {
             try {
+              // Add a "thinking" message or just set a local state if you want UI feedback
+              // For group chat, we can just wait for the response and send it
               const res = await fetch('/api/ai/agent', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -264,12 +271,14 @@ export default function GroupChat() {
                   persona: {
                     role: agent.role,
                     personality: agent.personality,
-                    expertise: agent.expertise.join(', ')
+                    expertise: agent.expertise.join(', '),
+                    systemInstruction: agent.systemInstruction
                   },
                   context: { 
                     groupName: group?.name || 'Unknown', 
                     channelName: activeChannel?.name || 'general' 
-                  } 
+                  },
+                  history: messages.slice(-5).map(m => `${m.isAI ? m.userName : 'User'}: ${m.text}`).join('\n')
                 })
               });
               const data = await res.json();
@@ -280,6 +289,12 @@ export default function GroupChat() {
                   aiAvatar: agent.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${agent.name.toLowerCase()}`,
                   aiColor: agent.accentColor || '#534AB7'
                 });
+
+                // Record interaction
+                if (user?.uid) {
+                  const recordRes = await fetch('/api/ai/agent', { method: 'GET' }); // Just a check
+                  // Well, we usually do this via hook but we can do it here if we want
+                }
               }
             } catch (err) {
               console.error("AI mention failed:", err);

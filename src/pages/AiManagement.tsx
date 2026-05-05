@@ -18,6 +18,7 @@ export default function AiManagement() {
     role: '',
     description: '',
     personality: '',
+    systemInstruction: '',
     expertise: '',
     groupId: '',
     isCrossGroup: false,
@@ -36,6 +37,7 @@ export default function AiManagement() {
         role: formData.role || 'Assistant',
         description: formData.description,
         personality: formData.personality,
+        systemInstruction: formData.systemInstruction,
         expertise: expertiseArray,
         groupId: formData.groupId || 'global',
         isCrossGroup: formData.isCrossGroup,
@@ -50,6 +52,7 @@ export default function AiManagement() {
         role: '',
         description: '',
         personality: '',
+        systemInstruction: '',
         expertise: '',
         groupId: '',
         isCrossGroup: false,
@@ -340,14 +343,25 @@ export default function AiManagement() {
                      </div>
 
                      <div className="space-y-3">
-                        <label className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500 ml-2">Cognitive Directive</label>
+                        <label className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500 ml-2">Cognitive Directive / Personality</label>
                         <textarea 
                            required
-                           rows={4}
+                           rows={2}
                            value={formData.personality}
                            onChange={(e) => setFormData({...formData, personality: e.target.value})}
                            className="w-full bg-white/5 border border-white/5 p-6 rounded-2xl outline-none focus:border-primary transition-all font-medium leading-relaxed"
                            placeholder="Define the agent's personality and goals..."
+                        />
+                     </div>
+
+                     <div className="space-y-3">
+                        <label className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500 ml-2">System Protocol (Hidden Instructions)</label>
+                        <textarea 
+                           rows={4}
+                           value={formData.systemInstruction}
+                           onChange={(e) => setFormData({...formData, systemInstruction: e.target.value})}
+                           className="w-full bg-white/5 border border-white/5 p-6 rounded-2xl outline-none focus:border-primary transition-all font-medium leading-relaxed font-mono text-xs"
+                           placeholder="Hidden operational overrides or deep context..."
                         />
                      </div>
 
