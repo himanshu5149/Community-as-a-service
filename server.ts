@@ -1,7 +1,10 @@
 import "dotenv/config";
+import path from "path";
+import dotenv from "dotenv";
+dotenv.config({ path: path.join(process.cwd(), ".env.local") });
+
 import express from "express";
 import { createServer as createViteServer } from "vite";
-import path from "path";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import crypto from "crypto";
 import { initializeApp, cert, getApps } from "firebase-admin/app";
