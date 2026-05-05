@@ -1,8 +1,8 @@
 [build]
-builder = "nixpacks"
-buildCommand = "npm install && npm run build"
+builder = "NIXPACKS"
 
 [deploy]
-startCommand = "npm start"
-restartPolicyType = "on_failure"
+startCommand = "node dist/server.cjs"
+healthcheckPath = "/api/health"
+restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3

@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { doc, updateDoc, collection, addDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Rocket, Users, Shield, ArrowRight, CheckCircle2, Layout, Globe, Lock, AlertCircle } from 'lucide-react';
-import confetti from 'canvas-confetti';
 import { useAuth } from '../hooks/useAuth';
 
 const steps = [
@@ -72,13 +71,6 @@ export default function Onboarding() {
       // 4. Mark Onboarding as Completed
       await updateDoc(doc(db, 'users', user.uid), {
         onboardingCompleted: true
-      });
-
-      confetti({
-        particleCount: 150,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#534AB7', '#ffffff']
       });
 
       setTimeout(() => navigate('/groups'), 2000);
