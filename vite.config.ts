@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => {
       alias: { '@': path.resolve(__dirname, '.') },
     },
     server: {
-      hmr: process.env.DISABLE_HMR !== 'true',
+      hmr: env.DISABLE_HMR !== 'true' && process.env.DISABLE_HMR !== 'true',
     },
     build: {
       chunkSizeWarningLimit: 600,
