@@ -181,7 +181,8 @@ export default function GroupChat() {
             persona: agent ? {
               role: agent.role,
               personality: agent.personality,
-              expertise: agent.expertise.join(', ')
+              expertise: agent.expertise.join(', '),
+              systemInstruction: agent.systemInstruction
             } : undefined,
             context: { groupName: group?.name, channelName: activeChannel?.name } 
           })
@@ -264,7 +265,8 @@ export default function GroupChat() {
                   persona: {
                     role: agent.role,
                     personality: agent.personality,
-                    expertise: agent.expertise.join(', ')
+                    expertise: agent.expertise.join(', '),
+                    systemInstruction: agent.systemInstruction
                   },
                   context: { 
                     groupName: group?.name || 'Unknown', 
