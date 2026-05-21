@@ -25,6 +25,12 @@ export default function Login() {
     } catch (err: any) {
       if (err.code === 'auth/operation-not-allowed') {
         setError('Email/Password authentication is disabled. Please enable it in the Firebase Console (Build > Authentication > Sign-in method).');
+      } else if (err.code === 'auth/invalid-credential') {
+        setError('Invalid Signal ID or Access Key. Please check your credentials or ensure this Shard is registered.');
+      } else if (err.code === 'auth/user-not-found') {
+        setError('No node found with this Signal ID (Email). Please register your Shard first.');
+      } else if (err.code === 'auth/wrong-password') {
+        setError('Incorrect Access Key (Password). Please retype your password.');
       } else {
         setError(err.message || 'Authentication failed. Check your signals.');
       }

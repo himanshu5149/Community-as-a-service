@@ -42,7 +42,13 @@ export default function Signup() {
       navigate('/onboarding');
     } catch (err: any) {
       if (err.code === 'auth/operation-not-allowed') {
-        setError('Registration is currently disabled. Please enable the Email/Password provider in your Firebase Console.');
+        setError('Registration is currently disabled. Please enable the Email/Password provider in your Firebase Console (Build > Authentication > Sign-in method).');
+      } else if (err.code === 'auth/email-already-in-use') {
+        setError('This Signal ID is already registered in the nexus. Try establishing a link on the Login page instead.');
+      } else if (err.code === 'auth/weak-password') {
+        setError('Access Key is too weak. Ensure it is at least 6 characters.');
+      } else if (err.code === 'auth/invalid-credential') {
+        setError('Invalid registration credentials format or configuration error.');
       } else {
         setError(err.message || 'Node registration failed.');
       }

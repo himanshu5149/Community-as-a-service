@@ -35,6 +35,14 @@ async function startServer() {
   }
 
   // --- API Routes ---
+  app.get("/api/health", (req, res) => {
+    res.json({
+      status: "healthy",
+      gemini: !!process.env.GEMINI_API_KEY,
+      timestamp: new Date().toISOString()
+    });
+  });
+
   app.post("/api/aiModerate", async (req, res) => {
     try {
       const { text } = req.body;
