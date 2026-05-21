@@ -11,8 +11,14 @@ export function useAnalytics() {
       setLoading(true);
       
       try {
-        const response = await fetch('/api/stats');
-        const countData = await response.json();
+        const [groupsSnap, usersSnap] = await Promise.all([
+          getCountFromServer(collection(db, 'groups')),
+          getCountFromServer(collection(db, 'users'))
+        ]);
+        const countData = {
+          groups: groupsSnap.data().count,
+          members: usersSnap.data().count
+        };
         
         // Mocked engagement data for Recharts visualization
         const engagementData = [

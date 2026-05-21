@@ -1,7 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 0. Default Deny
+    // 0. Default Deny Catch-All
     match /{document=**} {
       allow read, write: if false;
     }
@@ -52,8 +52,81 @@ service cloud.firestore {
              data.type in ['text', 'image', 'ai'];
     }
 
+    function isValidPoints(data) {
+      return data.keys().hasAll(['points', 'level', 'streakDays', 'lastActivity']) &&
+             data.points is int &&
+             data.level in ['Newcomer', 'Member', 'Contributor', 'Champion'] &&
+             data.streakDays is int;
+    }
+
+    function isValidSpace(data) {
+      return data.keys().hasAll(['name', 'description', 'icon', 'connectedGroups', 'members', 'lastActivity']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 64 &&
+             data.description is string && data.description.size() <= 500 &&
+             data.icon is string && data.icon.size() <= 16 &&
+             data.connectedGroups is list && data.connectedGroups.size() <= 20 &&
+             data.members is list && data.members.size() <= 500;
+    }
+
+    function isValidReport(data) {
+      return data.keys().hasAll(['reporterId', 'targetType', 'targetId', 'reason', 'status', 'createdAt']) &&
+             data.reporterId == request.auth.uid &&
+             data.targetType in ['message', 'member', 'group'] &&
+             data.targetId is string && data.targetId.size() <= 128 &&
+             data.reason is string && data.reason.size() <= 2000 &&
+             data.status in ['pending', 'resolved', 'dismissed'];
+    }
+
+    function isValidBlogPost(data) {
+      return data.keys().hasAll(['title', 'excerpt', 'content', 'category', 'author']) &&
+             data.title is string && data.title.size() <= 128 &&
+             data.excerpt is string && data.excerpt.size() <= 500 &&
+             data.author is string && data.author.size() <= 128;
+    }
+
+    function isValidFriendRequest(data) {
+      return data.keys().hasAll(['fromId', 'toId', 'status', 'createdAt']) &&
+             data.fromId == request.auth.uid &&
+             data.toId is string &&
+             data.status in ['pending', 'accepted', 'rejected'];
+    }
+
+    function isValidFriendship(data) {
+      return data.keys().hasAll(['users', 'createdAt']) &&
+             data.users is list && data.users.size() == 2;
+    }
+
+    function isValidBridgeSuggestion(data) {
+      return data.keys().hasAll(['postId', 'fromGroup', 'suggestedGroup', 'status', 'createdAt']) &&
+             data.status in ['pending', 'accepted', 'rejected'] &&
+             data.postId is string &&
+             data.fromGroup is string &&
+             data.suggestedGroup is string;
+    }
+
     // --- Collections ---
 
+    // 1. Users Profile Collection
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn(); // Crucial for aggregation count queries on Dashboard, Analytics, and Home Stats
+      allow write: if isOwner(userId);
+
+      // Subcollection: stats/points
+      match /points/stats {
+        allow read: if isSignedIn();
+        allow write: if isOwner(userId) && isValidPoints(incoming());
+      }
+
+      // Subcollection: user notification signals
+      match /notifications/{notificationId} {
+        allow read: if isOwner(userId);
+        allow create: if isSignedIn(); // Allow connection events to write notifications
+        allow update, delete: if isOwner(userId);
+      }
+    }
+
+    // 2. AI Agents Collection
     match /ai_agents/{agentId} {
       allow get: if isSignedIn();
       allow list: if isSignedIn() && (
@@ -79,6 +152,7 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (existing().creatorId == request.auth.uid || isAdmin() || isGroupAdmin(existing().groupId));
     }
 
+    // 3. Community Groups & Subcollections
     match /groups/{groupId} {
       allow get: if isValidId(groupId);
       allow list: if isSignedIn();
@@ -102,24 +176,49 @@ service cloud.firestore {
       }
     }
 
-    match /users/{userId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn() && isAdmin();
-      allow write: if isOwner(userId);
-
-      match /points/stats {
-        allow read: if isSignedIn();
-        allow write: if isOwner(userId) && isValidPoints(incoming());
-      }
+    // 4. Collaborative Spaces
+    match /spaces/{spaceId} {
+      allow read, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidSpace(incoming());
+      allow update: if isSignedIn(); // Users join spaces, create or toggle tasks
+      allow delete: if isAdmin();
     }
 
-    function isValidPoints(data) {
-      return data.keys().hasAll(['points', 'level', 'streakDays', 'lastActivity']) &&
-             data.points is int &&
-             data.level in ['Newcomer', 'Member', 'Contributor', 'Champion'] &&
-             data.streakDays is int;
+    // 5. Moderation Reports
+    match /reports/{reportId} {
+      allow get, list: if isSignedIn() && (resource.data.reporterId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().reporterId == request.auth.uid && isValidReport(incoming());
+      allow update, delete: if isAdmin();
     }
 
+    // 6. Blog Posts
+    match /blogPosts/{postId} {
+      allow read, list: if isSignedIn();
+      allow create: if isSignedIn(); // Allow author creators to publish / seed postings
+      allow update, delete: if isAdmin();
+    }
+
+    // 7. Social Friends system
+    match /friend_requests/{requestId} {
+      allow get, list: if isSignedIn() && (resource.data.toId == request.auth.uid || resource.data.fromId == request.auth.uid);
+      allow create: if isSignedIn() && incoming().fromId == request.auth.uid && isValidFriendRequest(incoming());
+      allow update, delete: if isSignedIn() && (existing().toId == request.auth.uid || existing().fromId == request.auth.uid);
+    }
+
+    match /friendships/{friendshipId} {
+      allow read, list: if isSignedIn() && (request.auth.uid in resource.data.users);
+      allow create: if isSignedIn() && (request.auth.uid in incoming().users) && isValidFriendship(incoming());
+      allow update, delete: if isSignedIn() && (request.auth.uid in existing().users);
+    }
+
+    // 8. Bridge Suggestions
+    match /bridge_suggestions/{suggestionId} {
+      allow read, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidBridgeSuggestion(incoming());
+      allow update, delete: if isAdmin();
+    }
+
+    // 9. AI Agent Interaction analytics
     match /ai_interactions/{id} {
       allow create: if isSignedIn() && incoming().userId == request.auth.uid;
       allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
@@ -127,4 +226,3 @@ service cloud.firestore {
     }
   }
 }
-

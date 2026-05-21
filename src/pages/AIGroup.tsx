@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAiAgents, AiAgent } from '../hooks/useAiAgents';
-import { Bot, Sparkles, ArrowRight, Zap, Target, BookOpen, Share2, Plus, X, Command, Palette, Info, Terminal, Image as ImageIcon } from 'lucide-react';
+import { Bot, Sparkles, ArrowRight, Zap, Target, BookOpen, Share2, Plus, X, Command, Palette, Info, Terminal, Image as ImageIcon, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useToast, Toast } from '../components/Toast';
 import { auth } from '../lib/firebase';
@@ -10,6 +10,7 @@ export default function AIGroup() {
   const { agents, loading, createAiAgent } = useAiAgents();
   const { toast, showToast, hideToast } = useToast();
   const [isCreating, setIsCreating] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     role: '',
@@ -19,6 +20,7 @@ export default function AIGroup() {
     avatarUrl: '',
     accentColor: '#3B82F6',
     expertise: '',
+    model: 'gemini-1.5-flash',
   });
 
   const getAgentIcon = (agent: AiAgent) => {
@@ -47,7 +49,7 @@ export default function AIGroup() {
         expertise: formData.expertise.split(',').map(s => s.trim()).filter(Boolean),
         groupId: 'global',
         isCrossGroup: true,
-        model: 'gemini-1.5-flash',
+        model: formData.model,
         creatorId: auth.currentUser?.uid || ''
       });
       showToast(`${formData.name} node initialized`, "success");
@@ -61,11 +63,19 @@ export default function AIGroup() {
         avatarUrl: '',
         accentColor: '#3B82F6',
         expertise: '',
+        model: 'gemini-1.5-flash',
       });
     } catch (err) {
       showToast("Neural seeding failed", "error");
     }
   };
+
+  const filteredAgents = agents.filter(agent => 
+    agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    agent.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    agent.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    agent.expertise.some(e => e.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
   return (
     <div className="pt-32 min-h-screen bg-bg-dark text-white px-6 md:px-10 pb-40">
@@ -95,6 +105,36 @@ export default function AIGroup() {
           <p className="max-w-2xl mx-auto text-xl text-gray-400 font-medium leading-relaxed">
             Meet the autonomous intelligence nodes powering the CaaS ecosystem. Each agent operates with unique directives to serve their community groups.
           </p>
+
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-xl mx-auto mt-12 relative"
+          >
+            <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none">
+              <Search className="w-5 h-5 text-gray-500" />
+            </div>
+            <input 
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search neural blueprints..."
+              className="w-full bg-white/5 border border-white/10 rounded-[2rem] pl-16 pr-8 py-5 focus:border-primary/50 focus:outline-none transition-all placeholder:text-gray-600 font-medium text-lg"
+            />
+            <AnimatePresence>
+              {searchQuery && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  onClick={() => setSearchQuery('')}
+                  className="absolute inset-y-0 right-6 flex items-center"
+                >
+                  <X className="w-5 h-5 text-gray-500 hover:text-white transition-colors" />
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </motion.div>
         </header>
 
         <AnimatePresence>
@@ -179,11 +219,11 @@ export default function AIGroup() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 flex items-center gap-2">
-                        <ImageIcon className="w-3 h-3" /> Avatar URL
-                      </label>
+                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 flex items-center gap-2">
+                         <ImageIcon className="w-3 h-3" /> Avatar URL
+                       </label>
                       <input 
                         type="text"
                         value={formData.avatarUrl}
@@ -193,9 +233,9 @@ export default function AIGroup() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 flex items-center gap-2">
-                        <Palette className="w-3 h-3" /> Accent Color
-                      </label>
+                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 flex items-center gap-2">
+                         <Palette className="w-3 h-3" /> Accent Color
+                       </label>
                       <input 
                         type="color"
                         value={formData.accentColor}
@@ -204,9 +244,9 @@ export default function AIGroup() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 flex items-center gap-2">
-                        <Sparkles className="w-3 h-3" /> Expertise (comma separated)
-                      </label>
+                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 flex items-center gap-2">
+                         <Sparkles className="w-3 h-3" /> Expertise (comma separated)
+                       </label>
                       <input 
                         type="text"
                         value={formData.expertise}
@@ -214,6 +254,22 @@ export default function AIGroup() {
                         placeholder="Logic, Math, Ethics..."
                         className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 focus:border-primary/50 focus:outline-none transition-colors"
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 flex items-center gap-2">
+                        <Bot className="w-3 h-3" /> Model Architecture
+                      </label>
+                      <select 
+                        value={formData.model}
+                        onChange={(e) => setFormData({...formData, model: e.target.value})}
+                        className="w-full h-[58px] bg-white/5 border border-white/10 rounded-2xl px-6 py-4 focus:border-primary/50 focus:outline-none transition-colors text-white"
+                        style={{ colorScheme: 'dark' }}
+                      >
+                        <option value="gemini-1.5-flash" className="bg-[#121212] text-white">Gemini 1.5 Flash (Standard)</option>
+                        <option value="gemini-1.5-pro" className="bg-[#121212] text-white">Gemini 1.5 Pro (Advanced)</option>
+                        <option value="gemini-2.5-flash" className="bg-[#121212] text-white">Gemini 2.5 Flash (Next-Gen Fast)</option>
+                        <option value="gemini-2.5-pro" className="bg-[#121212] text-white">Gemini 2.5 Pro (Next-Gen Power)</option>
+                      </select>
                     </div>
                   </div>
 
@@ -244,25 +300,25 @@ export default function AIGroup() {
               <div key={`agent-skele-${i}`} className="h-80 bg-white/5 rounded-[2.5rem] animate-pulse border border-white/5" />
             ))}
           </div>
-        ) : agents.length === 0 ? (
+        ) : filteredAgents.length === 0 ? (
           <div className="py-40 border border-dashed border-white/10 rounded-[4rem] text-center bg-white/5 backdrop-blur-sm max-w-4xl mx-auto">
              <div className="w-24 h-24 bg-primary/10 rounded-[2.5rem] flex items-center justify-center mx-auto mb-10 border border-primary/20">
-                <Bot className="w-12 h-12 text-primary animate-pulse" />
+                <Search className="w-12 h-12 text-primary animate-pulse" />
              </div>
-             <h3 className="text-4xl font-bold mb-6 tracking-tighter italic">Neural Link <span className="text-primary not-italic">Inactive.</span></h3>
+             <h3 className="text-4xl font-bold mb-6 tracking-tighter italic">Search Result <span className="text-primary not-italic">Empty.</span></h3>
              <p className="text-gray-400 max-w-md mx-auto mb-12 text-lg font-medium leading-relaxed">
-               The community intelligence nodes haven't been synchronized with this cluster yet. Administrative authorization required to seed the neural network.
+               No intelligence nodes match your current search query. Try broadening your parameters or spawning a new node.
              </p>
-             <Link 
-               to="/admin" 
-               className="px-12 py-6 bg-primary text-white rounded-3xl font-black uppercase tracking-[0.3em] text-sm hover:scale-105 transition-all shadow-2xl shadow-primary/40 inline-flex items-center gap-4"
+             <button 
+               onClick={() => setSearchQuery('')} 
+               className="px-12 py-6 bg-white/5 text-white border border-white/10 rounded-3xl font-black uppercase tracking-[0.3em] text-sm hover:bg-white/10 transition-all inline-flex items-center gap-4"
              >
-                <Zap className="w-5 h-5" /> Initialize Neural Seeding
-             </Link>
+                <X className="w-5 h-5 text-gray-400" /> Reset Query
+             </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-            {agents.map((agent, i) => (
+            {filteredAgents.map((agent, i) => (
               <motion.div
                 key={agent.id}
                 initial={{ opacity: 0, scale: 0.9 }}

@@ -1,55 +1,84 @@
 import { AIPersona } from "../constants/aiPersonas";
 
+const BASE_URL = import.meta.env.VITE_API_URL || "/api";
+
+async function callFunction(endpoint: string, body: object): Promise<any> {
+  const res = await fetch(`${BASE_URL}/${endpoint}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Function ${endpoint} returned ${res.status}`);
+  return res.json();
+}
+
 export interface ModerationResult {
   isSafe: boolean;
   reason?: string;
+  riskLevel?: string;
   flaggedContent?: string;
 }
 
 export async function moderateMessage(text: string): Promise<ModerationResult> {
   try {
-    const response = await fetch("/api/ai/moderate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text })
-    });
-    return await response.json();
-  } catch (error) {
-    console.error("Moderation error:", error);
+    return await callFunction("aiModerate", { text });
+  } catch (e) {
+    console.error("Moderation error:", e);
     return { isSafe: true };
   }
 }
 
-export async function summarizeChat(messages: { user: string, text: string }[]): Promise<string> {
+export async function summarizeChat(messages: { user: string; text: string }[]): Promise<string> {
   try {
-    const response = await fetch("/api/ai/summarize", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages })
-    });
-    const data = await response.json();
+    const data = await callFunction("aiSummarize", { messages });
     return data.summary;
-  } catch (error) {
-    console.error("Summarization error:", error);
+  } catch (e) {
+    console.error("Summarize error:", e);
     return "Failed to generate summary.";
   }
 }
 
 export async function askPersona(
-  query: string, 
-  persona: AIPersona, 
-  context: { groupName: string, recentMessages: { user: string, text: string, isAI?: boolean }[] }
+  query: string,
+  persona: AIPersona,
+  context: { groupName: string; recentMessages: { user: string; text: string; isAI?: boolean }[] }
 ): Promise<string> {
   try {
-    const response = await fetch("/api/ai/persona", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query, persona, context })
-    });
-    const data = await response.json();
+    const data = await callFunction("aiPersona", { query, persona, context });
     return data.response;
-  } catch (error) {
-    console.error("Persona response error:", error);
-    return `I'm having a bit of trouble synchronizing my systems. Contact me again in a moment!`;
+  } catch (e) {
+    console.error("Persona error:", e);
+    return `${persona.name} is having trouble connecting. Try again in a moment!`;
+  }
+}
+
+export async function callAiAgent(
+  query: string,
+  agentId: string,
+  agentName: string,
+  context: { groupName: string; channelName?: string },
+  history?: string,
+  persona?: {
+    role?: string;
+    personality?: string;
+    expertise?: string;
+    systemInstruction?: string;
+    model?: string;
+  }
+): Promise<string> {
+  try {
+    const data = await callFunction("aiAgent", { 
+      query, 
+      agentId, 
+      agentName, 
+      context, 
+      history, 
+      persona,
+      model: persona?.model 
+    });
+    return data.response || data.reply;
+  } catch (e) {
+    console.error("Agent error:", e);
+    return `${agentName} is temporarily offline. Please try again shortly.`;
   }
 }

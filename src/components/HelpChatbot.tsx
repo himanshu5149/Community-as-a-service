@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { db } from '../lib/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { cn } from '../lib/utils';
+import { callAiAgent } from '../services/geminiService';
 
 const CAAS_CONTEXT = `You are the CaaS OS Assistant — a helpful AI guide for CaaS (Community as a Service), a Community Operating System built by Himanshu from Janakpur, Nepal.
 
@@ -103,22 +104,13 @@ export default function HelpChatbot() {
         `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`
       ).join('\n');
 
-      const response = await fetch('/api/ai/agent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          agentId: 'caas-help',
-          message: content,
-          systemContext: CAAS_CONTEXT,
-          history,
-        }),
-      });
-
-      let reply = '';
-      if (response.ok) {
-        const data = await response.json();
-        reply = data.reply || data.response || data.content || '';
-      }
+      let reply = await callAiAgent(
+        content,
+        'caas-help',
+        'CaaS OS Assistant',
+        { groupName: 'Help Support', channelName: 'Assistant Guidance' },
+        history
+      );
 
       if (!reply) {
         // Fallback local answers for common questions

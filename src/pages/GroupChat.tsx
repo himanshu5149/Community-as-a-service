@@ -18,6 +18,7 @@ import { auth, db } from '../lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firebase';
 import { cn } from '../lib/utils';
+import { callAiAgent, summarizeChat } from '../services/geminiService';
 import { 
   User, 
   Send, 
@@ -32,6 +33,7 @@ import {
   Settings,
   Trash2,
   Hash,
+  Info,
   Megaphone,
   Pin,
   ChevronRight,
@@ -138,13 +140,8 @@ export default function GroupChat() {
       }
       try {
         const recentMessages = messages.slice(-50).map(m => ({ user: m.userName, text: m.text }));
-        const res = await fetch('/api/ai/summarize', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: recentMessages })
-        });
-        const data = await res.json();
-        await sendMessage(data.summary, 'ai', undefined, true, { aiName: 'Bridge', aiAvatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=bridge' });
+        const summary = await summarizeChat(recentMessages);
+        await sendMessage(summary, 'ai', undefined, true, { aiName: 'Bridge', aiAvatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=bridge' });
       } catch (err) {
         showToast("Intelligence node sync failed.", 'error');
       }
@@ -171,28 +168,23 @@ export default function GroupChat() {
       const agent = agents.find(a => a.name.toLowerCase() === agentNameQuery);
       
       try {
-        const res = await fetch('/api/ai/agent', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            query: queryText, 
-            agentId: agent?.id || agentNameQuery, 
-            agentName: agent?.name || mention.substring(1),
-            persona: agent ? {
-              role: agent.role,
-              personality: agent.personality,
-              expertise: agent.expertise.join(', '),
-              systemInstruction: agent.systemInstruction
-            } : undefined,
-            context: { 
-              groupName: group?.name || 'Local Community', 
-              channelName: activeChannel?.name || 'general' 
-            },
-            history: messages.slice(-5).map(m => `${m.isAI ? m.userName : 'User'}: ${m.text}`).join('\n')
-          })
-        });
-        const data = await res.json();
-        const reply = data.reply || data.response;
+        const reply = await callAiAgent(
+          queryText,
+          agent?.id || agentNameQuery,
+          agent?.name || mention.substring(1),
+          {
+            groupName: group?.name || 'Local Community',
+            channelName: activeChannel?.name || 'general'
+          },
+          messages.slice(-5).map(m => `${m.isAI ? m.userName : 'User'}: ${m.text}`).join('\n'),
+          agent ? {
+            role: agent.role,
+            personality: agent.personality,
+            expertise: agent.expertise.join(', '),
+            systemInstruction: agent.systemInstruction,
+            model: agent.model
+          } : undefined
+        );
         if (reply) await sendMessage(reply, 'ai', undefined, true, { 
           aiName: agent?.name || mention.substring(1), 
           aiAvatar: agent?.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${agentNameQuery}`,
@@ -261,40 +253,29 @@ export default function GroupChat() {
             try {
               // Add a "thinking" message or just set a local state if you want UI feedback
               // For group chat, we can just wait for the response and send it
-              const res = await fetch('/api/ai/agent', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                  query: textToChat, 
-                  agentId: agent.id, 
-                  agentName: agent.name,
-                  persona: {
-                    role: agent.role,
-                    personality: agent.personality,
-                    expertise: agent.expertise.join(', '),
-                    systemInstruction: agent.systemInstruction
-                  },
-                  context: { 
-                    groupName: group?.name || 'Unknown', 
-                    channelName: activeChannel?.name || 'general' 
-                  },
-                  history: messages.slice(-5).map(m => `${m.isAI ? m.userName : 'User'}: ${m.text}`).join('\n')
-                })
-              });
-              const data = await res.json();
-              const reply = data.reply || data.response;
+              const reply = await callAiAgent(
+                textToChat,
+                agent.id,
+                agent.name,
+                {
+                  groupName: group?.name || 'Unknown',
+                  channelName: activeChannel?.name || 'general'
+                },
+                messages.slice(-5).map(m => `${m.isAI ? m.userName : 'User'}: ${m.text}`).join('\n'),
+                {
+                  role: agent.role,
+                  personality: agent.personality,
+                  expertise: agent.expertise.join(', '),
+                  systemInstruction: agent.systemInstruction,
+                  model: agent.model
+                }
+              );
               if (reply) {
                 await sendMessage(reply, 'ai', undefined, true, { 
                   aiName: agent.name, 
                   aiAvatar: agent.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${agent.name.toLowerCase()}`,
                   aiColor: agent.accentColor || '#534AB7'
                 });
-
-                // Record interaction
-                if (user?.uid) {
-                  const recordRes = await fetch('/api/ai/agent', { method: 'GET' }); // Just a check
-                  // Well, we usually do this via hook but we can do it here if we want
-                }
               }
             } catch (err) {
               console.error("AI mention failed:", err);
@@ -451,6 +432,9 @@ export default function GroupChat() {
           </div>
           
           <div className="flex items-center gap-4">
+            <Link to={`/groups/${groupId}/details`} className="text-gray-500 hover:text-white" title="Group Details">
+              <Info className="w-5 h-5" />
+            </Link>
             <button onClick={() => setShowSearchModal(true)} className="text-gray-500 hover:text-white">
               <Search className="w-5 h-5" />
             </button>

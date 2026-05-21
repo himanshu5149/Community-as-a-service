@@ -292,7 +292,7 @@ const GroupCard: React.FC<GroupCardProps> = ({ group, index, variant = 'grid' })
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: index * 0.05 }}
-        onClick={() => navigate(`/groups/${group.id}`)}
+        onClick={() => navigate(`/groups/${group.id}/details`)}
         className="group bg-white/[0.03] rounded-3xl p-6 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all cursor-pointer flex items-center gap-6 backdrop-blur-sm"
       >
         <div 
@@ -336,7 +336,7 @@ const GroupCard: React.FC<GroupCardProps> = ({ group, index, variant = 'grid' })
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.1, ease: "easeOut" }}
-      onClick={() => navigate(`/groups/${group.id}`)}
+      onClick={() => navigate(`/groups/${group.id}/details`)}
       className="group bg-white/5 rounded-[2.5rem] md:rounded-[3rem] p-8 md:p-10 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all cursor-pointer flex flex-col h-full backdrop-blur-sm"
     >
       <div 

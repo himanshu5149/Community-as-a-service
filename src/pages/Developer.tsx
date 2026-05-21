@@ -126,7 +126,7 @@ export default function Developer() {
             Build on <span className="text-primary italic">CaaS OS.</span>
           </h1>
           <div className="flex flex-wrap gap-4 mt-8">
-            {[{ label: 'Base URL', val: 'https://ais-dev-pxhr2jcdyb6syhowqkyg2m-585642286852.asia-east1.run.app' }, { label: 'Auth', val: 'Bearer Token' }].map(item => (
+            {[{ label: 'Base URL', val: 'https://us-central1-gen-lang-client-0925216525.cloudfunctions.net' }, { label: 'Auth', val: 'Bearer Token' }].map(item => (
               <div key={item.label} className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-xs">
                 <span className="text-gray-500 font-bold">{item.label}: </span>
                 <span className="font-mono text-primary">{item.val}</span>

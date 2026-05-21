@@ -1,0 +1,22 @@
+{
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs20"
+  },
+  "hosting": {
+    "public": "dist",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      { "source": "/api/health", "function": "health" },
+      { "source": "/api/aiModerate", "function": "aiModerate" },
+      { "source": "/api/aiAgent", "function": "aiAgent" },
+      { "source": "/api/aiSummarize", "function": "aiSummarize" },
+      { "source": "/api/aiPersona", "function": "aiPersona" },
+      { "source": "/api/webhookLemonSqueezy", "function": "webhookLemonSqueezy" },
+      { "source": "**", "destination": "/index.html" }
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}

@@ -7,7 +7,7 @@
       "properties": {
         "displayName": { "type": "string" },
         "photoURL": { "type": "string" },
-        "role": { "type": "string", "enum": ["user", "admin"] },
+        "role": { "type": "string", "enum": ["user", "admin", "banned"] },
         "onboardingCompleted": { "type": "boolean" },
         "plan": { "type": "string", "enum": ["free", "pro", "elite", "founder"] },
         "subscriptionId": { "type": "string" },
@@ -100,6 +100,100 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "role", "personality", "expertise"]
+    },
+    "Space": {
+      "title": "Neural Space",
+      "description": "A collaborative hybrid room across communities.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "icon": { "type": "string" },
+        "connectedGroups": { "type": "array", "items": { "type": "string" } },
+        "members": { "type": "array", "items": { "type": "string" } },
+        "lastActivity": { "type": "string", "format": "date-time" },
+        "tasks": { "type": "array" }
+      },
+      "required": ["name", "connectedGroups"]
+    },
+    "Report": {
+      "title": "Moderation Report",
+      "description": "A community report of toxic or malicious content.",
+      "type": "object",
+      "properties": {
+        "reporterId": { "type": "string" },
+        "targetType": { "type": "string", "enum": ["message", "member", "group"] },
+        "targetId": { "type": "string" },
+        "reason": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "resolved", "dismissed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["reporterId", "targetType", "targetId", "status"]
+    },
+    "BlogPost": {
+      "title": "CaaS Journal Post",
+      "description": "An article or guide for CaaS practitioners.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "excerpt": { "type": "string" },
+        "content": { "type": "string" },
+        "category": { "type": "string" },
+        "author": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "excerpt", "content", "category", "author"]
+    },
+    "FriendRequest": {
+      "title": "Friend Request Link",
+      "description": "A pending friend request from one user to another.",
+      "type": "object",
+      "properties": {
+        "fromId": { "type": "string" },
+        "toId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["fromId", "toId", "status"]
+    },
+    "Friendship": {
+      "title": "Friendship Node",
+      "description": "An established mutual link between two users.",
+      "type": "object",
+      "properties": {
+        "users": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["users"]
+    },
+    "BridgeSuggestion": {
+      "title": "Neural Bridge Suggestion",
+      "description": "AI-generated connection suggestion between posts and groups.",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "fromGroup": { "type": "string" },
+        "suggestedGroup": { "type": "string" },
+        "reason": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["postId", "fromGroup", "suggestedGroup", "status"]
+    },
+    "Notification": {
+      "title": "Signal Notification",
+      "description": "A notification regarding activity relevant to a user.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "link": { "type": "string" },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "title", "message", "isRead"]
     }
   },
   "firestore": {
@@ -110,6 +204,10 @@
     "/users": {
       "schema": "User",
       "description": "Collection of all user profiles."
+    },
+    "/users/{userId}/notifications": {
+      "schema": "Notification",
+      "description": "User notification alerts."
     },
     "/groups": {
       "schema": "Group",
@@ -126,6 +224,30 @@
     "/groups/{groupId}/channels/{channelId}/messages": {
       "schema": "Message",
       "description": "Messages in a specific channel."
+    },
+    "/spaces": {
+      "schema": "Space",
+      "description": "Collaborative hybrid spaces across community nodes."
+    },
+    "/reports": {
+      "schema": "Report",
+      "description": "User-submitted moderation content flags."
+    },
+    "/blogPosts": {
+      "schema": "BlogPost",
+      "description": "Scientific field journals and articles."
+    },
+    "/friend_requests": {
+      "schema": "FriendRequest",
+      "description": "Link request proposals between nodes."
+    },
+    "/friendships": {
+      "schema": "Friendship",
+      "description": "Established communication links."
+    },
+    "/bridge_suggestions": {
+      "schema": "BridgeSuggestion",
+      "description": "AI-generated network suggestion bridges."
     }
   }
 }

@@ -11,11 +11,13 @@ function useRealStats() {
   useEffect(() => {
     const load = async () => {
       try {
-        const response = await fetch('/api/stats');
-        const data = await response.json();
+        const [groupsSnap, usersSnap] = await Promise.all([
+          getCountFromServer(collection(db, 'groups')),
+          getCountFromServer(collection(db, 'users'))
+        ]);
         setStats({
-          communities: (data.groups || 0).toString(),
-          members: (data.members || 0).toString(),
+          communities: groupsSnap.data().count.toString(),
+          members: usersSnap.data().count.toString(),
           uptime: '99.9%',
           latency: '12ms',
         });

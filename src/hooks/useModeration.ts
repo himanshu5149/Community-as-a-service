@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, addDoc, query, onSnapshot, serverTimestamp, updateDoc, doc, orderBy, where } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
+import { moderateMessage as runRemoteModeration } from '../services/geminiService';
 
 export interface Report {
   id: string;
@@ -107,26 +108,7 @@ export function useModeration() {
     }
 
     try {
-      // Use AbortController for timeout — prevents hanging requests
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-
-      const response = await fetch('/api/ai/moderate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: trimmed }),
-        signal: controller.signal
-      });
-
-      clearTimeout(timeout);
-
-      // If API not available (404 on Vercel) — fail open silently
-      if (!response.ok) {
-        console.warn(`Moderation API returned ${response.status} — skipping moderation`);
-        return { isSafe: true, reason: '', riskLevel: 'none', flaggedContent: null, confidence: 0 };
-      }
-
-      const result = await response.json();
+      const result = await runRemoteModeration(trimmed);
       const finalResult = {
         isSafe: result.isSafe ?? true,
         reason: result.reason || '',
@@ -138,10 +120,7 @@ export function useModeration() {
       moderationCache.set(trimmed, { result: finalResult, time: Date.now() });
       return finalResult;
     } catch (error: any) {
-      // AbortError = timeout, TypeError = network down — both safe to ignore
-      if (error.name !== 'AbortError') {
-        console.warn('Moderation unavailable — allowing message:', error.message);
-      }
+      console.warn('Moderation unavailable — allowing message:', error.message);
       return { isSafe: true, reason: '', riskLevel: 'none', flaggedContent: null, confidence: 0 };
     }
   };

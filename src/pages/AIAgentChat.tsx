@@ -7,6 +7,7 @@ import { useGroups } from '../hooks/useGroups';
 import { useAuth } from '../hooks/useAuth';
 import { useModeration } from '../hooks/useModeration';
 import { cn } from '../lib/utils';
+import { callAiAgent } from '../services/geminiService';
 
 interface Message {
   id: string;
@@ -103,37 +104,32 @@ export default function AIAgentChat() {
     setIsTyping(true);
 
     try {
-      const response = await fetch('/api/ai/agent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: textToChat,
-          agentId: agent?.id,
-          agentName: agent?.name,
-          context: {
-            groupName: group?.name || (agent?.groupId === 'global' ? 'Global Cyber-Nexus' : 'Local Node'),
-            channelName: "Neural Link Integration"
-          },
-          persona: {
-            role: agent?.role,
-            personality: agent?.personality,
-            expertise: agent?.expertise.join(', '),
-            systemInstruction: agent?.systemInstruction
-          },
-          history: messages.slice(-8).map(m => `${m.isAI ? agent?.name : 'User'}: ${m.text}`).join('\n')
-        })
-      });
-
-      const data = await response.json();
+      const reply = await callAiAgent(
+        textToChat,
+        agent?.id || agentId || 'assistant',
+        agent?.name || 'Assistant',
+        {
+          groupName: group?.name || (agent?.groupId === 'global' ? 'Global Cyber-Nexus' : 'Local Node'),
+          channelName: "Neural Link Integration"
+        },
+        messages.slice(-8).map(m => `${m.isAI ? agent?.name : 'User'}: ${m.text}`).join('\n'),
+        {
+          role: agent?.role,
+          personality: agent?.personality,
+          expertise: agent?.expertise.join(', '),
+          systemInstruction: agent?.systemInstruction,
+          model: agent?.model
+        }
+      );
       
       // Record interaction for stats
       if (agentId && user?.uid) {
-        recordInteraction(agentId, user.uid, textToChat, data.reply || data.response || "", 0);
+        recordInteraction(agentId, user.uid, textToChat, reply, 0);
       }
 
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),
-        text: data.reply || data.response || "Neural feedback looped. Try again.",
+        text: reply || "Neural feedback looped. Try again.",
         isAI: true,
         timestamp: Date.now()
       };
