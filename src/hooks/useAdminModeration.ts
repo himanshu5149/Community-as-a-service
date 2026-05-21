@@ -49,9 +49,7 @@ export function useAdminModeration(isAdmin: boolean) {
       unsubReports = onSnapshot(reportsQuery, (snapshot) => {
         setAllReports(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Report[]);
       }, (err) => {
-        if (err.code !== 'permission-denied') {
-          handleFirestoreError(err, OperationType.LIST, 'reports');
-        }
+        handleFirestoreError(err, OperationType.LIST, 'reports');
       });
 
       // 2. Fetch all flagged messages across all groups/channels
@@ -81,6 +79,7 @@ export function useAdminModeration(isAdmin: boolean) {
           setLoading(false);
         }, (err) => {
           console.warn("Flagged messages fetch failed (likely missing index):", err);
+          handleFirestoreError(err, OperationType.LIST, 'messages');
           setLoading(false);
         });
       } catch (e) {

@@ -40,6 +40,8 @@ export function useGroups() {
           ...doc.data()
         })) as Group[];
         setGroups(data);
+      }, (err) => {
+        handleFirestoreError(err, OperationType.LIST, allPath);
       });
 
       // 2. Fetch Joined Groups (based on membership)
@@ -65,12 +67,16 @@ export function useGroups() {
               })) as Group[];
               setJoinedGroups(joinedData);
               setLoading(false);
+            }, (err) => {
+              handleFirestoreError(err, OperationType.LIST, 'groups');
             });
           } else {
             setJoinedGroups([]);
             setLoading(false);
           }
         }
+      }, (err) => {
+        handleFirestoreError(err, OperationType.GET, `users/${userId}`);
       });
     };
 

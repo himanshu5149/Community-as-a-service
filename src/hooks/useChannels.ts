@@ -38,9 +38,7 @@ export function useChannels(groupId: string) {
         setChannels(data);
         setLoading(false);
       }, (err: any) => {
-        if (err.code !== 'permission-denied') {
-          handleFirestoreError(err, OperationType.LIST, path);
-        }
+        handleFirestoreError(err, OperationType.LIST, path);
         setLoading(false);
       });
     };

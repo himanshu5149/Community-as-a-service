@@ -34,9 +34,7 @@ export function useConversations() {
         setConversations(data);
         setLoading(false);
       }, (err) => {
-        if (err.code !== 'permission-denied') {
-          handleFirestoreError(err, OperationType.LIST, path);
-        }
+        handleFirestoreError(err, OperationType.LIST, path);
         setLoading(false);
       });
     };

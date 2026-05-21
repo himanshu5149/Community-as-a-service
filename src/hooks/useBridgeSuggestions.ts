@@ -42,9 +42,7 @@ export function useBridgeSuggestions(postId?: string) {
         setSuggestions(data);
         setLoading(false);
       }, (error) => {
-        if (error.code !== 'permission-denied') {
-          handleFirestoreError(error, OperationType.GET, 'bridge_suggestions');
-        }
+        handleFirestoreError(error, OperationType.GET, 'bridge_suggestions');
         setLoading(false);
       });
     };

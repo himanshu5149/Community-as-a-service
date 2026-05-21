@@ -55,9 +55,7 @@ export function useSocial() {
       unsubRequests = onSnapshot(qRequests, (snapshot) => {
         setRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FriendRequest)));
       }, (err) => {
-        if (err.code !== 'permission-denied') {
-          handleFirestoreError(err, OperationType.LIST, 'friend_requests');
-        }
+        handleFirestoreError(err, OperationType.LIST, 'friend_requests');
       });
 
       unsubFriends = onSnapshot(qFriends, (snapshot) => {
@@ -68,9 +66,7 @@ export function useSocial() {
         setFriends(friendIds);
         setLoading(false);
       }, (err) => {
-        if (err.code !== 'permission-denied') {
-          handleFirestoreError(err, OperationType.LIST, 'friendships');
-        }
+        handleFirestoreError(err, OperationType.LIST, 'friendships');
         setLoading(false);
       });
     };

@@ -64,9 +64,7 @@ export function useDirectChat(convId: string) {
         setLoading(false);
       }, (err) => {
         setLoading(false);
-        if (err.code !== 'permission-denied') {
-          handleFirestoreError(err, OperationType.LIST, path);
-        }
+        handleFirestoreError(err, OperationType.LIST, path);
       });
     };
 

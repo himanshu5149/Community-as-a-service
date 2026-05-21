@@ -30,9 +30,7 @@ export function useNotifications() {
         setNotifications(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Notification[]);
         setLoading(false);
       }, (err) => {
-        if (err.code !== 'permission-denied') {
-          handleFirestoreError(err, OperationType.GET, 'notifications');
-        }
+        handleFirestoreError(err, OperationType.GET, 'notifications');
         setLoading(false);
       });
     };

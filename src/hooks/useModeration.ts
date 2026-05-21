@@ -38,9 +38,7 @@ export function useModeration() {
         setReports(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Report[]);
         setLoading(false);
       }, (err) => {
-        if (err.code !== 'permission-denied') {
-          handleFirestoreError(err, OperationType.LIST, 'reports');
-        }
+        handleFirestoreError(err, OperationType.LIST, 'reports');
         setLoading(false);
       });
     };

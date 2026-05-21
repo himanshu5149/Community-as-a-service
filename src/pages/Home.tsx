@@ -4,28 +4,45 @@ import { Link } from 'react-router-dom';
 import { BrandLogo } from '../components/BrandLogo';
 import { useEffect, useState } from 'react';
 import { collection, getCountFromServer } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, auth } from '../lib/firebase';
 
 function useRealStats() {
-  const [stats, setStats] = useState({ communities: '...', members: '...', uptime: '99.9%', latency: '12ms' });
+  const [stats, setStats] = useState({ communities: 'Live', members: 'Growing', uptime: '99.9%', latency: '12ms' });
   useEffect(() => {
+    let active = true;
     const load = async () => {
       try {
         const [groupsSnap, usersSnap] = await Promise.all([
           getCountFromServer(collection(db, 'groups')),
           getCountFromServer(collection(db, 'users'))
         ]);
-        setStats({
-          communities: groupsSnap.data().count.toString(),
-          members: usersSnap.data().count.toString(),
-          uptime: '99.9%',
-          latency: '12ms',
-        });
+        if (active) {
+          setStats({
+            communities: groupsSnap.data().count.toString(),
+            members: usersSnap.data().count.toString(),
+            uptime: '99.9%',
+            latency: '12ms',
+          });
+        }
       } catch {
-        setStats({ communities: 'Live', members: 'Growing', uptime: '99.9%', latency: '12ms' });
+        if (active) {
+          setStats({ communities: 'Live', members: 'Growing', uptime: '99.9%', latency: '12ms' });
+        }
       }
     };
-    load();
+
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        load();
+      } else {
+        setStats({ communities: 'Live', members: 'Growing', uptime: '99.9%', latency: '12ms' });
+      }
+    });
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
   return stats;
 }

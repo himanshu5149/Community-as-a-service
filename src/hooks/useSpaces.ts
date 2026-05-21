@@ -28,9 +28,7 @@ export function useSpaces() {
         setSpaces(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Space[]);
         setLoading(false);
       }, (err) => {
-         if (err.code !== 'permission-denied') {
-            handleFirestoreError(err, OperationType.LIST, path);
-         }
+         handleFirestoreError(err, OperationType.LIST, path);
          setLoading(false);
       });
     };

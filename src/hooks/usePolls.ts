@@ -39,9 +39,7 @@ export function usePolls(groupId: string) {
         setPolls(data);
         setLoading(false);
       }, (err) => {
-        if (err.code !== 'permission-denied') {
-          handleFirestoreError(err, OperationType.LIST, path);
-        }
+        handleFirestoreError(err, OperationType.LIST, path);
         setLoading(false);
       });
     };

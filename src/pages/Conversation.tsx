@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useDirectChat } from '../hooks/useDirectChat';
 import { useToast, Toast } from '../components/Toast';
@@ -59,6 +59,8 @@ export default function Conversation() {
         showToast("Signal lost. Channel terminated.", "error");
         navigate('/messages');
       }
+    }, (err) => {
+      handleFirestoreError(err, OperationType.GET, `conversations/${convId}`);
     });
 
     return () => unsubConv();

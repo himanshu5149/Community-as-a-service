@@ -39,9 +39,7 @@ export function useEvents(groupId?: string) {
         setEvents(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Event[]);
         setLoading(false);
       }, (err) => {
-        if (err.code !== 'permission-denied') {
-          handleFirestoreError(err, OperationType.LIST, path);
-        }
+        handleFirestoreError(err, OperationType.LIST, path);
         setLoading(false);
       });
     };

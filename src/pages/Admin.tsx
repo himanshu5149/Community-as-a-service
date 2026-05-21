@@ -30,12 +30,21 @@ import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, addDoc, serverTimestamp, query, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
 
 import { useAdminModeration, FlaggedMessage } from '../hooks/useAdminModeration';
+import { useAuth } from '../hooks/useAuth';
 
 export default function Admin() {
-  const isAdminUser = auth.currentUser?.email === 'royalisdevil@gmail.com';
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = React.useState<'dashboard'|'nodes'|'moderation'|'members'>('dashboard');
 
-  if (!isAdminUser) {
+  if (authLoading) {
+    return (
+      <div className="h-screen bg-[#0a0a0a] flex items-center justify-center text-white px-10">
+        <Loader2 className="w-12 h-12 text-primary animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
     return (
       <div className="h-screen bg-[#0a0a0a] flex items-center justify-center text-white px-10">
          <div className="text-center">

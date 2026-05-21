@@ -38,9 +38,7 @@ export function useGamification() {
         setLoading(false);
       }, (err) => {
         setLoading(false);
-        if (err.code !== 'permission-denied') {
-          handleFirestoreError(err, OperationType.GET, `users/${uid}/points/stats`);
-        }
+        handleFirestoreError(err, OperationType.GET, `users/${uid}/points/stats`);
       });
     };
 

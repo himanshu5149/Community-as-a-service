@@ -99,12 +99,10 @@ export function useChat(groupId: string, channelId?: string) {
         setLoading(false);
       }, (err: any) => {
         setLoading(false);
-        if (err.code !== 'permission-denied') {
-          try {
-            handleFirestoreError(err, OperationType.LIST, path);
-          } catch (e: any) {
-            setError(e);
-          }
+        try {
+          handleFirestoreError(err, OperationType.LIST, path);
+        } catch (e: any) {
+          setError(e);
         }
       });
 

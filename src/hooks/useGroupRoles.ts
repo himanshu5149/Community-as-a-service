@@ -33,9 +33,7 @@ export function useGroupRoles(groupId: string) {
         setLoading(false);
       }, (err) => {
         setLoading(false);
-        if (err.code !== 'permission-denied') {
-          try { handleFirestoreError(err, OperationType.GET, path); } catch (e: any) { setError(e); }
-        }
+        try { handleFirestoreError(err, OperationType.GET, path); } catch (e: any) { setError(e); }
       });
     };
 

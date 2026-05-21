@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { db, auth } from '../lib/firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { doc, onSnapshot, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { useSpaces, Space } from '../hooks/useSpaces';
 import { useGroups } from '../hooks/useGroups';
@@ -44,6 +44,8 @@ export default function SpaceRoom() {
         setSpace({ id: d.id, ...data } as Space);
         setTasks((data.tasks || []) as Task[]);
       }
+    }, (err) => {
+      handleFirestoreError(err, OperationType.GET, `spaces/${spaceId}`);
     });
     return unsubscribe;
   }, [spaceId]);

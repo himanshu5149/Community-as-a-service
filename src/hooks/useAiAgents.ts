@@ -50,9 +50,7 @@ export function useAiAgents(groupId?: string) {
         setAgents(agentsData);
         setLoading(false);
       }, (error) => {
-        if (error.code !== 'permission-denied') {
-          handleFirestoreError(error, OperationType.GET, 'ai_agents');
-        }
+        handleFirestoreError(error, OperationType.GET, 'ai_agents');
         setLoading(false);
       });
     };
