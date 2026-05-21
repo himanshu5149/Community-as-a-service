@@ -1,5 +1,11 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/" }
+    { "source": "/api/aiModerate", "destination": "/api/ai/moderate" },
+    { "source": "/api/aiSummarize", "destination": "/api/ai/summarize" },
+    { "source": "/api/aiAgent", "destination": "/api/ai/agent" },
+    { "source": "/api/aiPersona", "destination": "/api/ai/persona" },
+    { "source": "/api/health", "destination": "/api/health" },
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
