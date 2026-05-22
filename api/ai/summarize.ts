@@ -20,7 +20,7 @@ ${conversation}`;
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'GEMINI_API_KEY not set' });
+    return res.json({ summary: 'Summary is currently unavailable. Please configure GEMINI_API_KEY inside your Vercel Project Settings.' });
   }
 
   try {

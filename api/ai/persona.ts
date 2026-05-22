@@ -26,7 +26,9 @@ Respond as ${persona.name} — stay in character. Warm and helpful. Max 3 senten
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'GEMINI_API_KEY not set' });
+    return res.json({
+      response: `${persona.name} is currently offline. Please add the "GEMINI_API_KEY" env variable inside Vercel's Environment Variables settings to complete activation.`
+    });
   }
 
   try {

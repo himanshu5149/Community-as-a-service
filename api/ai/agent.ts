@@ -43,7 +43,10 @@ Respond as ${agentName} — stay strictly in character. Max 3 sentences. No mark
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'GEMINI_API_KEY not set' });
+    return res.json({
+      response: `${agentName} is currently offline. To activate this agent on Vercel, please navigate to your Vercel Project Settings > Environment Variables and add your "GEMINI_API_KEY".`,
+      reply: `${agentName} is currently offline.`
+    });
   }
 
   try {
@@ -56,17 +59,55 @@ Respond as ${agentName} — stay strictly in character. Max 3 sentences. No mark
       }
     });
 
-    const chosenModel = req.body.model || req.body.persona?.model || 'gemini-3.5-flash';
-    const result = await ai.models.generateContent({
-      model: chosenModel,
-      contents: prompt
-    });
+    const requestedModel = req.body.model || req.body.persona?.model || 'gemini-3.5-flash';
+    const forbiddenModels = [
+      'gemini-1.5-flash',
+      'gemini-1.5-pro',
+      'gemini-pro',
+      'gemini-2.0-flash',
+      'gemini-2.0-pro',
+      'gemini-2.0-flash-thinking'
+    ];
 
-    const response = result.text || '';
+    const modelsToTry = [
+      requestedModel,
+      'gemini-3.5-flash',
+      'gemini-2.5-flash'
+    ].filter(m => !forbiddenModels.includes(m));
+
+    if (modelsToTry.length === 0 || forbiddenModels.includes(requestedModel)) {
+      modelsToTry.unshift('gemini-3.5-flash');
+    }
+
+    const uniqueModels = Array.from(new Set(modelsToTry));
+    let lastError = null;
+    let response = '';
+
+    for (const modelToTry of uniqueModels) {
+      try {
+        const result = await ai.models.generateContent({
+          model: modelToTry,
+          contents: prompt
+        });
+        response = result.text || '';
+        break;
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`Model ${modelToTry} failed in Vercel handler, checking next fallback...`);
+        if (err.message?.includes('API_KEY_INVALID') || err.message?.includes('API key not valid')) {
+          throw err;
+        }
+      }
+    }
+
+    if (!response && lastError) {
+      throw lastError;
+    }
+
     res.json({ response, reply: response });
   } catch (e: any) {
     console.error('Agent error:', e.message);
-    if (e.message?.includes('API_KEY_INVALID')) {
+    if (e.message?.includes('API_KEY_INVALID') || e.message?.includes('API key not valid')) {
       return res.status(500).json({ error: 'Invalid Gemini API key', response: `${agentName} is offline — API key issue.` });
     }
     res.json({ response: `${agentName} is temporarily offline. Please try again shortly.`, reply: `${agentName} is temporarily offline.` });

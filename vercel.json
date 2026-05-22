@@ -1,10 +1,10 @@
 {
   "functions": {
-    "api/aiAgent.ts":    { "maxDuration": 30 },
-    "api/aiModerate.ts": { "maxDuration": 30 },
-    "api/aiSummarize.ts":{ "maxDuration": 30 },
-    "api/aiPersona.ts":  { "maxDuration": 30 },
-    "api/health.ts":     { "maxDuration": 10 }
+    "api/ai/agent.ts":     { "maxDuration": 30 },
+    "api/ai/moderate.ts":  { "maxDuration": 30 },
+    "api/ai/summarize.ts": { "maxDuration": 30 },
+    "api/ai/persona.ts":   { "maxDuration": 30 },
+    "api/health.ts":       { "maxDuration": 10 }
   },
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }
