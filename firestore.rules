@@ -33,6 +33,18 @@ service cloud.firestore {
     }
 
     // --- Entity Validations ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['displayName', 'photoURL', 'role']) &&
+             data.displayName is string && data.displayName.size() <= 128 &&
+             data.photoURL is string && data.photoURL.size() <= 500 &&
+             data.role in ['user', 'admin', 'banned'] &&
+             (!('onboardingCompleted' in data) || (data.onboardingCompleted is bool)) &&
+             (!('plan' in data) || (data.plan in ['free', 'pro', 'elite', 'founder'])) &&
+             (!('subscriptionId' in data) || (data.subscriptionId is string)) &&
+             (!('email' in data) || (data.email is string)) &&
+             (!('createdAt' in data) || (data.createdAt is string || data.createdAt is timestamp));
+    }
+
     function isValidAgent(data) {
       return data.keys().hasAll(['name', 'role', 'personality', 'expertise', 'creatorId', 'groupId', 'isCrossGroup', 'totalResponses']) &&
              data.name is string && data.name.size() > 0 && data.name.size() <= 64 &&
@@ -47,9 +59,21 @@ service cloud.firestore {
 
     function isValidMessage(data) {
       return data.keys().hasAll(['userId', 'text', 'type', 'createdAt']) &&
-             data.userId == request.auth.uid &&
+             (data.userId == request.auth.uid || data.userId == 'system_ai') &&
              data.text is string && data.text.size() <= 5000 &&
-             data.type in ['text', 'image', 'ai'];
+             data.type in ['text', 'image', 'video', 'audio', 'ai'] &&
+             data.createdAt == request.time &&
+             (!('userName' in data) || (data.userName is string && data.userName.size() <= 128)) &&
+             (!('userAvatar' in data) || (data.userAvatar is string && data.userAvatar.size() <= 500)) &&
+             (!('fileUrl' in data) || (data.fileUrl is string && data.fileUrl.size() <= 500)) &&
+             (!('reactions' in data) || (data.reactions is map)) &&
+             (!('isAI' in data) || (data.isAI is bool)) &&
+             (!('aiRole' in data) || (data.aiRole is string && data.aiRole.size() <= 128)) &&
+             (!('aiColor' in data) || (data.aiColor is string && data.aiColor.size() <= 64)) &&
+             (!('isEdited' in data) || (data.isEdited is bool)) &&
+             (!('isPinned' in data) || (data.isPinned is bool)) &&
+             (!('groupId' in data) || (data.groupId is string && data.groupId.size() <= 128)) &&
+             (!('replyTo' in data) || (data.replyTo is map));
     }
 
     function isValidPoints(data) {
@@ -104,13 +128,52 @@ service cloud.firestore {
              data.suggestedGroup is string;
     }
 
+    function isValidGroup(data) {
+      return data.keys().hasAll(['name', 'ownerId', 'createdAt']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 128 &&
+             data.ownerId == request.auth.uid &&
+             data.createdAt == request.time &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 2000)) &&
+             (!('category' in data) || (data.category is string && data.category.size() <= 128)) &&
+             (!('type' in data) || (data.type in ['open', 'invite'])) &&
+             (!('memberCount' in data) || (data.memberCount is int)) &&
+             (!('isPublic' in data) || (data.isPublic is bool)) &&
+             (!('accentColor' in data) || (data.accentColor is string && data.accentColor.size() <= 64)) &&
+             (!('icon' in data) || (data.icon is string && data.icon.size() <= 128)) &&
+             (!('slug' in data) || (data.slug is string && data.slug.size() <= 256));
+    }
+
+    function isValidChannel(data) {
+      return data.keys().hasAll(['name', 'type', 'createdAt', 'createdBy']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 64 &&
+             data.type is string && data.type.size() <= 64 &&
+             data.createdBy == request.auth.uid &&
+             data.createdAt == request.time &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 500));
+    }
+
+    function isValidMember(data) {
+      return data.keys().hasAll(['uid', 'role', 'joinedAt']) &&
+             data.uid == request.auth.uid &&
+             data.role in ['admin', 'member', 'moderator'] &&
+             data.joinedAt == request.time &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 128)) &&
+             (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 500)) &&
+             (!('groupId' in data) || (data.groupId is string && data.groupId.size() <= 128));
+    }
+
     // --- Collections ---
 
     // 1. Users Profile Collection
     match /users/{userId} {
       allow get: if isSignedIn();
-      allow list: if isSignedIn(); // Crucial for aggregation count queries on Dashboard, Analytics, and Home Stats
-      allow write: if isOwner(userId);
+      allow list: if isSignedIn(); // Crcial for aggregation count queries on Dashboard, Analytics, and Home Stats
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().role == 'user'; // Forbid self-assigning admin role
+      allow update: if isOwner(userId) && isValidUser(incoming()) && (
+        incoming().role == existing().role &&
+        (!('plan' in incoming()) || !('plan' in existing()) || incoming().plan == existing().plan)
+      );
+      allow delete: if isOwner(userId) || isAdmin();
 
       // Subcollection: stats/points
       match /points/stats {
@@ -128,12 +191,7 @@ service cloud.firestore {
 
     // 2. AI Agents Collection
     match /ai_agents/{agentId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn() && (
-        resource.data.isCrossGroup == true ||
-        resource.data.creatorId == request.auth.uid ||
-        (resource.data.groupId != 'global' && isMember(resource.data.groupId))
-      );
+      allow read: if isSignedIn();
       allow create: if isSignedIn() 
         && isValidAgent(incoming()) 
         && incoming().creatorId == request.auth.uid
@@ -156,22 +214,54 @@ service cloud.firestore {
     match /groups/{groupId} {
       allow get: if isValidId(groupId);
       allow list: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(groupId);
+      allow create: if isSignedIn() && isValidId(groupId) && isValidGroup(incoming());
       allow update: if isGroupAdmin(groupId);
       allow delete: if isGroupAdmin(groupId);
 
       match /members/{memberId} {
         allow get: if isSignedIn();
         allow list: if isSignedIn();
-        allow create: if isSignedIn() && memberId == request.auth.uid;
+        allow create: if isSignedIn() && memberId == request.auth.uid && isValidMember(incoming()) && (
+          // Only the owner of the group can be assigned 'admin' or 'moderator' role upon creation
+          ((incoming().role == 'admin' || incoming().role == 'moderator') && get(/databases/$(database)/documents/groups/$(groupId)).data.ownerId == request.auth.uid) ||
+          incoming().role == 'member'
+        );
         allow update: if isGroupAdmin(groupId) || isOwner(memberId);
         allow delete: if isGroupAdmin(groupId) || isOwner(memberId);
       }
 
+      match /channels/{channelId} {
+        allow get, list: if isSignedIn();
+        allow create: if isGroupAdmin(groupId) && isValidChannel(incoming());
+        allow update: if isGroupAdmin(groupId) && isValidChannel(incoming());
+        allow delete: if isGroupAdmin(groupId);
+
+        match /messages/{messageId} {
+          allow read, list: if isMember(groupId);
+          allow create: if isMember(groupId) && isValidMessage(incoming());
+          allow update: if isMember(groupId) && (
+            // Action: Toggle reactions
+            (incoming().diff(existing()).affectedKeys().hasOnly(['reactions'])) ||
+            // Action: Edit message text (sender only)
+            (incoming().diff(existing()).affectedKeys().hasOnly(['text', 'isEdited', 'updatedAt']) && (existing().userId == request.auth.uid) && incoming().updatedAt == request.time) ||
+            // Action: Toggle pin status
+            (incoming().diff(existing()).affectedKeys().hasOnly(['isPinned']))
+          );
+          allow delete: if isOwner(resource.data.userId) || isGroupAdmin(groupId);
+        }
+      }
+
       match /messages/{messageId} {
-        allow read: if isMember(groupId);
+        allow read, list: if isMember(groupId);
         allow create: if isMember(groupId) && isValidMessage(incoming());
-        allow update: if false; // Messages are immutable for now
+        allow update: if isMember(groupId) && (
+          // Action: Toggle reactions
+          (incoming().diff(existing()).affectedKeys().hasOnly(['reactions'])) ||
+          // Action: Edit message text (sender only)
+          (incoming().diff(existing()).affectedKeys().hasOnly(['text', 'isEdited', 'updatedAt']) && (existing().userId == request.auth.uid) && incoming().updatedAt == request.time) ||
+          // Action: Toggle pin status
+          (incoming().diff(existing()).affectedKeys().hasOnly(['isPinned']))
+        );
         allow delete: if isOwner(resource.data.userId) || isGroupAdmin(groupId);
       }
     }

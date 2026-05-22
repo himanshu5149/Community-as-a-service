@@ -1,6 +1,10 @@
 import { AIPersona } from "../constants/aiPersonas";
 
-const BASE_URL = import.meta.env.VITE_API_URL || "/api";
+let BASE_URL = "/api";
+const envUrl = import.meta.env.VITE_API_URL;
+if (envUrl && !envUrl.includes("<your-project-id>") && !envUrl.includes("<") && !envUrl.includes(">")) {
+  BASE_URL = envUrl;
+}
 
 async function callFunction(endpoint: string, body: object): Promise<any> {
   const res = await fetch(`${BASE_URL}/${endpoint}`, {
