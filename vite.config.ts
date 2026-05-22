@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => {
       alias: { '@': path.resolve(__dirname, '.') },
     },
     server: {
-      hmr: process.env.DISABLE_HMR !== 'true',
+      hmr: false,
     },
     build: {
       chunkSizeWarningLimit: 600,
@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => {
             vendor:   ['react', 'react-dom', 'react-router-dom'],
             firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/database'],
             motion:   ['motion'],
-            ui:       ['lucide-react', 'recharts', 'emoji-picker-react'],
+            ui:       ['lucide-react'],
           }
         }
       }
