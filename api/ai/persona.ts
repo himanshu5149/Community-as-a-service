@@ -41,12 +41,7 @@ Respond as ${persona.name} — stay in character. Warm and helpful. Max 3 senten
 
     const result = await ai.models.generateContent({
       model: 'gemini-3.5-flash',
-      contents: prompt,
-      config: {
-        thinkingConfig: {
-          thinkingLevel: 'LOW' as any
-        }
-      }
+      contents: prompt
     });
 
     res.json({ response: result.text || 'No response.' });

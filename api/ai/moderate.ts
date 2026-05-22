@@ -38,10 +38,7 @@ Return ONLY JSON: { "isSafe": boolean, "reason": "string", "riskLevel": "none"|"
       model: 'gemini-3.5-flash',
       contents: prompt,
       config: {
-        responseMimeType: 'application/json',
-        thinkingConfig: {
-          thinkingLevel: 'MINIMAL' as any
-        }
+        responseMimeType: 'application/json'
       }
     });
 

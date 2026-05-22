@@ -62,10 +62,7 @@ Return ONLY JSON: { "isSafe": boolean, "reason": "string", "riskLevel": "none"|"
         model: "gemini-3.5-flash",
         contents: prompt,
         config: {
-          responseMimeType: "application/json",
-          thinkingConfig: {
-            thinkingLevel: "MINIMAL" as any
-          }
+          responseMimeType: "application/json"
         }
       });
       
@@ -92,12 +89,7 @@ ${conversation}`;
       const ai = getAi();
       const response = await ai.models.generateContent({
         model: "gemini-3.5-flash",
-        contents: prompt,
-        config: {
-          thinkingConfig: {
-            thinkingLevel: "LOW" as any
-          }
-        }
+        contents: prompt
       });
       
       res.json({ summary: response.text || "Summary generation failure." });
@@ -160,12 +152,7 @@ Respond as ${agentName} — stay strictly in character. Max 3 sentences. No mark
       const ai = getAi();
       const response = await ai.models.generateContent({
         model: chosenModel,
-        contents: prompt,
-        config: {
-          thinkingConfig: {
-            thinkingLevel: "LOW" as any
-          }
-        }
+        contents: prompt
       });
       
       const responseText = response.text || `${agentName} did not respond.`;
@@ -202,12 +189,7 @@ Respond as ${persona.name}. Stay in character. Warm and helpful. Max 3 sentences
       const ai = getAi();
       const response = await ai.models.generateContent({
         model: "gemini-3.5-flash",
-        contents: prompt,
-        config: {
-          thinkingConfig: {
-            thinkingLevel: "LOW" as any
-          }
-        }
+        contents: prompt
       });
       
       res.json({ response: response.text || "No response." });

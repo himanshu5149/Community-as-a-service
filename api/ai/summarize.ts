@@ -35,12 +35,7 @@ ${conversation}`;
 
     const result = await ai.models.generateContent({
       model: 'gemini-3.5-flash',
-      contents: prompt,
-      config: {
-        thinkingConfig: {
-          thinkingLevel: 'LOW' as any
-        }
-      }
+      contents: prompt
     });
 
     res.json({ summary: result.text || 'Summary generation failure.' });

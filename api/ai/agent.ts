@@ -59,12 +59,7 @@ Respond as ${agentName} — stay strictly in character. Max 3 sentences. No mark
     const chosenModel = req.body.model || req.body.persona?.model || 'gemini-3.5-flash';
     const result = await ai.models.generateContent({
       model: chosenModel,
-      contents: prompt,
-      config: {
-        thinkingConfig: {
-          thinkingLevel: 'LOW' as any
-        }
-      }
+      contents: prompt
     });
 
     const response = result.text || '';
