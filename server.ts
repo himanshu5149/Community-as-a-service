@@ -34,6 +34,38 @@ async function startServer() {
     return aiClient;
   }
 
+  // Model generator with automatic fallback checking
+  async function generateContentWithFallback(options: { model: string; contents: any; config?: any }) {
+    const ai = getAi();
+    const modelsToTry = [
+      options.model,
+      "gemini-2.0-flash", // Proactively prioritize stable releases
+      "gemini-3.5-flash",
+      "gemini-2.5-flash",
+      "gemini-1.5-flash"
+    ].filter(Boolean) as string[];
+
+    const uniqueModels = Array.from(new Set(modelsToTry));
+    let lastError = null;
+
+    for (const modelToTry of uniqueModels) {
+      try {
+        const response = await ai.models.generateContent({
+          ...options,
+          model: modelToTry
+        });
+        return response;
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`Model ${modelToTry} failed in fallback chain, checking next fallback...`);
+        if (err.message?.includes("API_KEY_INVALID") || err.message?.includes("API key not valid")) {
+          throw err;
+        }
+      }
+    }
+    throw lastError || new Error("All fallback models failed.");
+  }
+
   // --- API Routes ---
   app.get("/api/health", (req, res) => {
     res.json({
@@ -43,7 +75,7 @@ async function startServer() {
     });
   });
 
-  app.post("/api/aiModerate", async (req, res) => {
+  app.post(["/api/aiModerate", "/api/ai/moderate"], async (req, res) => {
     try {
       const { text } = req.body;
       if (!text) {
@@ -57,8 +89,7 @@ async function startServer() {
 Message: "${text}"
 Return ONLY JSON: { "isSafe": boolean, "reason": "string", "riskLevel": "none"|"low"|"medium"|"high" }`;
 
-      const ai = getAi();
-      const response = await ai.models.generateContent({
+      const response = await generateContentWithFallback({
         model: "gemini-3.5-flash",
         contents: prompt,
         config: {
@@ -75,7 +106,7 @@ Return ONLY JSON: { "isSafe": boolean, "reason": "string", "riskLevel": "none"|"
     }
   });
 
-  app.post("/api/aiSummarize", async (req, res) => {
+  app.post(["/api/aiSummarize", "/api/ai/summarize"], async (req, res) => {
     try {
       const { messages } = req.body;
       if (!messages || !Array.isArray(messages)) {
@@ -86,8 +117,7 @@ Return ONLY JSON: { "isSafe": boolean, "reason": "string", "riskLevel": "none"|"
 Conversation:
 ${conversation}`;
 
-      const ai = getAi();
-      const response = await ai.models.generateContent({
+      const response = await generateContentWithFallback({
         model: "gemini-3.5-flash",
         contents: prompt
       });
@@ -99,7 +129,7 @@ ${conversation}`;
     }
   });
 
-  app.post("/api/aiAgent", async (req, res) => {
+  app.post(["/api/aiAgent", "/api/ai/agent"], async (req, res) => {
     try {
       const { query, message, agentId, agentName: providedName, context, persona, history, systemContext } = req.body;
       const userInput = query || message;
@@ -149,8 +179,7 @@ User message: ${userInput}
 Respond as ${agentName} — stay strictly in character. Max 3 sentences. No markdown headers. Be concise but insightful.`;
 
       const chosenModel = req.body.model || req.body.persona?.model || "gemini-3.5-flash";
-      const ai = getAi();
-      const response = await ai.models.generateContent({
+      const response = await generateContentWithFallback({
         model: chosenModel,
         contents: prompt
       });
@@ -167,7 +196,7 @@ Respond as ${agentName} — stay strictly in character. Max 3 sentences. No mark
     }
   });
 
-  app.post("/api/aiPersona", async (req, res) => {
+  app.post(["/api/aiPersona", "/api/ai/persona"], async (req, res) => {
     try {
       const { query, persona, context } = req.body;
       if (!query || !persona || !context) {
@@ -186,8 +215,7 @@ ${history}
 New message: ${query}
 Respond as ${persona.name}. Stay in character. Warm and helpful. Max 3 sentences.`;
 
-      const ai = getAi();
-      const response = await ai.models.generateContent({
+      const response = await generateContentWithFallback({
         model: "gemini-3.5-flash",
         contents: prompt
       });

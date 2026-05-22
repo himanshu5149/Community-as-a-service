@@ -64,7 +64,9 @@ export function useGroupRoles(groupId: string) {
       const isFirstMember = snapshot.data().count === 0;
 
       await setDoc(doc(db, path), {
+        uid: auth.currentUser.uid,
         userId: auth.currentUser.uid,
+        displayName: userName,
         userName,
         groupId,
         role: isFirstMember ? 'admin' : 'member',

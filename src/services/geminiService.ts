@@ -25,7 +25,7 @@ export interface ModerationResult {
 
 export async function moderateMessage(text: string): Promise<ModerationResult> {
   try {
-    return await callFunction("aiModerate", { text });
+    return await callFunction("ai/moderate", { text });
   } catch (e) {
     console.error("Moderation error:", e);
     return { isSafe: true };
@@ -34,7 +34,7 @@ export async function moderateMessage(text: string): Promise<ModerationResult> {
 
 export async function summarizeChat(messages: { user: string; text: string }[]): Promise<string> {
   try {
-    const data = await callFunction("aiSummarize", { messages });
+    const data = await callFunction("ai/summarize", { messages });
     return data.summary;
   } catch (e) {
     console.error("Summarize error:", e);
@@ -48,7 +48,7 @@ export async function askPersona(
   context: { groupName: string; recentMessages: { user: string; text: string; isAI?: boolean }[] }
 ): Promise<string> {
   try {
-    const data = await callFunction("aiPersona", { query, persona, context });
+    const data = await callFunction("ai/persona", { query, persona, context });
     return data.response;
   } catch (e) {
     console.error("Persona error:", e);
@@ -71,7 +71,7 @@ export async function callAiAgent(
   }
 ): Promise<string> {
   try {
-    const data = await callFunction("aiAgent", { 
+    const data = await callFunction("ai/agent", { 
       query, 
       agentId, 
       agentName, 

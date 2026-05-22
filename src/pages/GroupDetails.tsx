@@ -30,7 +30,8 @@ import {
   MessageCircle,
   Megaphone,
   User,
-  ExternalLink
+  ExternalLink,
+  Lock
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -56,7 +57,7 @@ export default function GroupDetails() {
 
   // 3. Find the general frequency for live logs
   const generalChannel = channels.find(c => c.name.toLowerCase() === 'general') || channels[0];
-  const { messages, loading: chatLoading } = useChat(groupId || '', generalChannel?.id);
+  const { messages, loading: chatLoading } = useChat(isMember ? (groupId || '') : '', generalChannel?.id);
 
   // 4. Group lookup effect for direct link reloading
   useEffect(() => {
@@ -339,6 +340,12 @@ export default function GroupDetails() {
                   {[1, 2, 3].map(n => (
                     <div key={n} className="h-16 bg-white/[0.02] border border-white/5 animate-pulse rounded-2xl" />
                   ))}
+                </div>
+              ) : !isMember ? (
+                <div className="p-12 border border-dashed border-primary/20 rounded-2xl text-center bg-primary/[0.02]">
+                  <Lock className="w-8 h-8 text-primary mx-auto mb-3 animate-pulse" />
+                  <p className="text-primary text-xs font-black uppercase tracking-widest mb-1">Frequency Sealed</p>
+                  <p className="text-gray-500 text-xs font-medium max-w-xs mx-auto">Interface with this group node frequency to decrypt and unlock live transmission logs.</p>
                 </div>
               ) : messages.length === 0 ? (
                 <div className="p-12 border border-dashed border-white/10 rounded-2xl text-center bg-white/[0.01]">
