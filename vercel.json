@@ -7,6 +7,12 @@
     "api/health.ts":      { "maxDuration": 10 }
   },
   "rewrites": [
+    { "source": "/api/aiAgent", "destination": "/api/ai/agent" },
+    { "source": "/api/aiPersona", "destination": "/api/ai/persona" },
+    { "source": "/api/aiSummarize", "destination": "/api/ai/summarize" },
+    { "source": "/api/aiModerate", "destination": "/api/ai/moderate" },
+    { "source": "/api/health", "destination": "/api/health" },
+    { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
