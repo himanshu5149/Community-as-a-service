@@ -215,9 +215,13 @@ Respond as ${persona.name}. Stay in character. Warm and helpful. Max 3 sentences
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on port ${PORT}`);
   });
+
+  // Align keep-alive and request headers timeouts to prevent connection socket timeouts / resets
+  server.keepAliveTimeout = 120 * 1000; // 120 seconds
+  server.headersTimeout = 125 * 1000; // 125 seconds
 }
 
 startServer();
