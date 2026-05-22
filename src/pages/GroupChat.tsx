@@ -57,8 +57,8 @@ export default function GroupChat() {
   const { channels, loading: channelsLoading, createChannel } = useChannels(groupId || '');
   const activeChannel = channels.find(c => c.id === channelId) || channels[0];
   
-  const { messages, loading: chatLoading, sendMessage, reactToMessage, deleteMessage, editMessage, togglePinMessage } = useChat(groupId || '', activeChannel?.id);
   const { member, joinGroup, isMember, permissions, loading: rolesLoading } = useGroupRoles(groupId || '');
+  const { messages, loading: chatLoading, sendMessage, reactToMessage, deleteMessage, editMessage, togglePinMessage } = useChat(isMember ? (groupId || '') : '', activeChannel?.id);
   const { members } = useGroupMembers(groupId || '');
   const { agents } = useAiAgents(groupId || '');
   const { addPoints } = useGamification();
