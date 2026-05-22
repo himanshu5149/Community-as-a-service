@@ -32,11 +32,12 @@ async function callGemini(prompt: string, jsonMode = false, modelOption = "gemin
     const response = await ai.models.generateContent({
       model: modelOption,
       contents: prompt,
-      ...(jsonMode ? {
-        config: {
-          responseMimeType: "application/json"
+      config: {
+        ...(jsonMode ? { responseMimeType: "application/json" } : {}),
+        thinkingConfig: {
+          thinkingLevel: jsonMode ? "MINIMAL" : "LOW"
         }
-      } : {})
+      }
     });
     
     const textOutput = response.text;
