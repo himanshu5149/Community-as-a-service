@@ -20,7 +20,7 @@ export default function AIGroup() {
     avatarUrl: '',
     accentColor: '#3B82F6',
     expertise: '',
-    model: 'gemini-2.0-flash',
+    model: 'gemini-1.5-flash',
   });
 
   const getAgentIcon = (agent: AiAgent) => {
@@ -63,7 +63,7 @@ export default function AIGroup() {
         avatarUrl: '',
         accentColor: '#3B82F6',
         expertise: '',
-        model: 'gemini-2.0-flash',
+        model: 'gemini-1.5-flash',
       });
     } catch (err) {
       showToast("Neural seeding failed", "error");
@@ -265,8 +265,7 @@ export default function AIGroup() {
                         className="w-full h-[58px] bg-white/5 border border-white/10 rounded-2xl px-6 py-4 focus:border-primary/50 focus:outline-none transition-colors text-white"
                         style={{ colorScheme: 'dark' }}
                       >
-                        <option value="gemini-2.0-flash" className="bg-[#121212] text-white">Gemini 2.0 Flash (Standard - Recommended)</option>
-                        <option value="gemini-1.5-flash" className="bg-[#121212] text-white">Gemini 1.5 Flash (Fast)</option>
+                        <option value="gemini-1.5-flash" className="bg-[#121212] text-white">Gemini 1.5 Flash (Standard - Recommended)</option>
                       </select>
                     </div>
                   </div>

@@ -18,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const ai = new GoogleGenAI({ apiKey: key });
     const result = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-1.5-flash',
       contents: `You are ${persona.name} (${persona.role}). ${persona.systemInstruction || ''}\nCommunity: "${context.groupName}"\nRecent chat:\n${history}\nUser: ${query}\nRespond as ${persona.name}. Warm and helpful. Max 3 sentences.`,
     });
     res.json({ response: result.text || `${persona.name} could not respond right now.` });

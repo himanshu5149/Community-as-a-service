@@ -59,14 +59,13 @@ Respond as ${agentName} — stay strictly in character. Max 3 sentences. No mark
       }
     });
 
-    let requestedModel = req.body.model || req.body.persona?.model || 'gemini-2.0-flash';
-    if (requestedModel.includes('gemini-3.5') || requestedModel.includes('gemini-2.5') || requestedModel.includes('gemini-3.1')) {
-      requestedModel = 'gemini-2.0-flash';
+    let requestedModel = req.body.model || req.body.persona?.model || 'gemini-1.5-flash';
+    if (requestedModel.includes('gemini-3.5') || requestedModel.includes('gemini-2.5') || requestedModel.includes('gemini-3.1') || requestedModel.includes('gemini-2.0')) {
+      requestedModel = 'gemini-1.5-flash';
     }
 
     const modelsToTry = [
       requestedModel,
-      'gemini-2.0-flash',
       'gemini-1.5-flash'
     ];
 

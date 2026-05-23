@@ -42,7 +42,7 @@ Respond as ${persona.name} — stay in character. Warm and helpful. Max 3 senten
     });
 
     const result = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-1.5-flash',
       contents: prompt
     });
 
