@@ -26,7 +26,7 @@ function getGemini(): GoogleGenAI {
   });
 }
 
-async function callGemini(prompt: string, jsonMode = false, modelOption = "gemini-1.5-flash"): Promise<string> {
+async function callGemini(prompt: string, jsonMode = false, modelOption = "gemini-3.5-flash"): Promise<string> {
   try {
     const ai = getGemini();
     const response = await ai.models.generateContent({
@@ -203,9 +203,9 @@ User message: ${userInput}
 Respond as ${agentName} — stay strictly in character. Max 3 sentences. No markdown headers. Be concise but insightful.`;
 
   try {
-    let chosenModel = model || persona?.model || "gemini-1.5-flash";
-    if (chosenModel.includes("gemini-3.5") || chosenModel.includes("gemini-2.5") || chosenModel.includes("gemini-3.1") || chosenModel.includes("gemini-2.0")) {
-      chosenModel = "gemini-1.5-flash";
+    let chosenModel = model || persona?.model || "gemini-3.5-flash";
+    if (chosenModel.includes("gemini-1.5") || chosenModel.includes("gemini-2.5") || chosenModel.includes("gemini-3.1") || chosenModel.includes("gemini-2.0")) {
+      chosenModel = "gemini-3.5-flash";
     }
     const response = await callGemini(prompt, false, chosenModel);
     res.json({ response, reply: response });

@@ -11,7 +11,7 @@ export async function getAiResponse(agentName: string, prompt: string, personali
     }
 
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
+      model: "gemini-3.5-flash",
       systemInstruction: `You are ${agentName}. Personality: ${personality}. Context: ${context}. Keep responses concise and focused on community engagement. Don't use markdown headers.`
     });
 

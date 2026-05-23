@@ -444,7 +444,7 @@ function AdminNodes() {
     expertise: '',
     groupId: '',
     isCrossGroup: false,
-    model: 'gemini-1.5-flash'
+    model: 'gemini-3.5-flash'
   });
   const [isDeploying, setIsDeploying] = React.useState(false);
   const [isSeeding, setIsSeeding] = React.useState(false);
@@ -484,7 +484,7 @@ function AdminNodes() {
           expertise: ['Community Architecture', 'System Design'],
           isCrossGroup: true,
           groupId: 'global',
-          model: 'gemini-1.5-flash',
+          model: 'gemini-3.5-flash',
           totalResponses: 0,
           accentColor: '#534ab7',
           createdAt: serverTimestamp()
@@ -496,7 +496,7 @@ function AdminNodes() {
           expertise: ['Bio-Optimization', 'Mental Resilience', 'Endurance Training'],
           isCrossGroup: true,
           groupId: 'global',
-          model: 'gemini-1.5-flash',
+          model: 'gemini-3.5-flash',
           totalResponses: 0,
           accentColor: '#facc15',
           createdAt: serverTimestamp()
@@ -508,7 +508,7 @@ function AdminNodes() {
           expertise: ['AI Research', 'Quantum Computing', 'Future Tech'],
           isCrossGroup: true,
           groupId: 'global',
-          model: 'gemini-1.5-flash',
+          model: 'gemini-3.5-flash',
           totalResponses: 0,
           accentColor: '#3b82f6',
           createdAt: serverTimestamp()
@@ -520,7 +520,7 @@ function AdminNodes() {
           expertise: ['Visual Arts', 'Creative Writing', 'Aesthetic Theory'],
           isCrossGroup: true,
           groupId: 'global',
-          model: 'gemini-1.5-flash',
+          model: 'gemini-3.5-flash',
           totalResponses: 0,
           accentColor: '#a855f7',
           createdAt: serverTimestamp()
@@ -532,7 +532,7 @@ function AdminNodes() {
           expertise: ['History', 'Epistemology', 'Curated Learning'],
           isCrossGroup: true,
           groupId: 'global',
-          model: 'gemini-1.5-flash',
+          model: 'gemini-3.5-flash',
           totalResponses: 0,
           accentColor: '#22c55e',
           createdAt: serverTimestamp()
@@ -544,7 +544,7 @@ function AdminNodes() {
           expertise: ['Conflict Resolution', 'Group Dynamics', 'Linguistic Bridge'],
           isCrossGroup: true,
           groupId: 'global',
-          model: 'gemini-1.5-flash',
+          model: 'gemini-3.5-flash',
           totalResponses: 0,
           accentColor: '#ec4899',
           createdAt: serverTimestamp()
@@ -578,7 +578,7 @@ function AdminNodes() {
         expertise: '',
         groupId: '',
         isCrossGroup: false,
-        model: 'gemini-1.5-flash'
+        model: 'gemini-3.5-flash'
       });
     } catch (err: any) {
       setError("Deployment failed: Signal rejected.");

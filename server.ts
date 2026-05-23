@@ -39,7 +39,8 @@ async function startServer() {
     const ai = getAi();
     const modelsToTry = [
       options.model,
-      "gemini-1.5-flash"
+      "gemini-3.5-flash",
+      "gemini-flash-latest"
     ].filter(Boolean) as string[];
 
     const uniqueModels = Array.from(new Set(modelsToTry));
@@ -87,7 +88,7 @@ Message: "${text}"
 Return ONLY JSON: { "isSafe": boolean, "reason": "string", "riskLevel": "none"|"low"|"medium"|"high" }`;
 
       const response = await generateContentWithFallback({
-        model: "gemini-1.5-flash",
+        model: "gemini-3.5-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json"
@@ -115,7 +116,7 @@ Conversation:
 ${conversation}`;
 
       const response = await generateContentWithFallback({
-        model: "gemini-1.5-flash",
+        model: "gemini-3.5-flash",
         contents: prompt
       });
       
@@ -175,9 +176,9 @@ User message: ${userInput}
 
 Respond as ${agentName} — stay strictly in character. Max 3 sentences. No markdown headers. Be concise but insightful.`;
 
-      let chosenModel = req.body.model || req.body.persona?.model || "gemini-1.5-flash";
-      if (chosenModel.includes("gemini-3.5") || chosenModel.includes("gemini-2.5") || chosenModel.includes("gemini-2.0")) {
-        chosenModel = "gemini-1.5-flash";
+      let chosenModel = req.body.model || req.body.persona?.model || "gemini-3.5-flash";
+      if (chosenModel.includes("gemini-1.5") || chosenModel.includes("gemini-2.5") || chosenModel.includes("gemini-2.0")) {
+        chosenModel = "gemini-3.5-flash";
       }
       const response = await generateContentWithFallback({
         model: chosenModel,
@@ -216,7 +217,7 @@ New message: ${query}
 Respond as ${persona.name}. Stay in character. Warm and helpful. Max 3 sentences.`;
 
       const response = await generateContentWithFallback({
-        model: "gemini-1.5-flash",
+        model: "gemini-3.5-flash",
         contents: prompt
       });
       

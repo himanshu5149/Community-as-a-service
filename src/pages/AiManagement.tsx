@@ -22,7 +22,7 @@ export default function AiManagement() {
     expertise: '',
     groupId: '',
     isCrossGroup: false,
-    model: 'gemini-1.5-flash',
+    model: 'gemini-3.5-flash',
     avatarUrl: '',
     accentColor: '#534AB7'
   });
@@ -56,7 +56,7 @@ export default function AiManagement() {
         expertise: '',
         groupId: '',
         isCrossGroup: false,
-        model: 'gemini-1.5-flash',
+        model: 'gemini-3.5-flash',
         avatarUrl: '',
         accentColor: '#534AB7'
       });
