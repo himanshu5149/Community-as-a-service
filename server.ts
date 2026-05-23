@@ -40,8 +40,6 @@ async function startServer() {
     const modelsToTry = [
       options.model,
       "gemini-2.0-flash", // Proactively prioritize stable releases
-      "gemini-3.5-flash",
-      "gemini-2.5-flash",
       "gemini-1.5-flash"
     ].filter(Boolean) as string[];
 
@@ -90,7 +88,7 @@ Message: "${text}"
 Return ONLY JSON: { "isSafe": boolean, "reason": "string", "riskLevel": "none"|"low"|"medium"|"high" }`;
 
       const response = await generateContentWithFallback({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.0-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json"
@@ -118,7 +116,7 @@ Conversation:
 ${conversation}`;
 
       const response = await generateContentWithFallback({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.0-flash",
         contents: prompt
       });
       
@@ -178,7 +176,10 @@ User message: ${userInput}
 
 Respond as ${agentName} — stay strictly in character. Max 3 sentences. No markdown headers. Be concise but insightful.`;
 
-      const chosenModel = req.body.model || req.body.persona?.model || "gemini-3.5-flash";
+      let chosenModel = req.body.model || req.body.persona?.model || "gemini-2.0-flash";
+      if (chosenModel.includes("gemini-3.5") || chosenModel.includes("gemini-2.5")) {
+        chosenModel = "gemini-2.0-flash";
+      }
       const response = await generateContentWithFallback({
         model: chosenModel,
         contents: prompt
@@ -216,7 +217,7 @@ New message: ${query}
 Respond as ${persona.name}. Stay in character. Warm and helpful. Max 3 sentences.`;
 
       const response = await generateContentWithFallback({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.0-flash",
         contents: prompt
       });
       

@@ -59,25 +59,16 @@ Respond as ${agentName} — stay strictly in character. Max 3 sentences. No mark
       }
     });
 
-    const requestedModel = req.body.model || req.body.persona?.model || 'gemini-3.5-flash';
-    const forbiddenModels = [
-      'gemini-1.5-flash',
-      'gemini-1.5-pro',
-      'gemini-pro',
-      'gemini-2.0-flash',
-      'gemini-2.0-pro',
-      'gemini-2.0-flash-thinking'
-    ];
+    let requestedModel = req.body.model || req.body.persona?.model || 'gemini-2.0-flash';
+    if (requestedModel.includes('gemini-3.5') || requestedModel.includes('gemini-2.5') || requestedModel.includes('gemini-3.1')) {
+      requestedModel = 'gemini-2.0-flash';
+    }
 
     const modelsToTry = [
       requestedModel,
-      'gemini-3.5-flash',
-      'gemini-2.5-flash'
-    ].filter(m => !forbiddenModels.includes(m));
-
-    if (modelsToTry.length === 0 || forbiddenModels.includes(requestedModel)) {
-      modelsToTry.unshift('gemini-3.5-flash');
-    }
+      'gemini-2.0-flash',
+      'gemini-1.5-flash'
+    ];
 
     const uniqueModels = Array.from(new Set(modelsToTry));
     let lastError = null;

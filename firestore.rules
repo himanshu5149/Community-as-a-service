@@ -239,7 +239,7 @@ service cloud.firestore {
         allow delete: if isGroupAdmin(groupId);
 
         match /messages/{messageId} {
-          allow read, list: if isMember(groupId);
+          allow read, list: if isMember(groupId) || (isSignedIn() && (get(/databases/$(database)/documents/groups/$(groupId)).data.get('isPublic', false) == true || get(/databases/$(database)/documents/groups/$(groupId)).data.get('type', 'invite') == 'open'));
           allow create: if isMember(groupId) && isValidMessage(incoming());
           allow update: if isMember(groupId) && (
             // Action: Toggle reactions
@@ -254,7 +254,7 @@ service cloud.firestore {
       }
 
       match /messages/{messageId} {
-        allow read, list: if isMember(groupId);
+        allow read, list: if isMember(groupId) || (isSignedIn() && (get(/databases/$(database)/documents/groups/$(groupId)).data.get('isPublic', false) == true || get(/databases/$(database)/documents/groups/$(groupId)).data.get('type', 'invite') == 'open'));
         allow create: if isMember(groupId) && isValidMessage(incoming());
         allow update: if isMember(groupId) && (
           // Action: Toggle reactions
