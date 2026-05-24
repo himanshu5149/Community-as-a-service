@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   collection, onSnapshot, query, orderBy, limit, addDoc, 
   serverTimestamp, Timestamp, doc, updateDoc, deleteDoc, 
-  startAfter, getDocs, QueryDocumentSnapshot 
+  startAfter, getDocs, QueryDocumentSnapshot, setDoc
 } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Message } from './useChat';
@@ -87,10 +87,14 @@ export function useDirectChat(convId: string) {
   const sendMessage = async (text: string, type: Message['type'] = 'text', fileUrl?: string) => {
     if (!auth.currentUser || (!text && !fileUrl)) return;
 
-    const tempId = `temp-${Date.now()}`;
     const path = `conversations/${convId}/messages`;
 
-    const newMessage: Partial<Message> = {
+    // Pre-generate the Firestore doc reference to get its ID immediately for optimistic rendering
+    const docRef = doc(collection(db, path));
+    const msgId = docRef.id;
+
+    const newMessage: Message = {
+      id: msgId,
       userId: auth.currentUser.uid,
       userName: auth.currentUser.displayName || 'Anonymous',
       userAvatar: auth.currentUser.photoURL || '',
@@ -103,11 +107,13 @@ export function useDirectChat(convId: string) {
       status: 'pending'
     };
 
-    setMessages(prev => [...prev, { id: tempId, ...newMessage } as Message]);
+    setMessages(prev => [...prev, newMessage]);
     
     try {
-      await addDoc(collection(db, path), {
-        ...newMessage,
+      const { id: _id, status: _status, ...dataToUpload } = newMessage;
+      
+      await setDoc(docRef, {
+        ...dataToUpload,
         createdAt: serverTimestamp()
       });
       
@@ -117,7 +123,7 @@ export function useDirectChat(convId: string) {
         lastMessageAt: serverTimestamp()
       });
     } catch (err) {
-      setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'error' } : m));
+      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, status: 'error' } : m));
       handleFirestoreError(err, OperationType.CREATE, path);
     }
   };

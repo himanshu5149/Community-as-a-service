@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   collection, onSnapshot, query, orderBy, limit, addDoc, 
   serverTimestamp, Timestamp, doc, updateDoc, deleteDoc, 
-  startAfter, getDocs, QueryDocumentSnapshot
+  startAfter, getDocs, QueryDocumentSnapshot, setDoc
 } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 
@@ -161,13 +161,16 @@ export function useChat(groupId: string, channelId?: string) {
   ) => {
     if (!auth.currentUser || (!text && !fileUrl)) return;
 
-    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const path = channelId 
       ? `groups/${groupId}/channels/${channelId}/messages` 
       : `groups/${groupId}/messages`;
 
+    // Pre-generate the Firestore doc reference to get its ID immediately for optimistic rendering
+    const docRef = doc(collection(db, path));
+    const msgId = docRef.id;
+
     const newMessage: Message = {
-      id: tempId,
+      id: msgId,
       userId: isAI ? 'system_ai' : auth.currentUser.uid,
       userName: isAI ? (options?.aiName || 'Mainframe') : (auth.currentUser.displayName || 'Anonymous'),
       userAvatar: isAI ? (options?.aiAvatar || '') : (auth.currentUser.photoURL || ''),
@@ -200,14 +203,14 @@ export function useChat(groupId: string, channelId?: string) {
         return acc;
       }, {} as any);
 
-      await addDoc(collection(db, path), {
+      await setDoc(docRef, {
         ...sanitizedData,
         groupId, // Scoping field for rules
         createdAt: serverTimestamp()
       });
     } catch (err) {
       // Rollback or show error on the message
-      setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'error' } : m));
+      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, status: 'error' } : m));
       handleFirestoreError(err, OperationType.CREATE, path);
     } finally {
       setIsSending(false);

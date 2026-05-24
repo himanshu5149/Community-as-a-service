@@ -25,6 +25,51 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
+const formatBoldText = (text: string) => {
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i} className="font-extrabold text-white">{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+};
+
+const renderMessageText = (text: string) => {
+  if (!text) return null;
+  
+  if (!text.includes('* ') && !text.includes('\n* ') && !text.includes('- ') && !text.includes('\n- ')) {
+    return text.split('\n').map((line, idx) => (
+      <span key={idx} className="block min-h-[0.5rem]">{line}</span>
+    ));
+  }
+
+  const lines = text.split('\n');
+  return (
+    <div className="space-y-1.5 pt-1">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('*') || trimmed.startsWith('-') || trimmed.startsWith('•')) {
+          const markerRegex = /^[\*\-\•]\s*/;
+          const cleanLine = trimmed.replace(markerRegex, '');
+          return (
+            <div key={idx} className="flex items-start gap-2 pl-2">
+              <span className="text-primary mt-1.5 shrink-0 block w-1.5 h-1.5 rounded-full bg-primary" />
+              <span className="flex-grow text-gray-200">{formatBoldText(cleanLine)}</span>
+            </div>
+          );
+        }
+        
+        return trimmed ? (
+          <p key={idx} className="min-h-[0.5rem]">{formatBoldText(line)}</p>
+        ) : (
+          <div key={idx} className="h-1.5" />
+        );
+      })}
+    </div>
+  );
+};
+
 export default function Conversation() {
   const { convId } = useParams<{ convId: string }>();
   const navigate = useNavigate();
@@ -199,7 +244,7 @@ export default function Conversation() {
                     "px-6 py-4 rounded-[2rem] shadow-full relative transition-all group-hover:scale-[1.01]",
                     isMe ? "bg-primary text-white rounded-tr-none hover:shadow-primary/20" : "bg-white/5 border border-white/5 text-gray-200 rounded-tl-none hover:bg-white/10"
                   )}>
-                    <p className="text-sm font-medium leading-relaxed">{msg.text}</p>
+                    <div className="text-sm font-medium leading-relaxed">{renderMessageText(msg.text)}</div>
                     
                     {/* Reactions Section */}
                     {msg.reactions && Object.keys(msg.reactions).length > 0 && (

@@ -163,45 +163,45 @@ ${conversation}`;
         expertise = expertiseMap[agentId || ""] || expertise;
       }
       
-      const prompt = `You are ${agentName}, an AI member of the CaaS community platform.
+      const systemInstructionContent = `You are ${agentName}, an AI member of the CaaS community platform.
 Your Role: ${role}
 Your Expertise: ${expertise}
 Your Personality: ${personality}
-${systemInstruction ? `\nSystem Instruction: ${systemInstruction}\n` : ""}
+${systemInstruction ? `\nInternal Agent Rules:\n${systemInstruction}\n` : ""}
 Context:
 Community: "${context?.groupName || "Unknown"}" | Channel: "${context?.channelName || "general"}"
 
-${history ? `Recent Conversation:\n${history}\n` : ""}
-User message: ${userInput}
-
-OUTPUT GUIDELINES:
-- Respond in character as ${agentName}.
-- Always reply in short, spacing-separated bullet points with double linebreaks between them for high visual clarity and scanability.
-- Always use emojis naturally in every single bullet point.
-- NEVER write huge paragraphs or dense blocks of prose text.
-- Keep the response visually clean, breathable, and highly easy to scan.
+OUTPUT GUIDELINES (COMPLIANCE MANDATORY):
+- Always respond in character as ${agentName}.
+- NEVER output plain paragraphs of prose or long block text.
+- You MUST format your entire response with short, spacing-separated bullet points with double linebreaks (empty lines) between them for high visual clarity and scanability.
+- Every single bullet point / list item MUST naturally begin with or contain a helpful, friendly emoji.
+- Keep each bullet point informative and rich, yet simple and extremely easy to scan.
 - Make the tone exciting, modern, friendly, and high-energy (SaaS / active startup community vibes).
 - Highlight important terms or key ideas with bold text.
-- Keep answers concise but incredibly helpful and conversational (avoid robotic explanations).
-- Always end with an exciting, friendly question or CALL TO ACTION (CTA).
-- Response format example:
-  👋 **Welcome to the platform!** Let's get things rolling!
-  
-  * 🚀 Explore communities and connect with people instantly
-  
-  * 💡 Share ideas, collaborate, and grow together
-  
-  * 🤖 Use AI-powered tools to improve engagement
-  
-  * 😊 What kind of community are you looking to create today?`;
+- Always conclude the response with a friendly and exciting question or Action-driven CALL TO ACTION (CTA).
+
+Example Format:
+👋 **Welcome onboard!** Let's get things moving!
+
+* 🚀 **Explore channels** to connect with community members instantly.
+
+* 💡 **Share innovative ideas** to collaborate and build together.
+
+* 😊 **What projects are you launching today?**`;
+
+      const contents = `${history ? `Recent Conversation:\n${history}\n` : ""}User message: ${userInput}`;
 
       let chosenModel = req.body.model || req.body.persona?.model || "gemini-3.5-flash";
-      if (chosenModel.includes("gemini-1.5") || chosenModel.includes("gemini-2.5") || chosenModel.includes("gemini-2.0")) {
+      if (chosenModel.includes("gemini-1.5") || chosenModel.includes("gemini-2.5") || chosenModel.includes("gemini-2.0") || chosenModel.includes("gemini-3.5")) {
         chosenModel = "gemini-3.5-flash";
       }
       const response = await generateContentWithFallback({
         model: chosenModel,
-        contents: prompt
+        contents: contents,
+        config: {
+          systemInstruction: systemInstructionContent
+        }
       });
       
       const responseText = response.text || `${agentName} did not respond.`;
@@ -227,37 +227,37 @@ OUTPUT GUIDELINES:
         .map((m: any) => `${m.isAI ? persona.name : m.user}: ${m.text}`)
         .join("\n");
          
-      const prompt = `You are ${persona.name} (${persona.role}).
+      const systemInstructionContent = `You are ${persona.name} (${persona.role}).
 ${persona.systemInstruction}
 Community: "${context.groupName}"
-Recent chat:
-${history}
-New message: ${query}
 
-OUTPUT GUIDELINES:
-- Respond in character as ${persona.name}.
-- Always reply in short, spacing-separated bullet points with double linebreaks between them for high visual clarity and scanability.
-- Always use emojis naturally in every single bullet point.
-- NEVER write huge paragraphs or dense blocks of prose text.
-- Keep the response visually clean, breathable, and highly easy to scan.
+OUTPUT GUIDELINES (COMPLIANCE MANDATORY):
+- Always respond in character as ${persona.name}.
+- NEVER output plain paragraphs of prose or long block text.
+- You MUST format your entire response with short, spacing-separated bullet points with double linebreaks (empty lines) between them for high visual clarity and scanability.
+- Every single bullet point / list item MUST naturally begin with or contain a helpful, friendly emoji.
+- Keep each bullet point informative and rich, yet simple and extremely easy to scan.
 - Make the tone exciting, modern, friendly, and high-energy (SaaS / active startup community vibes).
 - Highlight important terms or key ideas with bold text.
-- Keep answers concise but incredibly helpful and conversational (avoid robotic explanations).
-- Always end with an exciting, friendly question or CALL TO ACTION (CTA).
-- Response format example:
-  👋 **Welcome to the platform!** Let's get things rolling!
-  
-  * 🚀 Explore communities and connect with people instantly
-  
-  * 💡 Share ideas, collaborate, and grow together
-  
-  * 🤖 Use AI-powered tools to improve engagement
-  
-  * 😊 What kind of community are you looking to create today?`;
+- Always conclude the response with a friendly and exciting question or Action-driven CALL TO ACTION (CTA).
+
+Example Format:
+👋 **Welcome onboard!** Let's get things moving!
+
+* 🚀 **Explore channels** to connect with community members instantly.
+
+* 💡 **Share innovative ideas** to collaborate and build together.
+
+* 😊 **What projects are you launching today?**`;
+
+      const contents = `Recent chat:\n${history}\nNew message: ${query}`;
 
       const response = await generateContentWithFallback({
         model: "gemini-3.5-flash",
-        contents: prompt
+        contents: contents,
+        config: {
+          systemInstruction: systemInstructionContent
+        }
       });
       
       res.json({ response: response.text || "No response." });

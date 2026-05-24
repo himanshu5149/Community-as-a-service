@@ -54,7 +54,7 @@ export default function GroupChat() {
   const { groups, deleteGroup } = useGroups();
   const group = groups.find(g => g.id === groupId);
   
-  const { channels, loading: channelsLoading, createChannel } = useChannels(groupId || '');
+  const { channels, loading: channelsLoading, createChannel, deleteChannel } = useChannels(groupId || '');
   const activeChannel = channels.find(c => c.id === channelId) || channels[0];
   
   const { member, joinGroup, isMember, permissions, loading: rolesLoading } = useGroupRoles(groupId || '');
@@ -102,6 +102,9 @@ export default function GroupChat() {
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  
+  const isSendingRef = useRef(false);
+  const isAiRespondingRef = useRef(false);
 
   const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
     messagesEndRef.current?.scrollIntoView({ behavior });
@@ -215,6 +218,8 @@ export default function GroupChat() {
     const textToChat = moderationWarning ? moderationWarning.text : inputText;
     if (!textToChat.trim()) return;
 
+    if (isSendingRef.current) return;
+
     if (textToChat.startsWith('/')) {
       const handled = await handleSlashCommand(textToChat);
       if (handled) {
@@ -224,6 +229,7 @@ export default function GroupChat() {
     }
 
     try {
+      isSendingRef.current = true;
       if (!bypassModeration) {
         const moderation = await moderateMessage(textToChat);
         if (!moderation.isSafe) {
@@ -252,11 +258,15 @@ export default function GroupChat() {
       if (user) addPoints(10);
 
       // AI Mention Detection Logic
-      if (permissions.canUseAI) {
+      if (permissions.canUseAI && !isAiRespondingRef.current) {
         const mentions = agents.filter(agent => textToChat.toLowerCase().includes(`@${agent.name.toLowerCase()}`));
         if (mentions.length > 0) {
+          isAiRespondingRef.current = true;
+          const uniqueMentions = mentions.filter((agent, idx, self) => 
+            self.findIndex(a => a.id === agent.id) === idx
+          );
           // Trigger responses from all mentioned agents (Usually just one)
-          for (const agent of mentions) {
+          for (const agent of uniqueMentions) {
             try {
               // Add a "thinking" message or just set a local state if you want UI feedback
               // For group chat, we can just wait for the response and send it
@@ -293,10 +303,13 @@ export default function GroupChat() {
               console.error("AI mention failed:", err);
             }
           }
+          isAiRespondingRef.current = false;
         }
       }
     } catch (err: any) {
       showToast("Message failed to send. Please try again.", 'error');
+    } finally {
+      isSendingRef.current = false;
     }
   };
 
@@ -372,6 +385,22 @@ export default function GroupChat() {
                     </button>
                   </div>
                 )}
+                {permissions.canEditGroup && (
+                  <div className="pt-2 border-t border-white/5">
+                    <button
+                      onClick={async () => {
+                        if (window.confirm("CRITICAL WARNING: Are you sure you want to PERMANENTLY DELETE this entire community? All channels, messages, and configurations will be forever purged.")) {
+                          await deleteGroup(groupId || '');
+                          showToast("Community cluster decommissioned.");
+                          navigate('/explore');
+                        }
+                      }}
+                      className="w-full py-2 bg-red-950/40 border border-red-500/20 text-red-500 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Decommission Community
+                    </button>
+                  </div>
+                )}
                 <button
                   onClick={() => navigate('/settings')}
                   className="w-full py-2 bg-white/5 border border-white/10 rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-white/10 transition-all"
@@ -395,19 +424,49 @@ export default function GroupChat() {
                   {channelsLoading ? (
                     [1,2,3].map(i => <div key={`chan-skele-${i}`} className="h-10 bg-white/5 animate-pulse rounded-lg mx-2"></div>)
                   ) : channels.map(ch => (
-                    <Link 
+                    <div 
                       key={ch.id}
-                      to={`/groups/${groupId}/channels/${ch.id}`}
-                      className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all font-bold text-sm",
-                        channelId === ch.id 
-                          ? "bg-white/10 text-white" 
-                          : "text-gray-500 hover:bg-white/5 hover:text-gray-300"
-                      )}
+                      className="group/chan flex items-center justify-between rounded-lg transition-all"
                     >
-                      {ch.type === 'announcements' ? <Megaphone className="w-4 h-4" /> : <Hash className="w-4 h-4" />}
-                      {ch.name}
-                    </Link>
+                      <Link 
+                        to={`/groups/${groupId}/channels/${ch.id}`}
+                        className={cn(
+                          "flex-grow flex items-center gap-3 px-3 py-2 transition-all font-bold text-sm rounded-lg truncate",
+                          channelId === ch.id 
+                            ? "bg-white/10 text-white" 
+                            : "text-gray-500 hover:bg-white/5 hover:text-gray-300"
+                        )}
+                      >
+                        {ch.type === 'announcements' ? <Megaphone className="w-4 h-4" /> : <Hash className="w-4 h-4" />}
+                        <span className="truncate">{ch.name}</span>
+                      </Link>
+                      
+                      {/* Delete Channel Option (Only for Admins, and not for 'general') */}
+                      {permissions.canCreateChannel && ch.name.toLowerCase() !== 'general' && (
+                        <button 
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (window.confirm(`Are you sure you want to delete the channel "#${ch.name}"? This cannot be undone.`)) {
+                              await deleteChannel(ch.id);
+                              showToast(`Channel "#${ch.name}" deleted successfully.`);
+                              if (channelId === ch.id) {
+                                const firstChan = channels.find(c => c.id !== ch.id);
+                                if (firstChan) {
+                                  navigate(`/groups/${groupId}/channels/${firstChan.id}`);
+                                } else {
+                                  navigate(`/groups/${groupId}`);
+                                }
+                              }
+                            }
+                          }}
+                          className="opacity-0 group-hover/chan:opacity-100 p-1.5 text-gray-500 hover:text-red-500 transition-opacity mr-1 shrink-0"
+                          title="Delete Frequency Channel"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>
@@ -588,6 +647,51 @@ export default function GroupChat() {
   );
 }
 
+const formatBoldText = (text: string) => {
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i} className="font-extrabold text-white">{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+};
+
+const renderMessageText = (text: string) => {
+  if (!text) return null;
+  
+  if (!text.includes('* ') && !text.includes('\n* ') && !text.includes('- ') && !text.includes('\n- ')) {
+    return text.split('\n').map((line, idx) => (
+      <span key={idx} className="block min-h-[0.5rem]">{line}</span>
+    ));
+  }
+
+  const lines = text.split('\n');
+  return (
+    <div className="space-y-1.5 pt-1">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('*') || trimmed.startsWith('-') || trimmed.startsWith('•')) {
+          const markerRegex = /^[\*\-\•]\s*/;
+          const cleanLine = trimmed.replace(markerRegex, '');
+          return (
+            <div key={idx} className="flex items-start gap-2 pl-2">
+              <span className="text-primary mt-1.5 shrink-0 block w-1.5 h-1.5 rounded-full bg-primary" />
+              <span className="flex-grow">{formatBoldText(cleanLine)}</span>
+            </div>
+          );
+        }
+        
+        return trimmed ? (
+          <p key={idx} className="min-h-[0.5rem]">{formatBoldText(line)}</p>
+        ) : (
+          <div key={idx} className="h-1.5" />
+        );
+      })}
+    </div>
+  );
+};
+
 function MessageNode({ 
   message, 
   isMe, 
@@ -632,9 +736,9 @@ function MessageNode({
           <span className="text-[8px] text-gray-700 font-bold uppercase">{timeString}</span>
           {message.isPinned && <Pin className="w-2.5 h-2.5 text-primary" />}
         </div>
-        <p className="text-sm text-gray-400 font-medium leading-relaxed break-words">
-          {message.text || <span className="italic text-gray-600 font-normal">Signal lost or empty...</span>}
-        </p>
+        <div className="text-sm text-gray-400 font-medium leading-relaxed break-words">
+          {message.text ? renderMessageText(message.text) : <span className="italic text-gray-600 font-normal">Signal lost or empty...</span>}
+        </div>
       </div>
       <div className="hidden group-hover/msg:flex items-center gap-1 absolute right-6 top-2 bg-[#1a1a1a] border border-white/10 rounded-lg p-0.5 shadow-xl z-10 font-sans">
         <button onClick={() => onReply(message)} className="p-1.5 text-gray-500 hover:text-white" title="Reply"><Reply className="w-4 h-4" /></button>

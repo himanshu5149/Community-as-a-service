@@ -75,5 +75,15 @@ export function useChannels(groupId: string) {
     }
   };
 
-  return { channels, loading, createChannel };
+  const deleteChannel = async (channelId: string) => {
+    const path = `groups/${groupId}/channels/${channelId}`;
+    try {
+      const { deleteDoc, doc } = await import('firebase/firestore');
+      await deleteDoc(doc(db, path));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, path);
+    }
+  };
+
+  return { channels, loading, createChannel, deleteChannel };
 }

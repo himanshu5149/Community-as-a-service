@@ -32,6 +32,13 @@ service cloud.firestore {
       );
     }
 
+    function isGroupStaff(groupId) {
+      return isSignedIn() && (
+        isMember(groupId) &&
+        get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role in ['admin', 'moderator']
+      );
+    }
+
     // --- Entity Validations ---
     function isValidUser(data) {
       return data.keys().hasAll(['displayName', 'photoURL', 'role']) &&
@@ -271,7 +278,7 @@ service cloud.firestore {
             // Action: Toggle pin status
             (incoming().diff(existing()).affectedKeys().hasOnly(['isPinned']))
           );
-          allow delete: if isOwner(resource.data.userId) || isGroupAdmin(groupId);
+          allow delete: if resource != null && (isOwner(resource.data.userId) || isGroupStaff(groupId));
         }
       }
 
@@ -286,7 +293,7 @@ service cloud.firestore {
           // Action: Toggle pin status
           (incoming().diff(existing()).affectedKeys().hasOnly(['isPinned']))
         );
-        allow delete: if isOwner(resource.data.userId) || isGroupAdmin(groupId);
+        allow delete: if resource != null && (isOwner(resource.data.userId) || isGroupStaff(groupId));
       }
 
       match /events/{eventId} {

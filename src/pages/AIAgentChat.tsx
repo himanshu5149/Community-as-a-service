@@ -16,6 +16,51 @@ interface Message {
   timestamp: number;
 }
 
+const formatBoldText = (text: string) => {
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i} className="font-extrabold text-white">{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+};
+
+const renderMessageText = (text: string) => {
+  if (!text) return null;
+  
+  if (!text.includes('* ') && !text.includes('\n* ') && !text.includes('- ') && !text.includes('\n- ')) {
+    return text.split('\n').map((line, idx) => (
+      <span key={idx} className="block min-h-[0.5rem]">{line}</span>
+    ));
+  }
+
+  const lines = text.split('\n');
+  return (
+    <div className="space-y-1.5 pt-1">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('*') || trimmed.startsWith('-') || trimmed.startsWith('•')) {
+          const markerRegex = /^[\*\-\•]\s*/;
+          const cleanLine = trimmed.replace(markerRegex, '');
+          return (
+            <div key={idx} className="flex items-start gap-2 pl-2 text-left">
+              <span className="text-primary mt-1.5 shrink-0 block w-1.5 h-1.5 rounded-full bg-primary" />
+              <span className="flex-grow text-gray-200">{formatBoldText(cleanLine)}</span>
+            </div>
+          );
+        }
+        
+        return trimmed ? (
+          <p key={idx} className="min-h-[0.5rem] text-left">{formatBoldText(line)}</p>
+        ) : (
+          <div key={idx} className="h-1.5" />
+        );
+      })}
+    </div>
+  );
+};
+
 export default function AIAgentChat() {
   const { agentId } = useParams<{ agentId: string }>();
   const navigate = useNavigate();
@@ -238,7 +283,7 @@ export default function AIAgentChat() {
                     ? "bg-white/5 border border-white/10 text-gray-100 rounded-tl-none font-medium leading-relaxed max-w-[85%]" 
                     : "bg-[#181818] border border-white/5 text-white rounded-tr-none font-bold max-w-[85%] shadow-primary/5"
                )}>
-                  <p className="text-base">{msg.text}</p>
+                  <div className="text-base">{renderMessageText(msg.text)}</div>
                </div>
                <span className="text-[8px] font-black uppercase tracking-widest text-gray-600 px-4">
                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
