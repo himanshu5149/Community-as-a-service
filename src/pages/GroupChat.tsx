@@ -102,6 +102,7 @@ export default function GroupChat() {
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   
   const isSendingRef = useRef(false);
   const isAiRespondingRef = useRef(false);
@@ -538,16 +539,45 @@ export default function GroupChat() {
                 <button onClick={() => setReplyTo(null)}><X className="w-3 h-3" /></button>
               </div>
             )}
+            {agents.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 px-2 mb-2">
+                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 flex items-center gap-1 shrink-0">
+                  <Bot className="w-2.5 h-2.5 text-primary" />
+                  <span>Agent Nodes:</span>
+                </span>
+                {agents.map(a => (
+                  <button
+                    key={a.id}
+                    onClick={() => {
+                      setInputText(prev => {
+                        const mentionStr = `@${a.name}`;
+                        if (prev.includes(mentionStr)) return prev;
+                        return prev ? `${prev} ${mentionStr} ` : `${mentionStr} `;
+                      });
+                      inputRef.current?.focus();
+                      showToast(`Summon tag @${a.name} ready!`);
+                    }}
+                    className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-white/5 border hover:bg-white/10 text-gray-300 transition-all flex items-center gap-1 hover:scale-105 active:scale-95"
+                    style={{ borderColor: `${a.accentColor || '#534AB7'}33` }}
+                    title={`Click to summon ${a.name} (${a.role})`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                    <span style={{ color: a.accentColor }}>@{a.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="bg-[#242424] rounded-xl flex items-center p-2">
               <input 
+                 ref={inputRef}
                  value={inputText}
                  onChange={(e) => {
                    setInputText(e.target.value);
                    setTyping(e.target.value.length > 0);
                  }}
                  onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                 placeholder="Transmit signal..."
-                 className="flex-grow bg-transparent border-none outline-none text-sm px-4 h-10"
+                 placeholder="Transmit signal... Use @AgentName to summon AI operatives!"
+                 className="flex-grow bg-transparent border-none outline-none text-sm px-4 h-10 animate-fade-in"
               />
               <button 
                 onClick={() => handleSendMessage()}
@@ -569,8 +599,8 @@ export default function GroupChat() {
             className="h-full bg-[#121212] border-l border-white/5 flex flex-col flex-shrink-0 z-30 overflow-hidden"
           >
             <div className="p-4 space-y-6">
-               <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-600 block mb-4 px-2">Synchronized</span>
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#efefef] block mb-4 px-2">Synchronized</span>
                   <div className="space-y-1">
                     {members.map(m => (
                       <div key={m.id || m.userId} className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-all">
@@ -587,6 +617,57 @@ export default function GroupChat() {
                         <span className="text-xs font-bold truncate">{m.userName}</span>
                       </div>
                     ))}
+                  </div>
+               </div>
+
+               <div className="pt-4 border-t border-white/5">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#efefef] flex items-center gap-1.5 mb-4 px-2">
+                    <Bot className="w-3.5 h-3.5 text-primary" />
+                    <span>AI Operatives</span>
+                  </span>
+                  {agents.length === 0 ? (
+                    <p className="text-[10px] text-gray-500 italic px-2">No custom agents in this cluster.</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {agents.map(a => (
+                        <button 
+                          key={a.id} 
+                          onClick={() => {
+                            setInputText(prev => {
+                              const mentionStr = `@${a.name}`;
+                              if (prev.includes(mentionStr)) return prev;
+                              return prev ? `${prev} ${mentionStr} ` : `${mentionStr} `;
+                            });
+                            inputRef.current?.focus();
+                            showToast(`Mentioned @${a.name} - complete your request!`);
+                          }}
+                          className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-white/[0.04] active:bg-white/[0.08] transition-all text-left group"
+                          title={`Click to call ${a.name}`}
+                        >
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <div className="relative shrink-0">
+                              {a.avatarUrl ? (
+                                <img src={a.avatarUrl} className="w-8 h-8 rounded-full border border-white/15" />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 border border-white/10">
+                                  <Bot className="w-4 h-4" style={{ color: a.accentColor || '#534AB7' }} />
+                                </div>
+                              )}
+                              <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 border border-black animate-pulse" />
+                            </div>
+                            <div className="flex flex-col overflow-hidden">
+                              <span className="text-xs font-bold text-white truncate group-hover:text-primary transition-colors">{a.name}</span>
+                              <span className="text-[8px] uppercase tracking-wider text-gray-500 font-bold truncate">{a.role}</span>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="mt-4 px-2">
+                    <p className="text-[9px] text-gray-500 leading-normal italic bg-white/5 border border-white/5 rounded-xl p-3">
+                      💡 **How to Summon**: Type <span className="text-[#efefef] font-mono select-all">@AgentName</span> followed by your prompt, or click on an agent above to ping them.
+                    </p>
                   </div>
                </div>
             </div>
