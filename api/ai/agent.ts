@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
 
+let verifiedModel: string | null = null;
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -59,18 +61,21 @@ Respond as ${agentName} — stay strictly in character. Max 3 sentences. No mark
       }
     });
 
-    let requestedModel = req.body.model || req.body.persona?.model || 'gemini-3.5-flash';
-    if (requestedModel.includes('gemini-1.5') || requestedModel.includes('gemini-2.5') || requestedModel.includes('gemini-3.1') || requestedModel.includes('gemini-2.0')) {
-      requestedModel = 'gemini-3.5-flash';
+    let requestedModel = req.body.model || req.body.persona?.model || 'gemini-flash-latest';
+    if (requestedModel.includes('gemini-1.5') || requestedModel.includes('requestedModel.includes') || requestedModel.includes('gemini-2.5') || requestedModel.includes('gemini-3.1') || requestedModel.includes('gemini-2.0')) {
+      requestedModel = 'gemini-flash-latest';
     }
 
-    const modelsToTry = [
-      requestedModel,
-      'gemini-3.5-flash',
-      'gemini-flash-latest'
-    ];
+    const modelsToTry: string[] = [];
+    if (verifiedModel) {
+      modelsToTry.push(verifiedModel);
+    }
+    modelsToTry.push(requestedModel);
+    modelsToTry.push('gemini-flash-latest');
+    modelsToTry.push('gemini-2.5-flash');
+    modelsToTry.push('gemini-3.5-flash');
 
-    const uniqueModels = Array.from(new Set(modelsToTry));
+    const uniqueModels = Array.from(new Set(modelsToTry)).filter(Boolean) as string[];
     let lastError = null;
     let response = '';
 
@@ -81,12 +86,18 @@ Respond as ${agentName} — stay strictly in character. Max 3 sentences. No mark
           contents: prompt
         });
         response = result.text || '';
+        if (!verifiedModel) {
+          verifiedModel = modelToTry;
+        }
         break;
       } catch (err: any) {
         lastError = err;
-        console.warn(`Model ${modelToTry} failed in Vercel handler, checking next fallback...`);
         if (err.message?.includes('API_KEY_INVALID') || err.message?.includes('API key not valid')) {
           throw err;
+        }
+        // Suppress warn to keep logs clean
+        if (modelToTry === uniqueModels[uniqueModels.length - 1]) {
+          console.error(`Gemini agent fallback chain exhausted: ${err.message}`);
         }
       }
     }

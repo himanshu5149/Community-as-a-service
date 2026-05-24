@@ -34,16 +34,25 @@ async function startServer() {
     return aiClient;
   }
 
+  // Keep track of the working model for the current environment
+  let verifiedModel: string | null = null;
+
   // Model generator with automatic fallback checking
   async function generateContentWithFallback(options: { model: string; contents: any; config?: any }) {
     const ai = getAi();
-    const modelsToTry = [
-      options.model,
-      "gemini-3.5-flash",
-      "gemini-flash-latest"
-    ].filter(Boolean) as string[];
+    const modelsToTry: string[] = [];
 
-    const uniqueModels = Array.from(new Set(modelsToTry));
+    // Prioritize the known working model to eliminate latency on subsequent calls
+    if (verifiedModel) {
+      modelsToTry.push(verifiedModel);
+    }
+
+    modelsToTry.push(options.model);
+    modelsToTry.push("gemini-flash-latest");
+    modelsToTry.push("gemini-2.5-flash");
+    modelsToTry.push("gemini-3.5-flash");
+
+    const uniqueModels = Array.from(new Set(modelsToTry)).filter(Boolean) as string[];
     let lastError = null;
 
     for (const modelToTry of uniqueModels) {
@@ -52,12 +61,20 @@ async function startServer() {
           ...options,
           model: modelToTry
         });
+        // Cache the successful model
+        if (!verifiedModel) {
+          verifiedModel = modelToTry;
+        }
         return response;
       } catch (err: any) {
         lastError = err;
-        console.warn(`Model ${modelToTry} failed in fallback chain, checking next fallback...`);
         if (err.message?.includes("API_KEY_INVALID") || err.message?.includes("API key not valid")) {
           throw err;
+        }
+        // Suppress intermediate warnings to keep console output clean.
+        // Only log if we are at the absolute end of the fallback chain.
+        if (modelToTry === uniqueModels[uniqueModels.length - 1]) {
+          console.error(`Gemini Error: Fallback chain exhausted. Last error: ${err.message}`);
         }
       }
     }
@@ -88,7 +105,7 @@ Message: "${text}"
 Return ONLY JSON: { "isSafe": boolean, "reason": "string", "riskLevel": "none"|"low"|"medium"|"high" }`;
 
       const response = await generateContentWithFallback({
-        model: "gemini-3.5-flash",
+        model: "gemini-flash-latest",
         contents: prompt,
         config: {
           responseMimeType: "application/json"
@@ -116,7 +133,7 @@ Conversation:
 ${conversation}`;
 
       const response = await generateContentWithFallback({
-        model: "gemini-3.5-flash",
+        model: "gemini-flash-latest",
         contents: prompt
       });
       
@@ -171,30 +188,26 @@ ${systemInstruction ? `\nInternal Agent Rules:\n${systemInstruction}\n` : ""}
 Context:
 Community: "${context?.groupName || "Unknown"}" | Channel: "${context?.channelName || "general"}"
 
-OUTPUT GUIDELINES (COMPLIANCE MANDATORY):
+OUTPUT GUIDELINES (COMPLIANCE IS ABSOLUTELY MANDATORY):
 - Always respond in character as ${agentName}.
-- NEVER output plain paragraphs of prose or long block text.
-- You MUST format your entire response with short, spacing-separated bullet points with double linebreaks (empty lines) between them for high visual clarity and scanability.
-- Every single bullet point / list item MUST naturally begin with or contain a helpful, friendly emoji.
-- Keep each bullet point informative and rich, yet simple and extremely easy to scan.
-- Make the tone exciting, modern, friendly, and high-energy (SaaS / active startup community vibes).
-- Highlight important terms or key ideas with bold text.
-- Always conclude the response with a friendly and exciting question or Action-driven CALL TO ACTION (CTA).
+- Provide your response in SHORT bullet points ONLY.
+- Do NOT write long paragraphs under any circumstances.
+- Start every point with a standard asterisk bullet ("* ") followed naturally by an emoji and clear action-oriented description.
+- Keep each point short, conversational, exciting, friendly, and highly readable.
+- Highlight key terms or ideas with **bold text**.
+- Do NOT write introduction or conclusion paragraphs of prose. Just output the list of bullet points directly.
 
-Example Format:
-👋 **Welcome onboard!** Let's get things moving!
-
+Required Format Example:
+* 👋 **Welcome onboard!** Glad to have you here in our secure frequency.
 * 🚀 **Explore channels** to connect with community members instantly.
-
 * 💡 **Share innovative ideas** to collaborate and build together.
-
-* 😊 **What projects are you launching today?**`;
+* 😊 **What projects are you starting today?**`;
 
       const contents = `${history ? `Recent Conversation:\n${history}\n` : ""}User message: ${userInput}`;
 
-      let chosenModel = req.body.model || req.body.persona?.model || "gemini-3.5-flash";
+      let chosenModel = req.body.model || req.body.persona?.model || "gemini-flash-latest";
       if (chosenModel.includes("gemini-1.5") || chosenModel.includes("gemini-2.5") || chosenModel.includes("gemini-2.0") || chosenModel.includes("gemini-3.5")) {
-        chosenModel = "gemini-3.5-flash";
+        chosenModel = "gemini-flash-latest";
       }
       const response = await generateContentWithFallback({
         model: chosenModel,
@@ -231,29 +244,25 @@ Example Format:
 ${persona.systemInstruction}
 Community: "${context.groupName}"
 
-OUTPUT GUIDELINES (COMPLIANCE MANDATORY):
+OUTPUT GUIDELINES (COMPLIANCE IS ABSOLUTELY MANDATORY):
 - Always respond in character as ${persona.name}.
-- NEVER output plain paragraphs of prose or long block text.
-- You MUST format your entire response with short, spacing-separated bullet points with double linebreaks (empty lines) between them for high visual clarity and scanability.
-- Every single bullet point / list item MUST naturally begin with or contain a helpful, friendly emoji.
-- Keep each bullet point informative and rich, yet simple and extremely easy to scan.
-- Make the tone exciting, modern, friendly, and high-energy (SaaS / active startup community vibes).
-- Highlight important terms or key ideas with bold text.
-- Always conclude the response with a friendly and exciting question or Action-driven CALL TO ACTION (CTA).
+- Provide your response in SHORT bullet points ONLY.
+- Do NOT write long paragraphs under any circumstances.
+- Start every point with a standard asterisk bullet ("* ") followed naturally by an emoji and clear action-oriented description.
+- Keep each point short, conversational, exciting, friendly, and highly readable.
+- Highlight key terms or ideas with **bold text**.
+- Do NOT write introduction or conclusion paragraphs of prose. Just output the list of bullet points directly.
 
-Example Format:
-👋 **Welcome onboard!** Let's get things moving!
-
+Required Format Example:
+* 👋 **Welcome onboard!** Glad to have you here in our secure frequency.
 * 🚀 **Explore channels** to connect with community members instantly.
-
 * 💡 **Share innovative ideas** to collaborate and build together.
-
-* 😊 **What projects are you launching today?**`;
+* 😊 **What projects are you starting today?**`;
 
       const contents = `Recent chat:\n${history}\nNew message: ${query}`;
 
       const response = await generateContentWithFallback({
-        model: "gemini-3.5-flash",
+        model: "gemini-flash-latest",
         contents: contents,
         config: {
           systemInstruction: systemInstructionContent

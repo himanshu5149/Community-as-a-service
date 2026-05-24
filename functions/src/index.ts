@@ -10,6 +10,8 @@ if (admin.apps.length === 0) {
 const db = admin.firestore();
 
 // ─── Gemini Core Helper (Modern @google/genai Standards) ─────────────────────
+let verifiedModel: string | null = null;
+
 function getGemini(): GoogleGenAI {
   const key = process.env.GEMINI_API_KEY || functions.config().gemini?.api_key;
   if (!key) {
@@ -26,31 +28,53 @@ function getGemini(): GoogleGenAI {
   });
 }
 
-async function callGemini(prompt: string, jsonMode = false, modelOption = "gemini-3.5-flash"): Promise<string> {
-  try {
-    const ai = getGemini();
-    const response = await ai.models.generateContent({
-      model: modelOption,
-      contents: prompt,
-      ...(jsonMode ? {
-        config: {
-          responseMimeType: "application/json"
-        }
-      } : {})
-    });
-    
-    const textOutput = response.text;
-    if (textOutput === undefined) {
-      throw new Error("Model returned an empty response.");
-    }
-    return textOutput;
-  } catch (err: any) {
-    console.error("Gemini API call failed:", err);
-    if (err?.message?.includes("API_KEY_INVALID") || err?.status === 403) {
-      throw new Error("INVALID_GEMINI_API_KEY");
-    }
-    throw err;
+async function callGemini(prompt: string, jsonMode = false, modelOption = "gemini-flash-latest"): Promise<string> {
+  const ai = getGemini();
+  const modelsToTry: string[] = [];
+
+  if (verifiedModel) {
+    modelsToTry.push(verifiedModel);
   }
+
+  modelsToTry.push(modelOption);
+  modelsToTry.push("gemini-flash-latest");
+  modelsToTry.push("gemini-2.5-flash");
+  modelsToTry.push("gemini-3.5-flash");
+
+  const uniqueModels = Array.from(new Set(modelsToTry)).filter(Boolean) as string[];
+  let lastError = null;
+
+  for (const modelToTry of uniqueModels) {
+    try {
+      const response = await ai.models.generateContent({
+        model: modelToTry,
+        contents: prompt,
+        ...(jsonMode ? {
+          config: {
+            responseMimeType: "application/json"
+          }
+        } : {})
+      });
+      
+      const textOutput = response.text;
+      if (textOutput === undefined) {
+        throw new Error("Model returned an empty response.");
+      }
+      if (!verifiedModel) {
+        verifiedModel = modelToTry;
+      }
+      return textOutput;
+    } catch (err: any) {
+      lastError = err;
+      if (err?.message?.includes("API_KEY_INVALID") || err?.status === 403) {
+        throw new Error("INVALID_GEMINI_API_KEY");
+      }
+      if (modelToTry === uniqueModels[uniqueModels.length - 1]) {
+        console.error("Gemini fallback chain failed to resolve:", err);
+      }
+    }
+  }
+  throw lastError || new Error("All fallback models failed.");
 }
 
 // ─── In-memory Cache Engine (Mitigate Cold Starts & Speed Up Responses) ───
@@ -200,12 +224,25 @@ Community: "${context?.groupName || "Unknown"}" | Channel: "${context?.channelNa
 ${history ? `Recent Conversation:\n${history}\n` : ""}
 User message: ${userInput}
 
-Respond as ${agentName} — stay strictly in character. Max 3 sentences. No markdown headers. Be concise but insightful.`;
+OUTPUT GUIDELINES (COMPLIANCE IS ABSOLUTELY MANDATORY):
+- Always respond in character as ${agentName}.
+- Provide your response in SHORT bullet points ONLY.
+- Do NOT write long paragraphs under any circumstances.
+- Start every single point with a standard asterisk bullet ("* ") followed naturally by an emoji and clear action-oriented description.
+- Keep each point short, conversational, exciting, friendly, and highly readable.
+- Highlight key terms or ideas with **bold text**.
+- Do NOT write any introduction or conclusion paragraphs of prose. Just output the list of bullet points directly.
+
+Required Format Example:
+* 👋 **Welcome onboard!** Glad to have you here in our secure frequency.
+* 🚀 **Explore channels** to connect with community members instantly.
+* 💡 **Share innovative ideas** to collaborate and build together.
+* 😊 **What projects are you starting today?**`;
 
   try {
-    let chosenModel = model || persona?.model || "gemini-3.5-flash";
+    let chosenModel = model || persona?.model || "gemini-flash-latest";
     if (chosenModel.includes("gemini-1.5") || chosenModel.includes("gemini-2.5") || chosenModel.includes("gemini-3.1") || chosenModel.includes("gemini-2.0")) {
-      chosenModel = "gemini-3.5-flash";
+      chosenModel = "gemini-flash-latest";
     }
     const response = await callGemini(prompt, false, chosenModel);
     res.json({ response, reply: response });
@@ -289,7 +326,21 @@ Community: "${context.groupName}"
 Recent chat:
 ${history}
 New message: ${query}
-Respond as ${persona.name}. Stay in character. Warm and helpful. Max 3 sentences.`
+
+OUTPUT GUIDELINES (COMPLIANCE IS ABSOLUTELY MANDATORY):
+- Always respond in character as ${persona.name}.
+- Provide your response in SHORT bullet points ONLY.
+- Do NOT write long paragraphs under any circumstances.
+- Start every single point with a standard asterisk bullet ("* ") followed naturally by an emoji and clear action-oriented description.
+- Keep each point short, conversational, exciting, friendly, and highly readable.
+- Highlight key terms or ideas with **bold text**.
+- Do NOT write any introduction or conclusion paragraphs of prose. Just output the list of bullet points directly.
+
+Required Format Example:
+* 👋 **Welcome onboard!** Glad to have you here in our secure frequency.
+* 🚀 **Explore channels** to connect with community members instantly.
+* 💡 **Share innovative ideas** to collaborate and build together.
+* 😊 **What projects are you starting today?**`
     );
     res.json({ response });
   } catch (e: any) {

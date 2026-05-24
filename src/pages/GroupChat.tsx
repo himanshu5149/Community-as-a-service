@@ -385,22 +385,6 @@ export default function GroupChat() {
                     </button>
                   </div>
                 )}
-                {permissions.canEditGroup && (
-                  <div className="pt-2 border-t border-white/5">
-                    <button
-                      onClick={async () => {
-                        if (window.confirm("CRITICAL WARNING: Are you sure you want to PERMANENTLY DELETE this entire community? All channels, messages, and configurations will be forever purged.")) {
-                          await deleteGroup(groupId || '');
-                          showToast("Community cluster decommissioned.");
-                          navigate('/explore');
-                        }
-                      }}
-                      className="w-full py-2 bg-red-950/40 border border-red-500/20 text-red-500 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-1.5"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" /> Decommission Community
-                    </button>
-                  </div>
-                )}
                 <button
                   onClick={() => navigate('/settings')}
                   className="w-full py-2 bg-white/5 border border-white/10 rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-white/10 transition-all"
@@ -424,49 +408,19 @@ export default function GroupChat() {
                   {channelsLoading ? (
                     [1,2,3].map(i => <div key={`chan-skele-${i}`} className="h-10 bg-white/5 animate-pulse rounded-lg mx-2"></div>)
                   ) : channels.map(ch => (
-                    <div 
+                    <Link 
                       key={ch.id}
-                      className="group/chan flex items-center justify-between rounded-lg transition-all"
-                    >
-                      <Link 
-                        to={`/groups/${groupId}/channels/${ch.id}`}
-                        className={cn(
-                          "flex-grow flex items-center gap-3 px-3 py-2 transition-all font-bold text-sm rounded-lg truncate",
-                          channelId === ch.id 
-                            ? "bg-white/10 text-white" 
-                            : "text-gray-500 hover:bg-white/5 hover:text-gray-300"
-                        )}
-                      >
-                        {ch.type === 'announcements' ? <Megaphone className="w-4 h-4" /> : <Hash className="w-4 h-4" />}
-                        <span className="truncate">{ch.name}</span>
-                      </Link>
-                      
-                      {/* Delete Channel Option (Only for Admins, and not for 'general') */}
-                      {permissions.canCreateChannel && ch.name.toLowerCase() !== 'general' && (
-                        <button 
-                          onClick={async (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (window.confirm(`Are you sure you want to delete the channel "#${ch.name}"? This cannot be undone.`)) {
-                              await deleteChannel(ch.id);
-                              showToast(`Channel "#${ch.name}" deleted successfully.`);
-                              if (channelId === ch.id) {
-                                const firstChan = channels.find(c => c.id !== ch.id);
-                                if (firstChan) {
-                                  navigate(`/groups/${groupId}/channels/${firstChan.id}`);
-                                } else {
-                                  navigate(`/groups/${groupId}`);
-                                }
-                              }
-                            }
-                          }}
-                          className="opacity-0 group-hover/chan:opacity-100 p-1.5 text-gray-500 hover:text-red-500 transition-opacity mr-1 shrink-0"
-                          title="Delete Frequency Channel"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                      to={`/groups/${groupId}/channels/${ch.id}`}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all font-bold text-sm",
+                        channelId === ch.id 
+                          ? "bg-white/10 text-white" 
+                          : "text-gray-500 hover:bg-white/5 hover:text-gray-300"
                       )}
-                    </div>
+                    >
+                      {ch.type === 'announcements' ? <Megaphone className="w-4 h-4" /> : <Hash className="w-4 h-4" />}
+                      <span className="truncate">{ch.name}</span>
+                    </Link>
                   ))}
                 </div>
               </div>
