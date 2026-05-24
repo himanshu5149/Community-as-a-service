@@ -103,6 +103,7 @@ export default function AIAgentChat() {
     setModerationWarning(null);
     setIsTyping(true);
 
+    const startTime = Date.now();
     try {
       const reply = await callAiAgent(
         textToChat,
@@ -122,9 +123,11 @@ export default function AIAgentChat() {
         }
       );
       
+      const latency = Date.now() - startTime;
+      
       // Record interaction for stats
       if (agentId && user?.uid) {
-        recordInteraction(agentId, user.uid, textToChat, reply, 0);
+        recordInteraction(agentId, user.uid, textToChat, reply, 0, latency);
       }
 
       const aiMsg: Message = {

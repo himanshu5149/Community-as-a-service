@@ -1,13 +1,13 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, AuthError, setPersistence, browserLocalPersistence } from 'firebase/auth';
-import { initializeFirestore, doc, getDocFromServer, persistentLocalCache, persistentSingleTabManager } from 'firebase/firestore';
+import { initializeFirestore, doc, getDocFromServer, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { getDatabase } from 'firebase/database';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
-  localCache: persistentLocalCache({ tabManager: persistentSingleTabManager({}) }),
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
 }, (firebaseConfig as any).firestoreDatabaseId); /* CRITICAL: The app will break without this line */
 export const auth = getAuth(app);
 export const rtdb = getDatabase(app, (firebaseConfig as any).databaseURL);

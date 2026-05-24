@@ -28,6 +28,7 @@ export interface AiAgent {
   isCrossGroup: boolean;
   model: string;
   totalResponses: number;
+  totalLatency?: number;
 }
 
 export function useAiAgents(groupId?: string) {
@@ -71,7 +72,7 @@ export function useAiAgents(groupId?: string) {
     };
   }, [groupId]);
 
-  const recordInteraction = async (agentId: string, userId: string, prompt: string, response: string, tokens: number) => {
+  const recordInteraction = async (agentId: string, userId: string, prompt: string, response: string, tokens: number, latency?: number) => {
     try {
       // 1. Log interaction
       await addDoc(collection(db, 'ai_interactions'), {
@@ -80,13 +81,18 @@ export function useAiAgents(groupId?: string) {
         prompt,
         response,
         tokensUsed: tokens,
+        latency: latency || null,
         createdAt: serverTimestamp()
       });
 
       // 2. Update agent stats
-      await updateDoc(doc(db, 'ai_agents', agentId), {
+      const updates: any = {
         totalResponses: increment(1)
-      });
+      };
+      if (typeof latency === 'number' && latency > 0) {
+        updates.totalLatency = increment(latency);
+      }
+      await updateDoc(doc(db, 'ai_agents', agentId), updates);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'ai_interactions');
     }

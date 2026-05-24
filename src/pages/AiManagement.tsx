@@ -27,6 +27,15 @@ export default function AiManagement() {
     accentColor: '#534AB7'
   });
 
+  // Calculate Telemetry HUD Panel Stats
+  const totalSyncs = agents.reduce((acc, a) => acc + (a.totalResponses || 0), 0);
+  const overallLatencySum = agents.reduce((acc, a) => acc + (a.totalLatency || 0), 0);
+  const overallAvgLatency = totalSyncs > 0 ? Math.round(overallLatencySum / totalSyncs) : 0;
+  const slowPerformingNodes = agents.filter(a => {
+    const avg = a.totalResponses && a.totalLatency ? (a.totalLatency / a.totalResponses) : 0;
+    return avg > 2500; // Nodes taking longer than 2.5s on average are considered slow
+  });
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     const expertiseArray = formData.expertise.split(',').map(s => s.trim()).filter(Boolean);
@@ -95,6 +104,55 @@ export default function AiManagement() {
           >
             <Plus className="w-5 h-5" /> Deploy Agent
           </button>
+        </div>
+
+        {/* Telemetry HUD Panel */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+          <div className="bg-[#121212] border border-white/5 p-6 rounded-3xl flex items-center justify-between">
+            <div>
+              <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 block mb-1">Active AI Shards</span>
+              <span className="text-3xl font-bold tracking-tight text-white">{agents.length}</span>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+              <Bot className="w-6 h-6 text-primary" />
+            </div>
+          </div>
+          <div className="bg-[#121212] border border-white/5 p-6 rounded-3xl flex items-center justify-between">
+            <div>
+              <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 block mb-1">Total Cognitions</span>
+              <span className="text-3xl font-bold tracking-tight text-white">{totalSyncs}</span>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-[#534AB7]/10 flex items-center justify-center">
+              <Activity className="w-6 h-6 text-[#534AB7]" />
+            </div>
+          </div>
+          <div className="bg-[#121212] border border-white/5 p-6 rounded-3xl flex items-center justify-between">
+            <div>
+              <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 block mb-1">Network Latency</span>
+              <span className="text-3xl font-bold tracking-tight text-emerald-400">
+                {overallAvgLatency > 0 
+                  ? `${overallAvgLatency >= 1000 ? `${(overallAvgLatency / 1000).toFixed(2)}s` : `${overallAvgLatency}ms`}` 
+                  : "Optimal"}
+              </span>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            </div>
+          </div>
+          <div className="bg-[#121212] border border-white/5 p-6 rounded-3xl flex items-center justify-between">
+            <div>
+              <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 block mb-1">Slow Shards</span>
+              <span className={cn(
+                "text-3xl font-bold tracking-tight",
+                slowPerformingNodes.length > 0 ? "text-red-400 font-black animate-pulse" : "text-gray-400"
+              )}>
+                {slowPerformingNodes.length}
+              </span>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center">
+              <X className="w-6 h-6 text-red-400" />
+            </div>
+          </div>
         </div>
 
         <div className="mb-12">
@@ -202,14 +260,49 @@ export default function AiManagement() {
                     )}
                   </div>
 
-                  <div className="pt-6 border-t border-white/5 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-600">
-                    <div className="flex items-center gap-2">
-                       <Activity className="w-3 h-3" style={{ color: agent.accentColor }} />
-                       {agent.totalResponses || 0} Syncs
+                  <div className="pt-6 border-t border-white/5 grid grid-cols-3 gap-2 text-[9px] font-black uppercase tracking-widest text-gray-600">
+                    <div className="flex flex-col items-start gap-1">
+                      <span className="text-gray-500 font-bold block text-[8px] tracking-normal mb-0.5">Syncs</span>
+                      <span className="flex items-center gap-1.5 font-black text-white/90">
+                        <Activity className="w-3 h-3" style={{ color: agent.accentColor }} />
+                        {agent.totalResponses || 0}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                       <Globe className="w-3 h-3" style={{ color: agent.accentColor }} />
-                       {agent.isCrossGroup ? 'Global' : 'Local'}
+                    <div className="flex flex-col items-start gap-1">
+                      <span className="text-gray-500 font-bold block text-[8px] tracking-normal mb-0.5">Scope</span>
+                      <span className="flex items-center gap-1.5 font-black text-white/90">
+                        <Globe className="w-3 h-3" style={{ color: agent.accentColor }} />
+                        {agent.isCrossGroup ? 'Global' : 'Local'}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-start gap-1">
+                      <span className="text-gray-500 font-bold block text-[8px] tracking-normal mb-0.5">Avg Latency</span>
+                      {(() => {
+                        const avgLatency = agent.totalResponses && agent.totalLatency 
+                          ? Math.round(agent.totalLatency / agent.totalResponses) 
+                          : 0;
+                        if (avgLatency > 0) {
+                          return (
+                            <span className={cn(
+                              "flex items-center gap-1.5 font-black",
+                              avgLatency < 1500 ? "text-emerald-400" : avgLatency < 3000 ? "text-amber-400" : "text-red-400"
+                            )}>
+                              <div className={cn(
+                                "w-1 h-1 rounded-full animate-pulse",
+                                avgLatency < 1500 ? "bg-emerald-400" : avgLatency < 3000 ? "bg-amber-400" : "bg-red-400"
+                              )} />
+                              {avgLatency >= 1000 ? `${(avgLatency / 1000).toFixed(2)}s` : `${avgLatency}ms`}
+                            </span>
+                          );
+                        } else {
+                          return (
+                            <span className="flex items-center gap-1 font-bold text-gray-500 lowercase capitalize">
+                              <div className="w-1 h-1 rounded-full bg-gray-500" />
+                              Pending
+                            </span>
+                          );
+                        }
+                      })()}
                     </div>
                   </div>
                 </motion.div>

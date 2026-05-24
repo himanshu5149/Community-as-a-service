@@ -248,6 +248,13 @@ export function useChat(groupId: string, channelId?: string) {
 
   const deleteMessage = async (messageId: string) => {
     if (!groupId) return;
+    
+    // For local/temporary optimistic messages, just filter them from local state
+    if (messageId.startsWith('temp-')) {
+      setMessages(prev => prev.filter(m => m.id !== messageId));
+      return;
+    }
+
     const path = channelId 
       ? `groups/${groupId}/channels/${channelId}/messages/${messageId}` 
       : `groups/${groupId}/messages/${messageId}`;

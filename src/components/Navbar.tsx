@@ -8,6 +8,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import { BrandLogo } from './BrandLogo';
+import { useAdminModeration } from '../hooks/useAdminModeration';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -15,6 +16,8 @@ export default function Navbar() {
   const { user, isAdmin, logout, loading } = useAuth();
   const { notifications, markAsRead } = useNotifications();
   const { theme, setTheme } = useTheme();
+  const { flaggedMessages } = useAdminModeration(isAdmin);
+  const flaggedCount = flaggedMessages?.length || 0;
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -164,8 +167,13 @@ export default function Navbar() {
               </div>
 
               {isAdmin && (
-                <Link to="/admin" className="text-primary hover:text-white transition-colors p-2 bg-primary/10 rounded-xl">
+                <Link to="/admin" className="relative text-primary hover:text-white transition-colors p-2 bg-primary/10 rounded-xl">
                   <ShieldCheck className="w-5 h-5" />
+                  {flaggedCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] font-black flex items-center justify-center rounded-full border border-bg-dark animate-pulse">
+                      {flaggedCount}
+                    </span>
+                  )}
                 </Link>
               )}
 
@@ -261,6 +269,26 @@ export default function Navbar() {
                     <div className="w-2 h-2 rounded-full bg-primary opacity-0 group-hover:opacity-100 transition-opacity" />
                   </Link>
                 ))}
+                {isAdmin && (
+                  <Link
+                    to="/admin"
+                    onClick={() => setIsOpen(false)}
+                    className={cn(
+                      "text-2xl font-bold tracking-tight py-4 border-b border-white/5 flex items-center justify-between group text-red-400 hover:text-red-300",
+                      location.pathname === '/admin' ? "italic px-4 bg-red-500/5 rounded-xl border-none" : ""
+                    )}
+                  >
+                    <span className="flex items-center gap-2">
+                      <ShieldCheck className="w-6 h-6 text-red-500" />
+                      Admin Terminal
+                    </span>
+                    {flaggedCount > 0 && (
+                      <span className="px-3 py-1 bg-red-500 text-white text-[10px] rounded-full font-black animate-pulse">
+                        {flaggedCount} FLAGGED
+                      </span>
+                    )}
+                  </Link>
+                )}
               </div>
             </div>
 

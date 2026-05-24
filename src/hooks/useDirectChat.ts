@@ -148,6 +148,13 @@ export function useDirectChat(convId: string) {
 
   const deleteMessage = async (messageId: string) => {
     if (!auth.currentUser) return;
+
+    // For local/temporary optimistic messages, just filter them from local state
+    if (messageId.startsWith('temp-')) {
+      setMessages(prev => prev.filter(m => m.id !== messageId));
+      return;
+    }
+
     const path = `conversations/${convId}/messages/${messageId}`;
     try {
       await deleteDoc(doc(db, path));

@@ -174,7 +174,26 @@ Community: "${context?.groupName || "Unknown"}" | Channel: "${context?.channelNa
 ${history ? `Recent Conversation:\n${history}\n` : ""}
 User message: ${userInput}
 
-Respond as ${agentName} — stay strictly in character. Max 3 sentences. No markdown headers. Be concise but insightful.`;
+OUTPUT GUIDELINES:
+- Respond in character as ${agentName}.
+- Always reply in short, spacing-separated bullet points with double linebreaks between them for high visual clarity and scanability.
+- Always use emojis naturally in every single bullet point.
+- NEVER write huge paragraphs or dense blocks of prose text.
+- Keep the response visually clean, breathable, and highly easy to scan.
+- Make the tone exciting, modern, friendly, and high-energy (SaaS / active startup community vibes).
+- Highlight important terms or key ideas with bold text.
+- Keep answers concise but incredibly helpful and conversational (avoid robotic explanations).
+- Always end with an exciting, friendly question or CALL TO ACTION (CTA).
+- Response format example:
+  👋 **Welcome to the platform!** Let's get things rolling!
+  
+  * 🚀 Explore communities and connect with people instantly
+  
+  * 💡 Share ideas, collaborate, and grow together
+  
+  * 🤖 Use AI-powered tools to improve engagement
+  
+  * 😊 What kind of community are you looking to create today?`;
 
       let chosenModel = req.body.model || req.body.persona?.model || "gemini-3.5-flash";
       if (chosenModel.includes("gemini-1.5") || chosenModel.includes("gemini-2.5") || chosenModel.includes("gemini-2.0")) {
@@ -214,7 +233,27 @@ Community: "${context.groupName}"
 Recent chat:
 ${history}
 New message: ${query}
-Respond as ${persona.name}. Stay in character. Warm and helpful. Max 3 sentences.`;
+
+OUTPUT GUIDELINES:
+- Respond in character as ${persona.name}.
+- Always reply in short, spacing-separated bullet points with double linebreaks between them for high visual clarity and scanability.
+- Always use emojis naturally in every single bullet point.
+- NEVER write huge paragraphs or dense blocks of prose text.
+- Keep the response visually clean, breathable, and highly easy to scan.
+- Make the tone exciting, modern, friendly, and high-energy (SaaS / active startup community vibes).
+- Highlight important terms or key ideas with bold text.
+- Keep answers concise but incredibly helpful and conversational (avoid robotic explanations).
+- Always end with an exciting, friendly question or CALL TO ACTION (CTA).
+- Response format example:
+  👋 **Welcome to the platform!** Let's get things rolling!
+  
+  * 🚀 Explore communities and connect with people instantly
+  
+  * 💡 Share ideas, collaborate, and grow together
+  
+  * 🤖 Use AI-powered tools to improve engagement
+  
+  * 😊 What kind of community are you looking to create today?`;
 
       const response = await generateContentWithFallback({
         model: "gemini-3.5-flash",

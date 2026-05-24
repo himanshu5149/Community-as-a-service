@@ -194,6 +194,36 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["type", "title", "message", "isRead"]
+    },
+    "Conversation": {
+      "title": "Conversation Link",
+      "description": "Private direct message channel between users.",
+      "type": "object",
+      "properties": {
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "lastMessage": { "type": "string" },
+        "lastMessageAt": { "type": "string", "format": "date-time" },
+        "participantData": { "type": "object" }
+      },
+      "required": ["participants", "lastMessageAt"]
+    },
+    "Event": {
+      "title": "Community Event",
+      "description": "An event hosted online or in-person in the community.",
+      "type": "object",
+      "properties": {
+        "groupId": { "type": "string" },
+        "hostId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "eventType": { "type": "string", "enum": ["online", "in-person"] },
+        "meetingLink": { "type": "string" },
+        "maxAttendees": { "type": "number" },
+        "rsvps": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["groupId", "hostId", "title", "description", "startTime", "endTime", "eventType"]
     }
   },
   "firestore": {
@@ -224,6 +254,22 @@
     "/groups/{groupId}/channels/{channelId}/messages": {
       "schema": "Message",
       "description": "Messages in a specific channel."
+    },
+    "/groups/{groupId}/events": {
+      "schema": "Event",
+      "description": "Events within a community node."
+    },
+    "/events_global": {
+      "schema": "Event",
+      "description": "Global events open to all users."
+    },
+    "/conversations": {
+      "schema": "Conversation",
+      "description": "Private text chat links between members."
+    },
+    "/conversations/{convId}/messages": {
+      "schema": "Message",
+      "description": "Direct chat messages."
     },
     "/spaces": {
       "schema": "Space",

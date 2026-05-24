@@ -95,6 +95,28 @@ export default function Admin() {
   );
 }
 
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-[#121212]/95 border border-white/10 p-5 rounded-2xl shadow-2xl backdrop-blur-xl">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-3">{label} Diagnostics</p>
+        <div className="space-y-2 min-w-[140px]">
+          <div className="flex justify-between items-center gap-6">
+            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Signals</span>
+            <span className="text-sm font-black text-primary font-mono">{data.signals}</span>
+          </div>
+          <div className="flex justify-between items-center gap-6">
+            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Active Users</span>
+            <span className="text-sm font-black text-cyan-400 font-mono">{data.active}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 function AdminMetrics() {
   const { data, loading } = useAnalytics();
   
@@ -144,10 +166,14 @@ function AdminMetrics() {
                   <h3 className="text-2xl font-bold tracking-tight mb-2">Engagement Velocity</h3>
                   <p className="text-xs text-gray-600 font-bold uppercase tracking-widest leading-none">Intelligence signal distribution across 7 days</p>
               </div>
-              <div className="flex gap-4">
+              <div className="flex gap-6">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-primary"></div>
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Signals</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-cyan-400"></div>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Active Users</span>
                   </div>
               </div>
             </div>
@@ -173,10 +199,7 @@ function AdminMetrics() {
                       tickLine={false} 
                       tick={{ fill: '#4b5563', fontSize: 10, fontWeight: 700 }}
                     />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#121212', border: '1px solid #ffffff10', borderRadius: '1rem' }}
-                      itemStyle={{ color: '#534ab7', fontWeight: 900, textTransform: 'uppercase', fontSize: '10px' }}
-                    />
+                    <Tooltip content={<CustomTooltip />} />
                     <Area 
                       type="monotone" 
                       dataKey="signals" 
@@ -790,6 +813,18 @@ function ModerationDashboard() {
     }
   };
 
+  const handleQuickBan = async (msg: FlaggedMessage) => {
+    try {
+      setLocalError(null);
+      await Promise.all([
+        banUser(msg.userId),
+        updateMessageStatus(msg, 'deleted')
+      ]);
+    } catch (err: any) {
+      setLocalError("Quick Ban protocol failure.");
+    }
+  };
+
   return (
     <div className="space-y-20">
       {localError && (
@@ -826,8 +861,12 @@ function ModerationDashboard() {
               </div>
 
               <div className="flex flex-col gap-3 w-full md:w-48">
-                 <button onClick={() => handleAction(updateMessageStatus, msg.id, 'deleted')} className="w-full py-4 bg-red-500 text-[10px] font-black uppercase tracking-widest rounded-xl">Purge Message</button>
-                 <button onClick={() => handleAction(updateMessageStatus, msg.id, 'safe')} className="w-full py-4 bg-white/5 text-[10px] font-black uppercase tracking-widest border border-white/5 rounded-xl">Dismiss</button>
+                 <button onClick={() => handleQuickBan(msg)} className="w-full py-4 bg-red-600 hover:bg-red-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-colors shadow-lg shadow-red-600/20 flex items-center justify-center gap-2">
+                    <ShieldAlert className="w-4 h-4" />
+                    Quick Ban
+                 </button>
+                 <button onClick={() => handleAction(updateMessageStatus, msg, 'deleted')} className="w-full py-4 bg-red-500 text-[10px] font-black uppercase tracking-widest rounded-xl">Purge Message</button>
+                 <button onClick={() => handleAction(updateMessageStatus, msg, 'safe')} className="w-full py-4 bg-white/5 text-[10px] font-black uppercase tracking-widest border border-white/5 rounded-xl">Dismiss</button>
                  <button onClick={() => handleAction(banUser, msg.userId)} className="w-full py-4 bg-white/5 text-[10px] font-black uppercase tracking-widest border border-red-500/50 rounded-xl text-red-500">Ban User</button>
               </div>
             </div>

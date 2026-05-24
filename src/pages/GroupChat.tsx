@@ -60,7 +60,7 @@ export default function GroupChat() {
   const { member, joinGroup, isMember, permissions, loading: rolesLoading } = useGroupRoles(groupId || '');
   const { messages, loading: chatLoading, sendMessage, reactToMessage, deleteMessage, editMessage, togglePinMessage } = useChat(isMember ? (groupId || '') : '', activeChannel?.id);
   const { members } = useGroupMembers(groupId || '');
-  const { agents } = useAiAgents(groupId || '');
+  const { agents, recordInteraction } = useAiAgents(groupId || '');
   const { addPoints } = useGamification();
   const { toast, hideToast, showToast } = useToast();
   const { moderateMessage } = useModeration();
@@ -167,6 +167,7 @@ export default function GroupChat() {
 
       const agent = agents.find(a => a.name.toLowerCase() === agentNameQuery);
       
+      const startTime = Date.now();
       try {
         const reply = await callAiAgent(
           queryText,
@@ -185,11 +186,17 @@ export default function GroupChat() {
             model: agent.model
           } : undefined
         );
-        if (reply) await sendMessage(reply, 'ai', undefined, true, { 
-          aiName: agent?.name || mention.substring(1), 
-          aiAvatar: agent?.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${agentNameQuery}`,
-          aiColor: agent?.accentColor || '#534AB7'
-        });
+        const latency = Date.now() - startTime;
+        if (reply) {
+          await sendMessage(reply, 'ai', undefined, true, { 
+            aiName: agent?.name || mention.substring(1), 
+            aiAvatar: agent?.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${agentNameQuery}`,
+            aiColor: agent?.accentColor || '#534AB7'
+          });
+          if (agent && user) {
+            recordInteraction(agent.id, user.uid, queryText, reply, 0, latency);
+          }
+        }
       } catch (err) {
         showToast("Node connection timeout.", 'error');
       }
@@ -253,6 +260,7 @@ export default function GroupChat() {
             try {
               // Add a "thinking" message or just set a local state if you want UI feedback
               // For group chat, we can just wait for the response and send it
+              const startTime = Date.now();
               const reply = await callAiAgent(
                 textToChat,
                 agent.id,
@@ -270,12 +278,16 @@ export default function GroupChat() {
                   model: agent.model
                 }
               );
+              const latency = Date.now() - startTime;
               if (reply) {
                 await sendMessage(reply, 'ai', undefined, true, { 
                   aiName: agent.name, 
                   aiAvatar: agent.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${agent.name.toLowerCase()}`,
                   aiColor: agent.accentColor || '#534AB7'
                 });
+                if (user) {
+                  recordInteraction(agent.id, user.uid, textToChat, reply, 0, latency);
+                }
               }
             } catch (err) {
               console.error("AI mention failed:", err);
