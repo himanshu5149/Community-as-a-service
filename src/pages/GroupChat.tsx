@@ -340,14 +340,14 @@ export default function GroupChat() {
   };
 
   return (
-    <div className="pt-20 h-screen bg-[#0a0a0a] text-white flex overflow-hidden font-sans">
+    <div className="h-[calc(100vh-5rem)] mt-20 bg-[#0a0a0a] text-white flex overflow-hidden font-sans relative">
       <AnimatePresence>
         {showChannelSidebar && (
           <motion.div 
             initial={{ width: 0, opacity: 0 }}
             animate={{ width: 260, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
-            className="h-full bg-[#121212] border-r border-white/5 flex flex-col flex-shrink-0 z-40 overflow-hidden"
+            className="absolute md:relative left-0 top-0 bottom-0 h-full bg-[#121212] border-r border-white/5 flex flex-col flex-shrink-0 z-40 overflow-hidden shadow-2xl md:shadow-none bg-opacity-95 md:bg-opacity-100 backdrop-blur-xl md:backdrop-blur-none"
           >
             <div className="p-4 border-b border-white/5 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -412,6 +412,11 @@ export default function GroupChat() {
                     <Link 
                       key={ch.id}
                       to={`/groups/${groupId}/channels/${ch.id}`}
+                      onClick={() => {
+                        if (window.innerWidth < 768) {
+                          setShowChannelSidebar(false);
+                        }
+                      }}
                       className={cn(
                         "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all font-bold text-sm",
                         channelId === ch.id 
@@ -596,7 +601,7 @@ export default function GroupChat() {
             initial={{ width: 0 }}
             animate={{ width: 240 }}
             exit={{ width: 0 }}
-            className="h-full bg-[#121212] border-l border-white/5 flex flex-col flex-shrink-0 z-30 overflow-hidden"
+            className="absolute md:relative right-0 top-0 bottom-0 h-full bg-[#121212] border-l border-white/5 flex flex-col flex-shrink-0 z-40 overflow-hidden shadow-2xl md:shadow-none bg-opacity-95 md:bg-opacity-100 backdrop-blur-xl md:backdrop-blur-none"
           >
             <div className="p-4 space-y-6">
                 <div>

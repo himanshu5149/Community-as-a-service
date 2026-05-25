@@ -214,49 +214,50 @@ export default function AIAgentChat() {
   }
 
   return (
-    <div className="pt-20 h-screen bg-[#0a0a0a] text-white flex flex-col overflow-hidden">
+    <div className="h-[calc(100vh-5rem)] mt-20 bg-[#0a0a0a] text-white flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="h-24 border-b border-white/5 bg-[#121212]/80 backdrop-blur-xl px-8 flex items-center justify-between flex-shrink-0 z-30">
-        <div className="flex items-center gap-6">
+      <header className="h-16 md:h-24 border-b border-white/5 bg-[#121212]/80 backdrop-blur-xl px-4 md:px-8 flex items-center justify-between flex-shrink-0 z-30">
+        <div className="flex items-center gap-3 md:gap-6">
           <Link to={`/ai/${agentId}`} className="text-gray-400 hover:text-white transition-all active:scale-90">
-            <ArrowLeft className="w-6 h-6" />
+            <ArrowLeft className="w-5 h-5 md:w-6 md:h-6" />
           </Link>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             <div className="relative">
               <div 
-                className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center p-2"
+                className="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center p-1 md:p-2"
                 style={{ boxShadow: `0 0 30px ${agent.accentColor}22` }}
               >
                 {agent.avatarUrl ? (
-                  <img src={agent.avatarUrl} alt={agent.name} className="w-full h-full object-cover rounded-xl" />
+                  <img src={agent.avatarUrl} alt={agent.name} className="w-full h-full object-cover rounded-lg md:rounded-xl" />
                 ) : (
-                  <Bot className="w-8 h-8 text-primary" style={{ color: agent.accentColor }} />
+                  <Bot className="w-5 h-5 md:w-8 md:h-8 text-primary" style={{ color: agent.accentColor }} />
                 )}
               </div>
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-[#121212] rounded-full shadow-lg h-inner"></div>
+              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 md:w-4 md:h-4 bg-green-500 border-2 border-[#121212] rounded-full shadow-lg h-inner"></div>
             </div>
             <div>
-              <h1 className="text-xl font-black tracking-tighter italic">{agent.name} <span className="text-primary not-italic" style={{ color: agent.accentColor }}>Link.</span></h1>
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" style={{ backgroundColor: agent.accentColor }} />
-                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">{agent.role}</span>
+              <h1 className="text-base md:text-xl font-black tracking-tighter italic">{agent.name} <span className="text-primary not-italic" style={{ color: agent.accentColor }}>Link.</span></h1>
+              <div className="flex items-center gap-1.5 md:gap-2">
+                <div className="w-1 md:w-1.5 h-1 md:h-1.5 rounded-full bg-primary animate-pulse" style={{ backgroundColor: agent.accentColor }} />
+                <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-gray-500 truncate max-w-[120px] md:max-w-none">{agent.role}</span>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4">
           <button 
             onClick={clearHistory}
-            className="p-3 rounded-xl bg-white/5 hover:bg-red-500/10 text-gray-400 hover:text-red-500 transition-all border border-transparent hover:border-red-500/20"
+            className="p-2 md:p-3 rounded-lg md:rounded-xl bg-white/5 hover:bg-red-500/10 text-gray-400 hover:text-red-500 transition-all border border-transparent hover:border-red-500/20"
+            title="Clear Neural Transmission History"
           >
-            <Trash2 className="w-5 h-5" />
+            <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
           </button>
         </div>
       </header>
 
       {/* Messages */}
-      <div className="flex-grow overflow-y-auto no-scrollbar px-8 py-10 space-y-12 relative bg-[#0d0d0d] bg-[radial-gradient(#ffffff03_1px,transparent_1px)] [background-size:32px_32px]">
+      <div className="flex-grow overflow-y-auto no-scrollbar px-4 md:px-8 py-4 md:py-10 space-y-6 md:space-y-12 relative bg-[#0d0d0d] bg-[radial-gradient(#ffffff03_1px,transparent_1px)] [background-size:32px_32px]">
         {messages.map((msg) => (
           <motion.div 
             key={msg.id}
@@ -278,12 +279,12 @@ export default function AIAgentChat() {
             </div>
             <div className={cn("flex flex-col space-y-2", msg.isAI ? "items-start" : "items-end")}>
                <div className={cn(
-                  "px-8 py-5 rounded-[2.5rem] relative shadow-2xl transition-all hover:scale-[1.01]",
+                  "px-4 md:px-8 py-3 md:py-5 rounded-2xl md:rounded-[2.5rem] relative shadow-2xl transition-all hover:scale-[1.01]",
                   msg.isAI 
                     ? "bg-white/5 border border-white/10 text-gray-100 rounded-tl-none font-medium leading-relaxed max-w-[85%]" 
                     : "bg-[#181818] border border-white/5 text-white rounded-tr-none font-bold max-w-[85%] shadow-primary/5"
                )}>
-                  <div className="text-base">{renderMessageText(msg.text)}</div>
+                  <div className="text-sm md:text-base">{renderMessageText(msg.text)}</div>
                </div>
                <span className="text-[8px] font-black uppercase tracking-widest text-gray-600 px-4">
                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -301,7 +302,7 @@ export default function AIAgentChat() {
             <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center p-1.5">
                <Loader2 className="w-5 h-5 text-primary animate-spin" />
             </div>
-            <div className="bg-white/5 border border-white/10 px-8 py-5 rounded-[2.5rem] rounded-tl-none flex items-center gap-2">
+            <div className="bg-white/5 border border-white/10 px-4 md:px-8 py-3 md:py-5 rounded-2xl md:rounded-[2.5rem] rounded-tl-none flex items-center gap-2">
                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '200ms' }} />
                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '400ms' }} />
@@ -328,29 +329,29 @@ export default function AIAgentChat() {
       </div>
 
       {/* Input */}
-      <div className="p-10 border-t border-white/5 bg-[#0d0d0d]">
+      <div className="p-4 md:p-10 border-t border-white/5 bg-[#0d0d0d]">
         {moderationWarning && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-4xl mx-auto mb-6 p-6 bg-red-500/10 border border-red-500/20 rounded-3xl flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <AlertTriangle className="w-6 h-6 text-red-500" />
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-4xl mx-auto mb-4 md:mb-6 p-4 md:p-6 bg-red-500/10 border border-red-500/20 rounded-2xl md:rounded-3xl flex items-center justify-between">
+            <div className="flex items-center gap-3 md:gap-4">
+              <AlertTriangle className="w-5 h-5 md:w-6 md:h-6 text-red-500 shrink-0" />
               <div>
                 <div className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500">Signal Blocked</div>
-                <p className="text-sm text-red-100/70">{moderationWarning.reason}</p>
+                <p className="text-xs md:text-sm text-red-100/70">{moderationWarning.reason}</p>
               </div>
             </div>
-            <div className="flex gap-6">
-              <button onClick={() => setModerationWarning(null)} className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white">Adjust Signal</button>
-              <button onClick={() => handleSendMessage(undefined, true)} className="text-[10px] font-black uppercase tracking-widest text-red-500 hover:underline">Force Sync</button>
+            <div className="flex gap-4 md:gap-6">
+              <button onClick={() => setModerationWarning(null)} className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white">Adjust Signal</button>
+              <button onClick={() => handleSendMessage(undefined, true)} className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-red-500 hover:underline">Force Sync</button>
             </div>
           </motion.div>
         )}
 
-        <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto flex items-center gap-4 group">
+        <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto flex items-center gap-2 md:gap-4 group">
           <div className="flex-grow relative">
             <div className="absolute inset-0 bg-primary/20 blur-2xl opacity-0 group-focus-within:opacity-100 transition-opacity" style={{ backgroundColor: `${agent.accentColor}33` }} />
-            <div className="relative bg-[#1a1a1a] border border-white/10 rounded-[3rem] p-2 flex items-center gap-2 shadow-2xl focus-within:border-primary/50 transition-all overflow-hidden">
-               <button type="button" className="p-4 text-gray-500 hover:text-white transition-colors">
-                  <Paperclip className="w-6 h-6" />
+            <div className="relative bg-[#1a1a1a] border border-white/10 rounded-[3rem] p-1 md:p-2 flex items-center gap-1 md:gap-2 shadow-2xl focus-within:border-primary/50 transition-all overflow-hidden">
+               <button type="button" className="p-2 md:p-4 text-gray-500 hover:text-white transition-colors">
+                  <Paperclip className="w-5 h-5 md:w-6 md:h-6" />
                </button>
                <input 
                  autoFocus
@@ -358,10 +359,10 @@ export default function AIAgentChat() {
                  onChange={(e) => setInputText(e.target.value)}
                  disabled={isTyping}
                  placeholder={`Query ${agent.name}...`}
-                 className="flex-grow bg-transparent border-none outline-none py-4 px-2 text-white font-medium placeholder:text-gray-700 placeholder:italic"
+                 className="flex-grow bg-transparent border-none outline-none py-2 md:py-4 px-2 text-white text-sm md:text-base font-medium placeholder:text-gray-700 placeholder:italic"
                />
-               <button type="button" className="p-4 text-gray-500 hover:text-primary transition-colors">
-                  <Smile className="w-6 h-6" />
+               <button type="button" className="p-2 md:p-4 text-gray-500 hover:text-primary transition-colors">
+                  <Smile className="w-5 h-5 md:w-6 md:h-6" />
                </button>
             </div>
           </div>
@@ -369,21 +370,21 @@ export default function AIAgentChat() {
             type="submit"
             disabled={!inputText.trim() || isTyping}
             className={cn(
-               "w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-2xl",
+               "w-11 h-11 md:w-16 md:h-16 rounded-full flex items-center justify-center transition-all shadow-2xl shrink-0",
                inputText.trim() && !isTyping 
                 ? "bg-primary text-white shadow-primary/20 hover:scale-110 active:scale-95" 
                 : "bg-white/5 text-gray-700"
             )}
             style={{ backgroundColor: (inputText.trim() && !isTyping) ? agent.accentColor : undefined }}
           >
-            <Send className="w-6 h-6" />
+            <Send className="w-5 h-5 md:w-6 md:h-6" />
           </button>
         </form>
 
-        <div className="mt-8 flex justify-center">
-           <div className="flex items-center gap-6 text-[10px] font-black uppercase tracking-[0.4em] text-gray-600">
-             <div className="flex items-center gap-2"><Zap className="w-3 h-3 text-primary" /> Low Latency</div>
-             <div className="flex items-center gap-2"><Sparkles className="w-3 h-3 text-primary" /> Neural Link Active</div>
+        <div className="mt-4 md:mt-8 flex justify-center">
+           <div className="flex items-center gap-4 md:gap-6 text-[8px] md:text-[10px] font-black uppercase tracking-[0.25em] md:tracking-[0.4em] text-gray-600">
+             <div className="flex items-center gap-1.5 md:gap-2"><Zap className="w-2.5 h-2.5 md:w-3 md:h-3 text-primary" /> Low Latency</div>
+             <div className="flex items-center gap-1.5 md:gap-2"><Sparkles className="w-2.5 h-2.5 md:w-3 md:h-3 text-primary" /> Neural Link Active</div>
            </div>
         </div>
       </div>

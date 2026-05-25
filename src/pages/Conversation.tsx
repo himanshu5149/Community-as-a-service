@@ -167,44 +167,44 @@ export default function Conversation() {
   }
 
   return (
-    <div className="pt-20 h-screen bg-[#0a0a0a] text-white flex flex-col overflow-hidden font-sans">
+    <div className="h-[calc(100vh-5rem)] mt-20 bg-[#0a0a0a] text-white flex flex-col overflow-hidden font-sans">
       {/* Header */}
-      <div className="h-20 border-b border-white/5 bg-[#121212]/80 backdrop-blur-xl px-8 flex items-center justify-between flex-shrink-0 z-30 relative overflow-hidden">
+      <div className="h-16 md:h-20 border-b border-white/5 bg-[#121212]/80 backdrop-blur-xl px-4 md:px-8 flex items-center justify-between flex-shrink-0 z-30 relative overflow-hidden">
         <motion.div 
           animate={{ x: [-100, 1000] }}
           transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
           className="absolute inset-x-0 bottom-0 h-[1px] bg-primary/20 pointer-events-none"
         />
         
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-3 md:gap-6">
           <Link to="/messages" className="text-gray-400 hover:text-white transition-all active:scale-90">
-            <ArrowLeft className="w-6 h-6" />
+            <ArrowLeft className="w-5 h-5 md:w-6 md:h-6" />
           </Link>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             <div className="relative">
-              <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 overflow-hidden p-1 shadow-2xl">
-                <img src={otherUser?.avatar || `https://ui-avatars.com/api/?name=${otherUser?.name || 'P'}&background=random&color=fff`} className="w-full h-full object-cover rounded-xl" referrerPolicy="no-referrer" />
+              <div className="w-9 h-9 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-white/5 border border-white/10 overflow-hidden p-0.5 md:p-1 shadow-2xl">
+                <img src={otherUser?.avatar || `https://ui-avatars.com/api/?name=${otherUser?.name || 'P'}&background=random&color=fff`} className="w-full h-full object-cover rounded-lg md:rounded-xl" referrerPolicy="no-referrer" />
               </div>
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-[#121212] rounded-full shadow-lg"></div>
+              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 md:w-4 md:h-4 bg-green-500 border-2 border-[#121212] rounded-full shadow-lg"></div>
             </div>
             <div>
-              <h1 className="text-lg font-black tracking-tight">{otherUser?.name || 'Protocol Node'}</h1>
-              <div className="flex items-center gap-2">
-                <span className="text-[9px] font-black uppercase tracking-widest text-primary animate-pulse">Secure Link Established</span>
+              <h1 className="text-sm md:text-lg font-black tracking-tight truncate max-w-[140px] md:max-w-none">{otherUser?.name || 'Protocol Node'}</h1>
+              <div className="flex items-center gap-1.5 md:gap-2">
+                <span className="text-[8px] md:text-[9px] font-black uppercase tracking-widest text-primary animate-pulse truncate max-w-[120px] md:max-w-none">Secure Link Established</span>
               </div>
             </div>
           </div>
         </div>
         
-        <div className="flex items-center gap-3">
-          <button className="p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all text-gray-400 hover:text-white active:scale-95">
-            <Phone className="w-5 h-5" />
+        <div className="flex items-center gap-1.5 md:gap-3">
+          <button className="p-2 md:p-3 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 transition-all text-gray-400 hover:text-white active:scale-95" title="Call">
+            <Phone className="w-4 h-4 md:w-5 md:h-5" />
           </button>
-          <button className="p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all text-gray-400 hover:text-white active:scale-95">
-            <VideoIcon className="w-5 h-5" />
+          <button className="p-2 md:p-3 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 transition-all text-gray-400 hover:text-white active:scale-95" title="Video Call">
+            <VideoIcon className="w-4 h-4 md:w-5 md:h-5" />
           </button>
-          <button className="p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all text-gray-400 hover:text-white active:scale-95">
-            <MoreVertical className="w-5 h-5" />
+          <button className="p-2 md:p-3 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 transition-all text-gray-400 hover:text-white active:scale-95" title="More">
+            <MoreVertical className="w-4 h-4 md:w-5 md:h-5" />
           </button>
         </div>
       </div>
@@ -213,7 +213,7 @@ export default function Conversation() {
       <div 
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="flex-grow overflow-y-auto no-scrollbar px-8 py-10 space-y-10 relative bg-[#0d0d0d] bg-[radial-gradient(#ffffff03_1px,transparent_1px)] [background-size:32px_32px]"
+        className="flex-grow overflow-y-auto no-scrollbar px-4 md:px-8 py-4 md:py-10 space-y-6 md:space-y-10 relative bg-[#0d0d0d] bg-[radial-gradient(#ffffff03_1px,transparent_1px)] [background-size:32px_32px]"
       >
         <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="w-20 h-20 bg-white/5 rounded-3xl flex items-center justify-center mb-6 border border-white/5">
@@ -239,9 +239,9 @@ export default function Conversation() {
                       <img src={msg.userAvatar || `https://ui-avatars.com/api/?name=${msg.userName}&background=random&color=fff`} className="w-full h-full rounded-lg shadow-xl" />
                   )}
               </div>
-              <div className={cn("max-w-[70%]", isMe ? "items-end" : "items-start")}>
+              <div className={cn("max-w-[85%] md:max-w-[70%]", isMe ? "items-end" : "items-start")}>
                  <div className={cn(
-                    "px-6 py-4 rounded-[2rem] shadow-full relative transition-all group-hover:scale-[1.01]",
+                    "px-4 md:px-6 py-3 md:py-4 rounded-xl md:rounded-[2rem] shadow-full relative transition-all group-hover:scale-[1.01]",
                     isMe ? "bg-primary text-white rounded-tr-none hover:shadow-primary/20" : "bg-white/5 border border-white/5 text-gray-200 rounded-tl-none hover:bg-white/10"
                   )}>
                     <div className="text-sm font-medium leading-relaxed">{renderMessageText(msg.text)}</div>
@@ -313,11 +313,11 @@ export default function Conversation() {
       </div>
 
       {/* Input Section */}
-      <div className="p-8 border-t border-white/5 bg-[#0d0d0d] z-30">
+      <div className="p-4 md:p-8 border-t border-white/5 bg-[#0d0d0d] z-30">
         {moderationWarning && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-4xl mx-auto mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <AlertTriangle className="w-5 h-5 text-red-500" />
+                <div className="flex items-center gap-3 md:gap-4">
+                    <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
                     <div>
                         <div className="text-[10px] font-black uppercase tracking-widest text-red-500">Neural Blockade Active</div>
                         <p className="text-xs text-red-100/70">{moderationWarning.reason}</p>
@@ -332,18 +332,18 @@ export default function Conversation() {
 
         <form 
           onSubmit={handleSendMessage}
-          className="max-w-4xl mx-auto flex items-center gap-4 bg-[#1a1a1a] border border-white/5 rounded-[2.5rem] p-2 pr-4 focus-within:ring-1 ring-primary/30 transition-all shadow-2xl relative"
+          className="max-w-4xl mx-auto flex items-center gap-2 md:gap-4 bg-[#1a1a1a] border border-white/5 rounded-[2.5rem] p-1 md:p-2 pr-2 md:pr-4 focus-within:ring-1 ring-primary/30 transition-all shadow-2xl relative"
         >
-          <div className="flex items-center gap-2 pl-2">
-            <button type="button" className="text-gray-500 hover:text-white transition-all p-3 active:scale-90">
-              <Paperclip className="w-5 h-5" />
+          <div className="flex items-center gap-1 md:gap-2 pl-1 md:pl-2">
+            <button type="button" className="text-gray-500 hover:text-white transition-all p-2 md:p-3 active:scale-90">
+              <Paperclip className="w-4 h-4 md:w-5 h-5" />
             </button>
           </div>
           
           <input 
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            className="flex-grow bg-transparent border-none outline-none text-white font-medium px-4 py-4 placeholder:text-gray-700 placeholder:italic placeholder:font-normal text-sm"
+            className="flex-grow bg-transparent border-none outline-none text-white font-medium px-2 md:px-4 py-2.5 md:py-4 placeholder:text-gray-700 placeholder:italic placeholder:font-normal text-sm"
             placeholder="Transmit secure signal..."
           />
           
@@ -352,9 +352,9 @@ export default function Conversation() {
               <button 
                 type="button" 
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className="text-gray-500 hover:text-primary transition-all p-3 active:scale-90"
+                className="text-gray-500 hover:text-primary transition-all p-2 md:p-3 active:scale-90"
               >
-                <Smile className="w-5 h-5" />
+                <Smile className="w-4 h-4 md:w-5 h-5" />
               </button>
               <AnimatePresence>
                 {showEmojiPicker && (
@@ -385,13 +385,13 @@ export default function Conversation() {
               type="submit"
               disabled={!inputText.trim()}
               className={cn(
-                "w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-xl",
+                "w-9 h-9 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center transition-all shadow-xl shrink-0",
                 inputText.trim() 
                   ? "bg-primary text-white shadow-primary/20 active:scale-95" 
                   : "bg-white/5 text-gray-700 opacity-50"
               )}
             >
-              <Send className="w-5 h-5" />
+              <Send className="w-4 h-4 md:w-5 h-5" />
             </button>
           </div>
         </form>
