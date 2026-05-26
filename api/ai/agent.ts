@@ -1,8 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
 
-let verifiedModel: string | null = null;
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -12,9 +10,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { query, message, agentId, agentName, context, history, systemInstruction } = req.body;
   const userMessage = query || message;
-  if (!userMessage || !agentName) {
-    return res.status(400).json({ error: 'query and agentName required' });
-  }
+  if (!userMessage || !agentName) return res.status(400).json({ error: 'query and agentName required' });
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return res.json({ response: `${agentName} is offline — API key missing.`, reply: `${agentName} is offline.` });
 
   const expertiseMap: Record<string, string> = {
     aria:         'fitness, nutrition, health, and metabolic optimization',
@@ -28,90 +27,68 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     orbit:        'community management, introductions, social dynamics, group cohesion',
     orbit_social: 'community management, introductions, social dynamics, group cohesion',
   };
-  const expertise = expertiseMap[agentId] || 'general community assistance';
+  const expertise = expertiseMap[agentId?.toLowerCase()] || 'general community assistance';
 
   const historyText = Array.isArray(history) && history.length
-    ? '\nRecent conversation:\n' + history.slice(-6).map((m: any) => `${m.role === 'user' ? 'User' : agentName}: ${m.content || m.text}`).join('\n')
-    : (typeof history === 'string' ? history : '');
+    ? '\nRecent conversation:\n' + history.slice(-6).map((m: any) =>
+        `${m.role === 'user' ? 'User' : agentName}: ${m.content || m.text}`).join('\n')
+    : (typeof history === 'string' ? `\n${history}` : '');
 
-  const sysInstruction = systemInstruction || `You are ${agentName}, an AI community member. Your expertise: ${expertise}. Be helpful, warm, and concise.`;
+  const baseInstruction = systemInstruction ||
+    `You are ${agentName}, an expert AI community member. Your expertise: ${expertise}. Be helpful, warm, and insightful.`;
 
-  const prompt = `${sysInstruction}
-Community: "${context?.groupName || 'Unknown'}" | Channel: "${context?.channelName || 'general'}"${historyText ? `\n${historyText}` : ''}
+  const prompt = `${baseInstruction}
+Community: "${context?.groupName || 'Unknown'}" | Channel: "${context?.channelName || 'general'}"${historyText}
 
 User: ${userMessage}
 
-Respond as ${agentName} — stay strictly in character. Max 3 sentences. No markdown headers. Be concise but insightful.`;
-
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return res.json({
-      response: `${agentName} is currently offline. To activate this agent on Vercel, please navigate to your Vercel Project Settings > Environment Variables and add your "GEMINI_API_KEY".`,
-      reply: `${agentName} is currently offline.`
-    });
-  }
+RESPONSE RULES:
+- If listing steps, tips, or items use bullet points with • symbol
+- Keep response under 4 sentences or 4 bullet points
+- Be direct and helpful
+- Do not use markdown headers
+- Respond as ${agentName}`;
 
   try {
-    const ai = new GoogleGenAI({
-      apiKey,
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
-        }
-      }
-    });
+    const ai = new GoogleGenAI({ apiKey });
 
-    let requestedModel = req.body.model || req.body.persona?.model || 'gemini-flash-latest';
-    if (requestedModel.includes('gemini-1.5') || requestedModel.includes('requestedModel.includes') || requestedModel.includes('gemini-2.5') || requestedModel.includes('gemini-3.1') || requestedModel.includes('gemini-2.0')) {
-      requestedModel = 'gemini-flash-latest';
-    }
+    // Try models in order — first working one is used
+    const models = [
+      process.env.GEMINI_MODEL,
+      'gemini-3.5-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash',
+      'gemini-pro'
+    ].filter(Boolean) as string[];
 
-    const modelsToTry: string[] = [];
-    if (verifiedModel) {
-      modelsToTry.push(verifiedModel);
-    }
-    modelsToTry.push(requestedModel);
-    modelsToTry.push('gemini-flash-latest');
-    modelsToTry.push('gemini-2.5-flash');
-    modelsToTry.push('gemini-3.5-flash');
-
-    const uniqueModels = Array.from(new Set(modelsToTry)).filter(Boolean) as string[];
-    let lastError = null;
     let response = '';
+    let lastError: any = null;
 
-    for (const modelToTry of uniqueModels) {
+    for (const model of models) {
       try {
-        const result = await ai.models.generateContent({
-          model: modelToTry,
-          contents: prompt
-        });
-        response = result.text || '';
-        if (!verifiedModel) {
-          verifiedModel = modelToTry;
-        }
-        break;
+        const result = await ai.models.generateContent({ model, contents: prompt });
+        response = result.text?.trim() || '';
+        if (response) break;
       } catch (err: any) {
         lastError = err;
-        if (err.message?.includes('API_KEY_INVALID') || err.message?.includes('API key not valid')) {
-          throw err;
-        }
-        // Suppress warn to keep logs clean
-        if (modelToTry === uniqueModels[uniqueModels.length - 1]) {
-          console.error(`Gemini agent fallback chain exhausted: ${err.message}`);
-        }
+        // If API key is invalid — stop immediately, no point trying other models
+        if (err.message?.includes('API_KEY_INVALID') || err.message?.includes('API key not valid')) throw err;
+        // Otherwise try next model
+        continue;
       }
     }
 
-    if (!response && lastError) {
-      throw lastError;
-    }
-
+    if (!response) throw lastError;
     res.json({ response, reply: response });
+
   } catch (e: any) {
-    console.error('Agent error:', e.message);
-    if (e.message?.includes('API_KEY_INVALID') || e.message?.includes('API key not valid')) {
-      return res.status(500).json({ error: 'Invalid Gemini API key', response: `${agentName} is offline — API key issue.` });
+    console.error('Agent error:', JSON.stringify(e));
+    if (e?.message?.includes('API_KEY_INVALID')) {
+      return res.status(500).json({ response: `${agentName} is offline — invalid API key.` });
     }
-    res.json({ response: `${agentName} is temporarily offline. Please try again shortly.`, reply: `${agentName} is temporarily offline.` });
+    res.json({
+      response: `${agentName} is temporarily offline. Please try again shortly.`,
+      reply: `${agentName} is temporarily offline.`
+    });
   }
 }

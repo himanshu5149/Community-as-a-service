@@ -91,6 +91,21 @@ export default function DirectMessages() {
                 const otherId = conv.participants.find(p => p !== user.uid);
                 const otherData = conv.participantData?.[otherId || ''];
                 
+                const isUnread = (() => {
+                  if (!conv.lastMessageAt || conv.lastSenderId === user.uid) return false;
+                  const myLastRead = conv.lastRead?.[user.uid];
+                  if (!myLastRead) return true;
+                  try {
+                    const msgTime = typeof conv.lastMessageAt.toMillis === 'function' 
+                      ? conv.lastMessageAt.toMillis() 
+                      : (conv.lastMessageAt.seconds ? conv.lastMessageAt.seconds * 1000 : new Date(conv.lastMessageAt).getTime());
+                    const readTime = typeof myLastRead.toMillis === 'function' 
+                      ? myLastRead.toMillis() 
+                      : (myLastRead.seconds ? myLastRead.seconds * 1000 : new Date(myLastRead).getTime());
+                    return msgTime > readTime;
+                  } catch { return false; }
+                })();
+                
                 return (
                   <motion.div 
                     key={conv.id}
@@ -98,7 +113,12 @@ export default function DirectMessages() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.1 }}
                     onClick={() => navigate(`/messages/${conv.id}`)}
-                    className="group bg-[#121212] border border-white/5 p-8 md:p-10 rounded-[3rem] cursor-pointer hover:bg-white/5 transition-all border-b-4 border-b-transparent hover:border-b-primary relative overflow-hidden"
+                    className={cn(
+                      "group bg-[#121212] border p-8 md:p-10 rounded-[3rem] cursor-pointer hover:bg-white/5 transition-all relative overflow-hidden",
+                      isUnread 
+                        ? "border-primary/45 shadow-xl shadow-primary/5 border-b-4 border-b-primary" 
+                        : "border-white/5 border-b-4 border-b-transparent hover:border-b-primary"
+                    )}
                   >
                     <div className="flex items-start justify-between mb-8 md:mb-10">
                       <div className="w-16 h-16 md:w-20 md:h-20 rounded-3xl border border-white/10 p-1 bg-white/5 shadow-2xl relative">
@@ -118,15 +138,48 @@ export default function DirectMessages() {
  
                     <div>
                       <h3 className="text-xl md:text-2xl font-black tracking-tighter mb-2 text-white group-hover:text-primary transition-colors uppercase italic">{otherData?.name || 'Protocol Node'}</h3>
-                      <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] truncate leading-relaxed">
+                      <p className={cn(
+                        "text-[10px] uppercase tracking-[0.2em] truncate leading-relaxed font-black",
+                        isUnread ? "text-primary italic animate-pulse" : "text-gray-500"
+                      )}>
                         {conv.lastMessage || 'Signal Established'}
                       </p>
                     </div>
 
-                    <div className="mt-8 pt-8 border-t border-white/5 flex items-center gap-4 text-[9px] font-black uppercase tracking-[0.3em] text-gray-600">
-                      <span className="text-primary italic">Live Session</span>
-                      <span className="w-1 h-1 rounded-full bg-gray-700"></span>
-                      <span>{conv.lastMessageAt?.toDate?.().toLocaleDateString() || 'Today'}</span>
+                    <div className="mt-8 pt-8 border-t border-white/5 flex items-center justify-between text-[9px] font-black uppercase tracking-[0.3em] text-gray-600">
+                      <div className="flex items-center gap-4">
+                        <span className="text-primary italic">Live Session</span>
+                        <span className="w-1 h-1 rounded-full bg-gray-700"></span>
+                        <span>{conv.lastMessageAt?.toDate?.().toLocaleDateString() || 'Today'}</span>
+                      </div>
+                      <div>
+                        {conv.lastMessage && (() => {
+                          if (conv.lastSenderId === user.uid) {
+                            const otherLastRead = conv.lastRead?.[otherId || ''];
+                            const isReadByRecipient = (() => {
+                              if (!conv.lastMessageAt || !otherLastRead) return false;
+                              try {
+                                const msgTime = typeof conv.lastMessageAt.toMillis === 'function' 
+                                  ? conv.lastMessageAt.toMillis() 
+                                  : (conv.lastMessageAt.seconds ? conv.lastMessageAt.seconds * 1000 : new Date(conv.lastMessageAt).getTime());
+                                const readTime = typeof otherLastRead.toMillis === 'function' 
+                                  ? otherLastRead.toMillis() 
+                                  : (otherLastRead.seconds ? otherLastRead.seconds * 1000 : new Date(otherLastRead).getTime());
+                                return readTime >= msgTime;
+                              } catch { return false; }
+                            })();
+                            return isReadByRecipient ? (
+                              <span className="text-emerald-500 font-extrabold flex items-center gap-1">Seen</span>
+                            ) : (
+                              <span className="text-white/30 flex items-center gap-1">Sent</span>
+                            );
+                          } else {
+                            return isUnread ? (
+                              <span className="text-primary font-black animate-pulse flex items-center gap-1.5 bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">Unread</span>
+                            ) : null;
+                          }
+                        })()}
+                      </div>
                     </div>
                   </motion.div>
                 )

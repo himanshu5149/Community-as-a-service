@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
 
+const cache = new Map<string, { result: any; time: number }>();
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -10,41 +12,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { text } = req.body;
   if (!text) return res.status(400).json({ error: 'text required' });
+  if (text.trim().length < 15) return res.json({ isSafe: true, riskLevel: 'none' });
 
-  if (text.trim().length < 15) {
-    return res.json({ isSafe: true, riskLevel: 'none' });
-  }
-
-  const prompt = `Analyze this community message for spam, harassment, hate speech, or harmful content.
-Message: "${text}"
-Return ONLY JSON: { "isSafe": boolean, "reason": "string", "riskLevel": "none"|"low"|"medium"|"high" }`;
+  const key = text.trim().toLowerCase().slice(0, 120);
+  const cached = cache.get(key);
+  if (cached && Date.now() - cached.time < 86400000) return res.json(cached.result);
 
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return res.json({ isSafe: true, riskLevel: 'none', reason: 'GEMINI_API_KEY is not configured on Vercel.' });
-  }
+  if (!apiKey) return res.json({ isSafe: true, riskLevel: 'none' });
+
+  const prompt = `Analyze this community message for harmful content. Message: "${text}"\nReturn ONLY valid JSON: { "isSafe": boolean, "reason": "string", "riskLevel": "none"|"low"|"medium"|"high" }`;
 
   try {
-    const ai = new GoogleGenAI({
-      apiKey,
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
-        }
-      }
-    });
+    const ai = new GoogleGenAI({ apiKey });
 
-    const result = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json'
-      }
-    });
+    // Try models in order — first working one is used
+    const models = [
+      process.env.GEMINI_MODEL,
+      'gemini-3.5-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash',
+      'gemini-pro'
+    ].filter(Boolean) as string[];
 
-    const responseText = result.text || '{"isSafe": true, "riskLevel": "none"}';
-    const parsedResult = JSON.parse(responseText);
-    res.json(parsedResult);
+    let responseText = '';
+    let lastError: any = null;
+
+    for (const model of models) {
+      try {
+        const result = await ai.models.generateContent({
+          model,
+          contents: prompt,
+          config: { responseMimeType: 'application/json' },
+        });
+        responseText = result.text?.trim() || '';
+        if (responseText) break;
+      } catch (err: any) {
+        lastError = err;
+        if (err.message?.includes('API_KEY_INVALID') || err.message?.includes('API key not valid')) throw err;
+        continue;
+      }
+    }
+
+    if (!responseText) throw lastError;
+
+    const parsed = JSON.parse(responseText || '{"isSafe":true,"riskLevel":"none","reason":""}');
+    cache.set(key, { result: parsed, time: Date.now() });
+    res.json(parsed);
   } catch (e) {
     console.error('Moderation error:', e);
     res.json({ isSafe: true, riskLevel: 'none' });

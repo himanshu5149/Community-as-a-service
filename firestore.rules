@@ -173,7 +173,9 @@ service cloud.firestore {
              (request.auth.uid in data.participants) &&
              (data.lastMessageAt == request.time || data.lastMessageAt is timestamp || data.lastMessageAt is string) &&
              data.participantData is map &&
-             (!('lastMessage' in data) || (data.lastMessage is string && data.lastMessage.size() <= 2000));
+             (!('lastMessage' in data) || (data.lastMessage is string && data.lastMessage.size() <= 2000)) &&
+             (!('lastSenderId' in data) || (data.lastSenderId is string)) &&
+             (!('lastRead' in data) || (data.lastRead is map));
     }
 
     function isValidEvent(data) {
@@ -363,7 +365,7 @@ service cloud.firestore {
       allow create: if isSignedIn() && (request.auth.uid in incoming().participants) && isValidConversation(incoming());
       allow update: if isSignedIn() && (request.auth.uid in existing().participants) && (
         isValidConversation(incoming()) && (
-          incoming().diff(existing()).affectedKeys().hasOnly(['lastMessage', 'lastMessageAt'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['lastMessage', 'lastMessageAt', 'lastSenderId', 'lastRead'])
         )
       );
       allow delete: if false;

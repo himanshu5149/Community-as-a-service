@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { db, signInWithGoogle } from '../lib/firebase';
 import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
-import { Users, Loader2, ArrowRight, Lock, LogIn, Plus, X, LayoutGrid, Type, AlignLeft, Sparkles, Zap, List } from 'lucide-react';
+import { Users, Loader2, ArrowRight, Lock, LogIn, Plus, X, LayoutGrid, Type, AlignLeft, Sparkles, Zap, List, Search } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Toast, useToast } from '../components/Toast';
 import { useAuth } from '../hooks/useAuth';
@@ -17,11 +17,17 @@ export default function Groups() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchParams] = useSearchParams();
   
+  const [searchTerm, setSearchTerm] = useState("");
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupDesc, setNewGroupDesc] = useState("");
   const [newGroupCat, setNewGroupCat] = useState("General");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast, showToast, hideToast } = useToast();
+
+  const filteredGroups = groups.filter(g => 
+    g.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (g.description || "").toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const navigate = useNavigate();
 
@@ -131,6 +137,31 @@ export default function Groups() {
             )}
           </div>
         </div>
+
+        {/* Search Controls Bar - Spectacular High-Contrast Design for Real-Time Querying */}
+        {groups.length > 0 && (
+          <div className="mb-12 max-w-2xl bg-white/[0.02] border border-white/5 p-2 rounded-3xl flex items-center gap-4 shadow-xl focus-within:border-primary/30 focus-within:ring-1 ring-primary/20 transition-all backdrop-blur-xl">
+            <div className="relative flex-grow flex items-center">
+              <Search className="absolute left-4 w-5 h-5 text-gray-500" />
+              <input 
+                type="text"
+                placeholder="Query community clusters by name or core directive..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-transparent border-none outline-none pl-12 pr-10 py-3.5 text-sm font-semibold placeholder:text-gray-600 transition-all"
+              />
+              {searchTerm && (
+                <button 
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-3 p-1.5 rounded-xl hover:bg-white/10 text-gray-500 hover:text-white transition-all active:scale-90"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
             <GroupSkeleton />
@@ -166,15 +197,35 @@ export default function Groups() {
                  </div>
               </div>
             ) : (
-              <div className={cn(
-                viewMode === 'grid' 
-                  ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10" 
-                  : "flex flex-col gap-4"
-              )}>
-                {groups.map((group, i) => (
-                  <GroupCard key={group.id} group={group} index={i} variant={viewMode} />
-                ))}
-              </div>
+              <>
+                {filteredGroups.length === 0 ? (
+                  <div className="py-24 text-center border border-dashed border-white/5 rounded-[2.5rem] bg-white/[0.01] max-w-4xl mx-auto px-6">
+                    <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-white/10">
+                      <Search className="w-6 h-6 text-primary animate-pulse" />
+                    </div>
+                    <h3 className="text-2xl font-black mb-3 italic tracking-tight">No Matching Community <span className="text-primary">Nodes.</span></h3>
+                    <p className="text-gray-500 text-sm max-w-sm mx-auto mb-8 font-medium leading-relaxed">
+                      We couldn't synchronize with any community shard matching "{searchTerm}". Refine your input signal.
+                    </p>
+                    <button 
+                      onClick={() => setSearchTerm("")}
+                      className="px-6 py-3 bg-white/5 border border-white/10 text-xs font-bold rounded-xl hover:bg-white/10 transition-all uppercase tracking-wider"
+                    >
+                      Clear Signal Filter
+                    </button>
+                  </div>
+                ) : (
+                  <div className={cn(
+                    viewMode === 'grid' 
+                      ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10" 
+                      : "flex flex-col gap-4"
+                  )}>
+                    {filteredGroups.map((group, i) => (
+                      <GroupCard key={group.id} group={group} index={i} variant={viewMode} />
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </>
         )}

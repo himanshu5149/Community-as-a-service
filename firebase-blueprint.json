@@ -203,7 +203,9 @@
         "participants": { "type": "array", "items": { "type": "string" } },
         "lastMessage": { "type": "string" },
         "lastMessageAt": { "type": "string", "format": "date-time" },
-        "participantData": { "type": "object" }
+        "participantData": { "type": "object" },
+        "lastSenderId": { "type": "string" },
+        "lastRead": { "type": "object" }
       },
       "required": ["participants", "lastMessageAt"]
     },

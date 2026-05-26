@@ -120,7 +120,9 @@ export function useDirectChat(convId: string) {
       // Update conversation metadata
       await updateDoc(doc(db, 'conversations', convId), {
         lastMessage: text || '[Attachment]',
-        lastMessageAt: serverTimestamp()
+        lastMessageAt: serverTimestamp(),
+        lastSenderId: auth.currentUser.uid,
+        [`lastRead.${auth.currentUser.uid}`]: serverTimestamp()
       });
     } catch (err) {
       setMessages(prev => prev.map(m => m.id === msgId ? { ...m, status: 'error' } : m));

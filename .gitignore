@@ -6,3 +6,20 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Old duplicate API files — Vercel should ignore these
+api/aiAgent.ts
+api/aiModerate.ts
+api/aiSummarize.ts
+api/aiPersona.ts
+
+# Firebase functions — not needed on Vercel
+functions/
+
+# Server file — not needed on Vercel
+server.ts
+
+# Development files
+.env.local
+.env.development
+*.log

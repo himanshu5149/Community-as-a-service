@@ -3,44 +3,49 @@ import { GoogleGenAI } from '@google/genai';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
   const { messages } = req.body;
-  if (!messages || !Array.isArray(messages)) {
-    return res.status(400).json({ error: 'messages array required' });
-  }
-
-  const conversation = messages.map((m: any) => `${m.user || m.userName || "User"}: ${m.text}`).join('\n');
-  const prompt = `Summarize this community conversation in bullet points. Include: main topics, decisions made, action items.
-Conversation:
-${conversation}`;
+  if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: 'messages array required' });
 
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return res.json({ summary: 'Summary is currently unavailable. Please configure GEMINI_API_KEY inside your Vercel Project Settings.' });
-  }
+  if (!apiKey) return res.json({ summary: 'Summary unavailable.' });
+
+  const conversation = messages.map((m: any) => `${m.user}: ${m.text}`).join('\n');
+  const prompt = `Summarize this community conversation using bullet points (•). Include: main topics discussed, decisions made, action items.\n\n${conversation}`;
 
   try {
-    const ai = new GoogleGenAI({
-      apiKey,
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
-        }
+    const ai = new GoogleGenAI({ apiKey });
+
+    // Try models in order — first working one is used
+    const models = [
+      process.env.GEMINI_MODEL,
+      'gemini-3.5-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash',
+      'gemini-pro'
+    ].filter(Boolean) as string[];
+
+    let summary = '';
+    let lastError: any = null;
+
+    for (const model of models) {
+      try {
+        const result = await ai.models.generateContent({ model, contents: prompt });
+        summary = result.text?.trim() || '';
+        if (summary) break;
+      } catch (err: any) {
+        lastError = err;
+        if (err.message?.includes('API_KEY_INVALID') || err.message?.includes('API key not valid')) throw err;
+        continue;
       }
-    });
+    }
 
-    const result = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
-      contents: prompt
-    });
-
-    res.json({ summary: result.text || 'Summary generation failure.' });
+    if (!summary) throw lastError;
+    res.json({ summary });
   } catch (e) {
-    console.error('Summarization error:', e);
-    res.json({ summary: 'Summary currently unavailable.' });
+    console.error('Summarize error:', e);
+    res.json({ summary: 'Summary unavailable.' });
   }
 }

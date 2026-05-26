@@ -9,6 +9,8 @@ export interface Conversation {
   lastMessage?: string;
   lastMessageAt?: any;
   participantData?: Record<string, { name: string, avatar: string }>;
+  lastSenderId?: string;
+  lastRead?: Record<string, any>;
 }
 
 export function useConversations() {

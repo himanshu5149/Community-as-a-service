@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useDirectChat } from '../hooks/useDirectChat';
 import { useToast, Toast } from '../components/Toast';
 import { useModeration } from '../hooks/useModeration';
+import { ReactionPicker } from '../components/ReactionPicker';
 import { 
   Send, 
   ArrowLeft, 
@@ -110,6 +111,23 @@ export default function Conversation() {
 
     return () => unsubConv();
   }, [convId, user]);
+
+  useEffect(() => {
+    if (!convId || !user) return;
+
+    const updateLastRead = async () => {
+      try {
+        const convRef = doc(db, 'conversations', convId);
+        await updateDoc(convRef, {
+          [`lastRead.${user.uid}`]: serverTimestamp()
+        });
+      } catch (err) {
+        console.error('Error updating last read timestamp:', err);
+      }
+    };
+
+    updateLastRead();
+  }, [convId, user?.uid, messages?.length]);
 
   const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
     messagesEndRef.current?.scrollIntoView({ behavior });
@@ -267,7 +285,35 @@ export default function Conversation() {
                     isMe ? "justify-end text-white/30" : "text-gray-600"
                   )}>
                     {msg.createdAt?.toDate?.()?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Pending'}
-                    {isMe && <CheckCircle2 className="w-3 h-3 text-primary opacity-50" />}
+                    {isMe && (() => {
+                      const otherId = convData?.participants?.find((p: string) => p !== user?.uid);
+                      const otherLastRead = convData?.lastRead?.[otherId || ''];
+                      const isReadByRecipient = (() => {
+                        if (!msg.createdAt || !otherLastRead) return false;
+                        try {
+                          const msgTime = typeof msg.createdAt.toMillis === 'function' 
+                            ? msg.createdAt.toMillis() 
+                            : (msg.createdAt.seconds ? msg.createdAt.seconds * 1000 : new Date(msg.createdAt).getTime());
+                          const readTime = typeof otherLastRead.toMillis === 'function' 
+                            ? otherLastRead.toMillis() 
+                            : (otherLastRead.seconds ? otherLastRead.seconds * 1000 : new Date(otherLastRead).getTime());
+                          return readTime >= msgTime;
+                        } catch (err) {
+                          return false;
+                        }
+                      })();
+                      return isReadByRecipient ? (
+                        <span className="flex items-center gap-1 text-emerald-500 font-extrabold tracking-wider">
+                          <span>Seen</span>
+                          <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-white/30">
+                          <span>Sent</span>
+                          <CheckCircle2 className="w-3 h-3 text-white/30" />
+                        </span>
+                      );
+                    })()}
                   </div>
               </div>
               
@@ -276,7 +322,7 @@ export default function Conversation() {
                   "opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 self-center",
                   isMe ? "mr-2 flex-row-reverse" : "ml-2"
               )}>
-                  <button onClick={() => reactToMessage(msg.id, '👍')} className="p-2 bg-white/5 rounded-full hover:bg-primary/20 hover:text-primary transition-all active:scale-90"><Smile className="w-3.5 h-3.5" /></button>
+                  <ReactionPicker onSelectEmoji={(emoji) => reactToMessage(msg.id, emoji)} align={isMe ? 'right' : 'left'} />
                   {isMe && (
                     <button 
                       onClick={() => {

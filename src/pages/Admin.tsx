@@ -272,10 +272,10 @@ interface DiagnosticEndpoint {
 function SystemDiagnosticPanel() {
   const [endpoints, setEndpoints] = React.useState<DiagnosticEndpoint[]>([
     { name: 'Health Probe Core', url: '/api/health', type: 'health', maxDuration: 10, status: 'idle' },
-    { name: 'AI Cognitive Agent', url: '/api/aiAgent', type: 'ai', maxDuration: 30, status: 'idle' },
-    { name: 'Content Moderation Sentinel', url: '/api/aiModerate', type: 'mod', maxDuration: 30, status: 'idle' },
-    { name: 'Chat Summarization Synthesizer', url: '/api/aiSummarize', type: 'sum', maxDuration: 30, status: 'idle' },
-    { name: 'Dynamic Persona Constructor', url: '/api/aiPersona', type: 'pers', maxDuration: 30, status: 'idle' },
+    { name: 'AI Cognitive Agent', url: '/api/ai/agent', type: 'ai', maxDuration: 30, status: 'idle' },
+    { name: 'Content Moderation Sentinel', url: '/api/ai/moderate', type: 'mod', maxDuration: 30, status: 'idle' },
+    { name: 'Chat Summarization Synthesizer', url: '/api/ai/summarize', type: 'sum', maxDuration: 30, status: 'idle' },
+    { name: 'Dynamic Persona Constructor', url: '/api/ai/persona', type: 'pers', maxDuration: 30, status: 'idle' },
   ]);
   const [lastCheck, setLastCheck] = React.useState<string | null>(null);
   const [isProbing, setIsProbing] = React.useState(false);
@@ -306,10 +306,10 @@ function SystemDiagnosticPanel() {
       // Successfully connected: update endpoints based on returned metadata
       setEndpoints([
         { name: 'Health Probe Core', url: '/api/health', type: 'health', maxDuration: 10, status: 'online', latency: rawLatency },
-        { name: 'AI Cognitive Agent', url: '/api/aiAgent', type: 'ai', maxDuration: 30, status: 'online', latency: Math.max(12, rawLatency + Math.round((Math.random() - 0.5) * 15)) },
-        { name: 'Content Moderation Sentinel', url: '/api/aiModerate', type: 'mod', maxDuration: 30, status: 'online', latency: Math.max(15, rawLatency + Math.round((Math.random() - 0.5) * 20)) },
-        { name: 'Chat Summarization Synthesizer', url: '/api/aiSummarize', type: 'sum', maxDuration: 30, status: 'online', latency: Math.max(18, rawLatency + Math.round((Math.random() - 0.5) * 25)) },
-        { name: 'Dynamic Persona Constructor', url: '/api/aiPersona', type: 'pers', maxDuration: 30, status: 'online', latency: Math.max(14, rawLatency + Math.round((Math.random() - 0.5) * 18)) },
+        { name: 'AI Cognitive Agent', url: '/api/ai/agent', type: 'ai', maxDuration: 30, status: 'online', latency: Math.max(12, rawLatency + Math.round((Math.random() - 0.5) * 15)) },
+        { name: 'Content Moderation Sentinel', url: '/api/ai/moderate', type: 'mod', maxDuration: 30, status: 'online', latency: Math.max(15, rawLatency + Math.round((Math.random() - 0.5) * 20)) },
+        { name: 'Chat Summarization Synthesizer', url: '/api/ai/summarize', type: 'sum', maxDuration: 30, status: 'online', latency: Math.max(18, rawLatency + Math.round((Math.random() - 0.5) * 25)) },
+        { name: 'Dynamic Persona Constructor', url: '/api/ai/persona', type: 'pers', maxDuration: 30, status: 'online', latency: Math.max(14, rawLatency + Math.round((Math.random() - 0.5) * 18)) },
       ]);
     } catch (err: any) {
       console.error(err);

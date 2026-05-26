@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useChat, Message } from '../hooks/useChat';
@@ -14,6 +14,7 @@ import { useToast } from '../hooks/useToast';
 import { Toast } from '../components/Toast';
 import { useModeration } from '../hooks/useModeration';
 import { useAuth } from '../hooks/useAuth';
+import { ReactionPicker } from '../components/ReactionPicker';
 import { auth, db } from '../lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firebase';
@@ -58,7 +59,7 @@ export default function GroupChat() {
   const activeChannel = channels.find(c => c.id === channelId) || channels[0];
   
   const { member, joinGroup, isMember, permissions, loading: rolesLoading } = useGroupRoles(groupId || '');
-  const { messages, loading: chatLoading, sendMessage, reactToMessage, deleteMessage, editMessage, togglePinMessage } = useChat(isMember ? (groupId || '') : '', activeChannel?.id);
+  const { messages, loading: chatLoading, sendMessage, reactToMessage, deleteMessage, editMessage, togglePinMessage, loadMore, hasMore } = useChat(isMember ? (groupId || '') : '', activeChannel?.id);
   const { members } = useGroupMembers(groupId || '');
   const { agents, recordInteraction } = useAiAgents(groupId || '');
   const { addPoints } = useGamification();
@@ -103,6 +104,8 @@ export default function GroupChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   
   const isSendingRef = useRef(false);
   const isAiRespondingRef = useRef(false);
@@ -116,6 +119,56 @@ export default function GroupChat() {
     const isAtBottom = scrollHeight - scrollTop - clientHeight < 200;
     setIsScrolledUp(!isAtBottom);
   };
+
+  const handleLoadMore = useCallback(async () => {
+    if (isLoadingMore || !hasMore) return;
+    setIsLoadingMore(true);
+
+    const container = scrollContainerRef.current;
+    const prevScrollHeight = container ? container.scrollHeight : 0;
+    const prevScrollTop = container ? container.scrollTop : 0;
+
+    await loadMore();
+
+    setIsLoadingMore(false);
+
+    // Maintain scroll position after prepended loads
+    setTimeout(() => {
+      if (container) {
+        const newScrollHeight = container.scrollHeight;
+        const diff = newScrollHeight - prevScrollHeight;
+        if (diff > 0) {
+          container.scrollTop = prevScrollTop + diff;
+        }
+      }
+    }, 0);
+  }, [loadMore, hasMore, isLoadingMore]);
+
+  useEffect(() => {
+    if (!sentinelRef.current || chatLoading) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (first.isIntersecting && hasMore && !isLoadingMore) {
+          handleLoadMore();
+        }
+      },
+      {
+        root: scrollContainerRef.current,
+        rootMargin: '120px',
+      }
+    );
+
+    const currentSentinel = sentinelRef.current;
+    observer.observe(currentSentinel);
+
+    return () => {
+      if (currentSentinel) {
+        observer.unobserve(currentSentinel);
+      }
+    };
+  }, [hasMore, chatLoading, isLoadingMore, handleLoadMore]);
 
   useEffect(() => {
     if (!isScrolledUp) {
@@ -482,19 +535,31 @@ export default function GroupChat() {
         >
            {chatLoading ? (
              <div className="h-full flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
-           ) : messages.map((msg) => (
-               <MessageNode 
-                 key={msg.id} 
-                 message={msg} 
-                 isMe={msg.userId === user?.uid} 
-                 permissions={permissions}
-                 onReact={reactToMessage}
-                 onDelete={deleteMessage}
-                 onPin={(id: string, pin: boolean) => togglePinMessage(id, pin)}
-                 onReply={(msg: Message) => setReplyTo(msg)}
-                 status={statuses[msg.userId]}
-               />
-           ))}
+           ) : (
+             <>
+               {hasMore && (
+                 <div ref={sentinelRef} className="py-2 flex items-center justify-center text-xs text-gray-500 bg-[#161616]">
+                   <span className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-widest text-primary animate-pulse">
+                     <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                     Synchronizing historical nodes...
+                   </span>
+                 </div>
+               )}
+               {messages.map((msg) => (
+                   <MessageNode 
+                     key={msg.id} 
+                     message={msg} 
+                     isMe={msg.userId === user?.uid} 
+                     permissions={permissions}
+                     onReact={reactToMessage}
+                     onDelete={deleteMessage}
+                     onPin={(id: string, pin: boolean) => togglePinMessage(id, pin)}
+                     onReply={(msg: Message) => setReplyTo(msg)}
+                     status={statuses[msg.userId]}
+                   />
+               ))}
+             </>
+           )}
            <div ref={messagesEndRef} />
 
            {!rolesLoading && !isMember && (
@@ -779,8 +844,36 @@ function MessageNode({
         <div className="text-sm text-gray-400 font-medium leading-relaxed break-words">
           {message.text ? renderMessageText(message.text) : <span className="italic text-gray-600 font-normal">Signal lost or empty...</span>}
         </div>
+
+        {/* Reactions List */}
+        {message.reactions && Object.keys(message.reactions).length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {Object.entries(message.reactions as Record<string, string[]>).map(([emoji, uids]) => {
+              const currentUserId = auth.currentUser?.uid;
+              const hasReacted = currentUserId && uids.includes(currentUserId);
+              return (
+                <button 
+                  key={emoji}
+                  type="button"
+                  onClick={() => onReact?.(message.id, emoji)}
+                  className={cn(
+                    "px-2.5 py-0.5 rounded-full text-xs flex items-center gap-1.5 border transition-all font-semibold active:scale-95 hover:scale-105",
+                    hasReacted 
+                      ? "bg-primary/10 border-primary/30 text-primary font-bold shadow-md shadow-primary/5" 
+                      : "bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:border-white/10"
+                  )}
+                  title={`${uids.length} reaction${uids.length > 1 ? 's' : ''}`}
+                >
+                  <span className="text-sm">{emoji}</span>
+                  <span className="text-[10px] opacity-75">{uids.length}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
-      <div className="hidden group-hover/msg:flex items-center gap-1 absolute right-6 top-2 bg-[#1a1a1a] border border-white/10 rounded-lg p-0.5 shadow-xl z-10 font-sans">
+      <div className="hidden group-hover/msg:flex items-center gap-1 absolute right-6 top-2 bg-[#1a1a1a] border border-white/10 rounded-lg p-0.5 shadow-xl z-20 font-sans">
+        <ReactionPicker onSelectEmoji={(emoji) => onReact?.(message.id, emoji)} align="right" />
         <button onClick={() => onReply(message)} className="p-1.5 text-gray-500 hover:text-white" title="Reply"><Reply className="w-4 h-4" /></button>
         {(isMe || permissions?.canDeleteMessage) && (
           <button onClick={() => onDelete(message.id)} className="p-1.5 text-gray-500 hover:text-red-500" title="Delete"><Trash2 className="w-4 h-4" /></button>
