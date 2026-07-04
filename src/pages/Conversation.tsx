@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
@@ -75,7 +75,7 @@ export default function Conversation() {
   const { convId } = useParams<{ convId: string }>();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { messages, loading: messagesLoading, sendMessage, reactToMessage, deleteMessage } = useDirectChat(convId || '');
+  const { messages, loading: messagesLoading, sendMessage, reactToMessage, deleteMessage, loadMore, hasMore } = useDirectChat(convId || '');
   const { moderateMessage } = useModeration();
   const { showToast, toast, hideToast } = useToast();
   
@@ -84,9 +84,60 @@ export default function Conversation() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [moderationWarning, setModerationWarning] = useState<{ text: string; reason: string } | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const handleLoadMore = useCallback(async () => {
+    if (isLoadingMore || !hasMore) return;
+    setIsLoadingMore(true);
+
+    const container = scrollContainerRef.current;
+    const prevScrollHeight = container ? container.scrollHeight : 0;
+    const prevScrollTop = container ? container.scrollTop : 0;
+
+    await loadMore();
+
+    // Maintain scroll position after prepended loads
+    setTimeout(() => {
+      if (container) {
+        const newScrollHeight = container.scrollHeight;
+        const diff = newScrollHeight - prevScrollHeight;
+        if (diff > 0) {
+          container.scrollTop = prevScrollTop + diff;
+        }
+      }
+      setIsLoadingMore(false);
+    }, 50);
+  }, [loadMore, hasMore, isLoadingMore]);
+
+  useEffect(() => {
+    if (!sentinelRef.current || messagesLoading) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (first.isIntersecting && hasMore && !isLoadingMore) {
+          handleLoadMore();
+        }
+      },
+      {
+        root: scrollContainerRef.current,
+        rootMargin: '120px',
+      }
+    );
+
+    const currentSentinel = sentinelRef.current;
+    observer.observe(currentSentinel);
+
+    return () => {
+      if (currentSentinel) {
+        observer.unobserve(currentSentinel);
+      }
+    };
+  }, [hasMore, messagesLoading, isLoadingMore, handleLoadMore]);
 
   useEffect(() => {
     if (!convId || !user) return;
@@ -240,6 +291,15 @@ export default function Conversation() {
             <h2 className="text-xl font-black uppercase tracking-widest mb-2 italic">End-to-End <span className="text-primary not-italic">Encrypted.</span></h2>
             <p className="text-xs text-gray-500 font-medium max-w-xs leading-relaxed uppercase tracking-tighter">Messages sent in this session are restricted to participants. Neural moderation is active.</p>
         </div>
+
+        {hasMore && (
+          <div ref={sentinelRef} className="py-2 flex items-center justify-center text-xs text-gray-500 bg-[#0d0d0d]">
+            <span className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-widest text-primary animate-pulse">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+              Synchronizing historical nodes...
+            </span>
+          </div>
+        )}
 
         {messages.map((msg, i) => {
           const isMe = msg.userId === user?.uid;

@@ -44,6 +44,12 @@ export function useChat(groupId: string, channelId?: string) {
 
   // Real-time listener for NEW messages
   useEffect(() => {
+    // Reset pagination states on channel or group change
+    setHasMore(true);
+    lastDocRef.current = null;
+    setMessages([]);
+    setLoading(true);
+
     if (!groupId) {
       setLoading(false);
       return;
@@ -92,7 +98,7 @@ export function useChat(groupId: string, channelId?: string) {
           return [...historical, ...data, ...optimistic];
         });
         
-        if (lastDocRef.current === null) {
+        if (lastDocRef.current === null && snapshot.docs.length > 0) {
           lastDocRef.current = snapshot.docs[snapshot.docs.length - 1];
         }
         

@@ -130,8 +130,6 @@ export default function GroupChat() {
 
     await loadMore();
 
-    setIsLoadingMore(false);
-
     // Maintain scroll position after prepended loads
     setTimeout(() => {
       if (container) {
@@ -141,7 +139,8 @@ export default function GroupChat() {
           container.scrollTop = prevScrollTop + diff;
         }
       }
-    }, 0);
+      setIsLoadingMore(false);
+    }, 50);
   }, [loadMore, hasMore, isLoadingMore]);
 
   useEffect(() => {

@@ -27,8 +27,6 @@ Respond as ${persona.name}. Be warm and helpful. Use bullet points (•) when li
     // Try models in order — first working one is used
     const models = [
       process.env.GEMINI_MODEL,
-      'gemini-3.5-flash',
-      'gemini-2.0-flash',
       'gemini-1.5-flash',
       'gemini-pro'
     ].filter(Boolean) as string[];

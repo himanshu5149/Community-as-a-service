@@ -29,8 +29,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Try models in order — first working one is used
     const models = [
       process.env.GEMINI_MODEL,
-      'gemini-3.5-flash',
-      'gemini-2.0-flash',
       'gemini-1.5-flash',
       'gemini-pro'
     ].filter(Boolean) as string[];

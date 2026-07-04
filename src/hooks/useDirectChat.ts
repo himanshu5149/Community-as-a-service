@@ -18,6 +18,12 @@ export function useDirectChat(convId: string) {
   const PAGE_SIZE = 50;
 
   useEffect(() => {
+    // Reset pagination states on conversation change
+    setHasMore(true);
+    lastDocRef.current = null;
+    setMessages([]);
+    setLoading(true);
+
     if (!convId) {
       setLoading(false);
       return;
@@ -57,7 +63,7 @@ export function useDirectChat(convId: string) {
           return [...historical, ...data, ...optimistic];
         });
         
-        if (lastDocRef.current === null) {
+        if (lastDocRef.current === null && snapshot.docs.length > 0) {
           lastDocRef.current = snapshot.docs[snapshot.docs.length - 1];
         }
         
@@ -171,5 +177,37 @@ export function useDirectChat(convId: string) {
     }
   };
 
-  return { messages, loading, sendMessage, reactToMessage, deleteMessage };
+  const loadMore = useCallback(async () => {
+    if (!lastDocRef.current || !hasMore || !convId) return;
+
+    const path = `conversations/${convId}/messages`;
+
+    const q = query(
+      collection(db, path),
+      orderBy('createdAt', 'desc'),
+      startAfter(lastDocRef.current),
+      limit(PAGE_SIZE)
+    );
+
+    try {
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) {
+        setHasMore(false);
+        return;
+      }
+
+      const olderMessages = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        status: 'sent'
+      })).reverse() as Message[];
+
+      setMessages(prev => [...olderMessages, ...prev]);
+      lastDocRef.current = snapshot.docs[snapshot.docs.length - 1];
+    } catch (err) {
+      console.error('Error loading more messages:', err);
+    }
+  }, [convId, hasMore]);
+
+  return { messages, loading, sendMessage, reactToMessage, deleteMessage, loadMore, hasMore };
 }
